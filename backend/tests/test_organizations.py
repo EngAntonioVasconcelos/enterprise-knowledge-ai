@@ -81,3 +81,26 @@ def test_create_organization_without_name(client):
 
     assert response.status_code == 422
 
+def test_root_endpoint(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["message"] == "Welcome to Enterprise Knowledge AI API"
+    assert data["version"] == "0.1.0"
+    assert data["status"] == "running"
+
+
+def test_health_endpoint(client):
+    response = client.get("/health")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["status"] == "healthy"
+    assert data["service"] == "enterprise-knowledge-ai-api"
+   
+

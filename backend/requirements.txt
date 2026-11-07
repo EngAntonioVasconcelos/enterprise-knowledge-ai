@@ -9,3 +9,4 @@ SQLAlchemy
 alembic
 psycopg[binary]
 pytest
+pytest-cov
