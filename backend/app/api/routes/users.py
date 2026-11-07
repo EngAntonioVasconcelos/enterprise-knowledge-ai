@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.organization import Organization
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserResponse, UserUpdate
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/users",
@@ -118,14 +118,18 @@ def list_organization_users(
     response_model=UserResponse,
 )
 def get_user(
+    organization_id: uuid.UUID,
     user_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
     """
-    Retrieve a user by their unique identifier.
+    Retrieve a user belonging to a specific organization.
     """
 
-    statement = select(User).where(User.id == user_id)
+    statement = select(User).where(
+        User.id == user_id,
+        User.organization_id == organization_id,
+    )
 
     user = db.scalar(statement)
 
@@ -134,5 +138,62 @@ def get_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+
+    return user
+
+@router.patch(
+    "/{user_id}",
+    response_model=UserResponse,
+)
+def update_user(
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    user_data: UserUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    Update an existing user within a specific organization.
+    """
+
+    statement = select(User).where(
+        User.id == user_id,
+        User.organization_id == organization_id,
+    )
+
+    user = db.scalar(statement)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    update_data = user_data.model_dump(exclude_unset=True)
+
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="At least one field must be provided.",
+        )
+
+    if any(value is None for value in update_data.values()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Fields cannot be null.",
+        )
+
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User update conflicts with existing data.",
+        )
+
+    db.refresh(user)
 
     return user

@@ -3,18 +3,22 @@ import uuid
 from unittest.mock import Mock
 from sqlalchemy.exc import IntegrityError
 
+
 def create_test_organization(client):
+    unique_id = uuid.uuid4().hex[:8]
+
     response = client.post(
         "/api/v1/organizations/",
         json={
-            "name": "Test Organization",
-            "slug": "test-organization",
+            "name": f"Test Organization {unique_id}",
+            "slug": f"test-organization-{unique_id}",
         },
     )
 
     assert response.status_code == 201
 
     return response.json()["id"]
+
 
 
 def test_create_user(client):
@@ -227,3 +231,176 @@ def test_get_nonexistent_user(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "User not found."
+
+def test_update_user_full_name(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+            "role": "member",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}",
+        json={"full_name": "John Updated"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["full_name"] == "John Updated"
+    assert response.json()["role"] == "member"
+
+
+def test_update_user_role(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}",
+        json={"role": "admin"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "admin"
+
+
+def test_deactivate_user(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}",
+        json={"is_active": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False
+
+
+def test_update_user_with_empty_payload(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}",
+        json={},
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_user_with_null_field(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}",
+        json={"full_name": None},
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_user_with_invalid_role(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}",
+        json={"role": "superadmin"},
+    )
+
+    assert response.status_code == 422
+
+def test_update_nonexistent_user(client):
+    organization_id = create_test_organization(client)
+
+    nonexistent_user_id = "00000000-0000-0000-0000-000000000001"
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}/users/{nonexistent_user_id}",
+        json={"full_name": "Updated Name"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found."
+
+
+def test_update_user_from_another_organization(client):
+    first_organization_id = create_test_organization(client)
+    second_organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{first_organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{second_organization_id}/users/{user_id}",
+        json={"full_name": "Unauthorized Update"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found."
+
+    original_user = client.get(
+        f"/api/v1/organizations/{first_organization_id}/users/{user_id}"
+    )
+
+    assert original_user.status_code == 200
+    assert original_user.json()["full_name"] == "John Smith"
