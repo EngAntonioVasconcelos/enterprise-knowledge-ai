@@ -102,5 +102,74 @@ def test_health_endpoint(client):
 
     assert data["status"] == "healthy"
     assert data["service"] == "enterprise-knowledge-ai-api"
-   
+
+def test_list_organizations_empty(client):
+    response = client.get("/api/v1/organizations/")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_organizations(client):
+    first_response = client.post(
+        "/api/v1/organizations/",
+        json={
+            "name": "First Organization",
+            "slug": "first-organization",
+        },
+    )
+
+    second_response = client.post(
+        "/api/v1/organizations/",
+        json={
+            "name": "Second Organization",
+            "slug": "second-organization",
+        },
+    )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+
+    response = client.get("/api/v1/organizations/")
+
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
+
+def test_list_organizations_with_pagination(client):
+    for number in range(3):
+        response = client.post(
+            "/api/v1/organizations/",
+            json={
+                "name": f"Organization {number}",
+                "slug": f"organization-{number}",
+            },
+        )
+        assert response.status_code == 201
+
+    response = client.get(
+        "/api/v1/organizations/?skip=1&limit=1"
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
+def test_list_organizations_rejects_invalid_pagination(client):
+    negative_skip_response = client.get(
+        "/api/v1/organizations/?skip=-1"
+    )
+
+    zero_limit_response = client.get(
+        "/api/v1/organizations/?limit=0"
+    )
+
+    excessive_limit_response = client.get(
+        "/api/v1/organizations/?limit=101"
+    )
+
+    assert negative_skip_response.status_code == 422
+    assert zero_limit_response.status_code == 422
+    assert excessive_limit_response.status_code == 422
+  
 

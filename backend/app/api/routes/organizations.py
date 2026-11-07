@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -9,7 +9,6 @@ from app.models.organization import Organization
 from app.schemas.organization import OrganizationCreate, OrganizationResponse
 
 
-# Cria um router para os endpoints de organizações.
 router = APIRouter(
     prefix="/organizations",
     tags=["Organizations"],
@@ -25,7 +24,7 @@ def create_organization(
     organization_data: OrganizationCreate,
     db: Session = Depends(get_db),
 ):
-    # 1. Verificar se já existe uma organização com este slug.
+    # Check whether an organization with this slug already exists.
     existing_organization = db.scalar(
         select(Organization).where(
             Organization.slug == organization_data.slug
@@ -38,21 +37,21 @@ def create_organization(
             detail="Organization slug already exists.",
         )
 
-    # 2. Criar um objeto SQLAlchemy.
+    # Create a new SQLAlchemy model instance.
     organization = Organization(
         name=organization_data.name,
         slug=organization_data.slug,
     )
 
-    # 3. Adicionar o objeto à sessão.
+    # Add the organization to the database session.
     db.add(organization)
 
     try:
-        # 4. Confirmar a transação na PostgreSQL.
+        # Commit the transaction to the database.
         db.commit()
 
     except IntegrityError:
-        # Desfazer a transação se ocorrer um conflito na base de dados.
+        # Roll back the transaction if a database conflict occurs.
         db.rollback()
 
         raise HTTPException(
@@ -60,8 +59,31 @@ def create_organization(
             detail="Organization slug already exists.",
         )
 
-    # 5. Atualizar o objeto com os dados persistidos.
+    # Refresh the instance with the persisted database values.
     db.refresh(organization)
 
-    # 6. Devolver o objeto; FastAPI aplica OrganizationResponse.
     return organization
+
+
+@router.get(
+    "/",
+    response_model=list[OrganizationResponse],
+)
+def list_organizations(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    # Build the query and apply pagination.
+    statement = (
+        select(Organization)
+        .order_by(Organization.created_at.desc(), Organization.id)
+        .offset(skip)
+        .limit(limit)
+    )
+
+    # Execute the query and retrieve all matching organizations.
+    organizations = db.scalars(statement).all()
+
+    return organizations
+
