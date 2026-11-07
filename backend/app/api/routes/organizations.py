@@ -1,4 +1,4 @@
-
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -87,3 +87,27 @@ def list_organizations(
 
     return organizations
 
+@router.get(
+    "/{organization_id}",
+    response_model=OrganizationResponse,
+)
+def get_organization(
+    organization_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    # Retrieve the organization by its UUID.
+    organization = db.scalar(
+        select(Organization).where(
+            Organization.id == organization_id
+        )
+    )
+
+    # Return 404 if the organization does not exist.
+    if organization is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found.",
+        )
+
+    return organization
+organization_id: uuid.UUID

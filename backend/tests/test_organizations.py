@@ -173,3 +173,46 @@ def test_list_organizations_rejects_invalid_pagination(client):
     assert excessive_limit_response.status_code == 422
   
 
+def test_get_organization(client):
+    create_response = client.post(
+        "/api/v1/organizations/",
+        json={
+            "name": "Organization Details",
+            "slug": "organization-details",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    organization_id = create_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/organizations/{organization_id}"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == organization_id
+    assert response.json()["name"] == "Organization Details"
+    assert response.json()["slug"] == "organization-details"
+
+
+def test_get_nonexistent_organization(client):
+    nonexistent_id = str(uuid.uuid4())
+
+    response = client.get(
+        f"/api/v1/organizations/{nonexistent_id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Organization not found."
+    }
+
+
+def test_get_organization_with_invalid_uuid(client):
+    response = client.get(
+        "/api/v1/organizations/invalid-uuid"
+    )
+
+    assert response.status_code == 422
+
