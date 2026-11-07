@@ -11,7 +11,6 @@ from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
 
-
 router = APIRouter(
     prefix="/organizations/{organization_id}/users",
     tags=["Users"],
@@ -114,3 +113,26 @@ def list_organization_users(
     users = db.scalars(statement).all()
 
     return users
+@router.get(
+    "/{user_id}",
+    response_model=UserResponse,
+)
+def get_user(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieve a user by their unique identifier.
+    """
+
+    statement = select(User).where(User.id == user_id)
+
+    user = db.scalar(statement)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    return user

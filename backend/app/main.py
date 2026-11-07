@@ -29,6 +29,7 @@ app.include_router(
 app.include_router(
     users_router, 
     prefix="/api/v1")
+
 @app.get("/", tags=["General"])
 async def root():
     return {

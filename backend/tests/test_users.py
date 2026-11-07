@@ -13,6 +13,7 @@ def create_test_organization(client):
     )
 
     assert response.status_code == 201
+
     return response.json()["id"]
 
 
@@ -190,3 +191,39 @@ def test_create_user_handles_integrity_error(
         "detail": "User could not be created because of a data conflict."
     }
     rollback_mock.assert_called_once()
+def test_get_user(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+            "role": "member",
+        },
+    )
+
+    assert user_response.status_code == 201
+
+    user_id = user_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == user_id
+    assert response.json()["email"] == "john@example.com"
+    assert response.json()["full_name"] == "John Smith"
+    assert response.json()["role"] == "member"
+
+def test_get_nonexistent_user(client):
+    organization_id = create_test_organization(client)
+    user_id = str(uuid.uuid4())
+
+    response = client.get(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found."
