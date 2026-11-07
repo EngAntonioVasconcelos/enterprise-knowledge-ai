@@ -216,3 +216,137 @@ def test_get_organization_with_invalid_uuid(client):
 
     assert response.status_code == 422
 
+def test_update_organization_name(client):
+    create_response = client.post(
+        "/api/v1/organizations/",
+        json={
+            "name": "Original Organization",
+            "slug": "original-organization",
+        },
+    )
+
+    organization_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}",
+        json={"name": "Updated Organization"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Updated Organization"
+    assert response.json()["slug"] == "original-organization"
+
+
+def test_update_organization_slug(client):
+    create_response = client.post(
+        "/api/v1/organizations/",
+        json={
+            "name": "Original Organization",
+            "slug": "original-organization",
+        },
+    )
+
+    organization_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}",
+        json={"slug": "updated-organization"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["slug"] == "updated-organization"
+    assert response.json()["name"] == "Original Organization"
+
+
+def test_update_organization_all_fields(client):
+    create_response = client.post(
+        "/api/v1/organizations/",
+        json={
+            "name": "Original Organization",
+            "slug": "original-organization",
+        },
+    )
+
+    organization_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}",
+        json={
+            "name": "Updated Organization",
+            "slug": "updated-organization",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Updated Organization"
+    assert response.json()["slug"] == "updated-organization"
+
+
+def test_update_nonexistent_organization(client):
+    nonexistent_id = str(uuid.uuid4())
+
+    response = client.patch(
+        f"/api/v1/organizations/{nonexistent_id}",
+        json={"name": "Updated Organization"},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Organization not found."
+    }
+
+
+def test_update_organization_with_duplicate_slug(client):
+    client.post(
+        "/api/v1/organizations/",
+        json={
+            "name": "First Organization",
+            "slug": "first-organization",
+        },
+    )
+
+    second_response = client.post(
+        "/api/v1/organizations/",
+        json={
+            "name": "Second Organization",
+            "slug": "second-organization",
+        },
+    )
+
+    organization_id = second_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}",
+        json={"slug": "first-organization"},
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Organization slug already exists."
+    }
+
+
+def test_update_organization_rejects_empty_or_null_values(client):
+    create_response = client.post(
+        "/api/v1/organizations/",
+        json={
+            "name": "Original Organization",
+            "slug": "original-organization",
+        },
+    )
+
+    organization_id = create_response.json()["id"]
+
+    empty_response = client.patch(
+        f"/api/v1/organizations/{organization_id}",
+        json={},
+    )
+
+    null_response = client.patch(
+        f"/api/v1/organizations/{organization_id}",
+        json={"name": None},
+    )
+
+    assert empty_response.status_code == 422
+    assert null_response.status_code == 422
+

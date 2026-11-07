@@ -24,4 +24,16 @@ class OrganizationResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class OrganizationUpdate(BaseModel):
+    name: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=150,
+    )
+    slug: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+    )
+
 

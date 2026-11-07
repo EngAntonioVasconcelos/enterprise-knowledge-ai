@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.organization import Organization
-from app.schemas.organization import OrganizationCreate, OrganizationResponse
-
-
+from app.schemas.organization import (
+    OrganizationCreate,
+    OrganizationResponse,
+    OrganizationUpdate,
+)
 router = APIRouter(
     prefix="/organizations",
     tags=["Organizations"],
@@ -110,4 +112,73 @@ def get_organization(
         )
 
     return organization
-organization_id: uuid.UUID
+
+@router.patch(
+    "/{organization_id}",
+    response_model=OrganizationResponse,
+)
+def update_organization(
+    organization_id: uuid.UUID,
+    organization_data: OrganizationUpdate,
+    db: Session = Depends(get_db),
+):
+    # Retrieve the organization by its UUID.
+    organization = db.scalar(
+        select(Organization).where(
+            Organization.id == organization_id
+        )
+    )
+
+    if organization is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found.",
+        )
+
+    # Extract only the fields explicitly provided by the client.
+    update_data = organization_data.model_dump(exclude_unset=True)
+
+    # Reject empty updates and explicit null values.
+    if not update_data or any(
+        value is None for value in update_data.values()
+    ):
+      raise HTTPException(
+    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+    detail="At least one valid field must be provided.",
+)
+
+    # Check whether the new slug belongs to another organization.
+    if "slug" in update_data:
+        existing_organization = db.scalar(
+            select(Organization).where(
+                Organization.slug == update_data["slug"],
+                Organization.id != organization_id,
+            )
+        )
+
+        if existing_organization:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Organization slug already exists.",
+            )
+
+    # Apply the provided changes.
+    for field, value in update_data.items():
+        setattr(organization, field, value)
+
+    try:
+        # Commit the changes to the database.
+        db.commit()
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Organization update conflicts with existing data.",
+        )
+
+    # Refresh the organization with the updated database values.
+    db.refresh(organization)
+
+    return organization
+
