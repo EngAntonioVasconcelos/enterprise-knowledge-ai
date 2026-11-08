@@ -1,7 +1,7 @@
 
 import uuid
 from datetime import datetime, timezone
-
+from typing import TYPE_CHECKING
 from sqlalchemy import (
     DateTime,
     ForeignKey,
@@ -11,7 +11,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-
+if TYPE_CHECKING:
+    from app.models.organization import Organization
+    from app.models.user import User
 
 class Document(Base):
     __tablename__ = "documents"
