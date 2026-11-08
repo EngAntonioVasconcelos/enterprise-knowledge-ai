@@ -1,7 +1,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -104,7 +104,10 @@ def list_organization_users(
     # Retrieve users belonging only to the requested organization.
     statement = (
         select(User)
-        .where(User.organization_id == organization_id)
+        .where(
+            User.organization_id == organization_id,
+            User.is_active.is_(True),
+        )
         .order_by(User.created_at.desc(), User.id)
         .offset(skip)
         .limit(limit)
@@ -129,6 +132,7 @@ def get_user(
     statement = select(User).where(
         User.id == user_id,
         User.organization_id == organization_id,
+        User.is_active.is_(True),
     )
 
     user = db.scalar(statement)
@@ -158,6 +162,7 @@ def update_user(
     statement = select(User).where(
         User.id == user_id,
         User.organization_id == organization_id,
+        User.is_active.is_(True),
     )
 
     user = db.scalar(statement)
@@ -197,3 +202,37 @@ def update_user(
     db.refresh(user)
 
     return user
+
+
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+def delete_user(
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Deactivate a user within a specific organization.
+    """
+
+    statement = select(User).where(
+        User.id == user_id,
+        User.organization_id == organization_id,
+    )
+
+    user = db.scalar(statement)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    if user.is_active:
+        user.is_active = False
+        db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -404,3 +404,212 @@ def test_update_user_from_another_organization(client):
 
     assert original_user.status_code == 200
     assert original_user.json()["full_name"] == "John Smith"
+
+def test_delete_user(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    response = client.delete(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+
+def test_delete_already_deactivated_user(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    first_response = client.delete(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    second_response = client.delete(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    assert first_response.status_code == 204
+    assert second_response.status_code == 204
+
+
+def test_delete_nonexistent_user(client):
+    organization_id = create_test_organization(client)
+    user_id = uuid.uuid4()
+
+    response = client.delete(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found."
+
+
+def test_delete_user_from_another_organization(client):
+    first_organization_id = create_test_organization(client)
+    second_organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{first_organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    response = client.delete(
+        f"/api/v1/organizations/{second_organization_id}/users/{user_id}"
+    )
+
+    assert response.status_code == 404
+
+    original_user = client.get(
+        f"/api/v1/organizations/{first_organization_id}/users/{user_id}"
+    )
+
+    assert original_user.status_code == 200
+    assert original_user.json()["is_active"] is True
+
+
+def test_deactivated_user_is_excluded_from_list(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    client.delete(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    response = client.get(
+        f"/api/v1/organizations/{organization_id}/users/"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_deactivated_user_cannot_be_retrieved(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    client.delete(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    response = client.get(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    assert response.status_code == 404
+
+
+def test_deactivated_user_cannot_be_updated(client):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    client.delete(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}"
+    )
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}",
+        json={"full_name": "Updated Name"},
+    )
+
+    assert response.status_code == 404
+
+def test_update_user_handles_integrity_error(
+    client,
+    db_session,
+    monkeypatch,
+):
+    organization_id = create_test_organization(client)
+
+    user_response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={
+            "email": "john@example.com",
+            "full_name": "John Smith",
+        },
+    )
+
+    user_id = user_response.json()["id"]
+
+    def raise_integrity_error():
+        raise IntegrityError(
+            "UPDATE",
+            {},
+            Exception("Simulated integrity error"),
+        )
+
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        raise_integrity_error,
+    )
+
+    rollback_mock = Mock()
+
+    monkeypatch.setattr(
+        db_session,
+        "rollback",
+        rollback_mock,
+    )
+
+    response = client.patch(
+        f"/api/v1/organizations/{organization_id}/users/{user_id}",
+        json={"full_name": "Updated Name"},
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "User update conflicts with existing data."
+    }
+
+    rollback_mock.assert_called_once()
