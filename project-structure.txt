@@ -1,0 +1,55 @@
+PROJECT STRUCTURE REPORT
+Root: C:\Users\fatim\enterprise-knowledge-ai
+Generated: 2026-11-08 17:26:17
+
+[FILE] .gitignore (386 bytes)
+[DIR]  backend
+[FILE] backend\alembic.ini (5124 bytes)
+[DIR]  backend\app
+[FILE] backend\app\__init__.py (0 bytes)
+[DIR]  backend\app\api
+[FILE] backend\app\api\__init__.py (0 bytes)
+[DIR]  backend\app\api\routes
+[FILE] backend\app\api\routes\__init__.py (0 bytes)
+[FILE] backend\app\api\routes\organizations.py (5147 bytes)
+[FILE] backend\app\api\routes\users.py (5982 bytes)
+[DIR]  backend\app\core
+[FILE] backend\app\core\__init__.py (0 bytes)
+[FILE] backend\app\core\config.py (283 bytes)
+[DIR]  backend\app\db
+[FILE] backend\app\db\__init__.py (0 bytes)
+[FILE] backend\app\db\base.py (90 bytes)
+[FILE] backend\app\db\session.py (412 bytes)
+[FILE] backend\app\main.py (1141 bytes)
+[DIR]  backend\app\models
+[FILE] backend\app\models\__init__.py (197 bytes)
+[FILE] backend\app\models\document.py (2238 bytes)
+[FILE] backend\app\models\organization.py (1510 bytes)
+[FILE] backend\app\models\user.py (2101 bytes)
+[DIR]  backend\app\schemas
+[FILE] backend\app\schemas\__init__.py (0 bytes)
+[FILE] backend\app\schemas\organization.py (735 bytes)
+[FILE] backend\app\schemas\user.py (843 bytes)
+[DIR]  backend\app\services
+[FILE] backend\app\services\__init__.py (0 bytes)
+[DIR]  backend\migrations
+[FILE] backend\migrations\env.py (2323 bytes)
+[FILE] backend\migrations\README (38 bytes)
+[FILE] backend\migrations\script.py.mako (704 bytes)
+[DIR]  backend\migrations\versions
+[FILE] backend\migrations\versions\8eb5d7953045_create_initial_database_models.py (3516 bytes)
+[FILE] backend\requirements.txt (126 bytes)
+[DIR]  backend\tests
+[FILE] backend\tests\__init__.py (0 bytes)
+[FILE] backend\tests\conftest.py (1325 bytes)
+[FILE] backend\tests\test_db_session.py (546 bytes)
+[FILE] backend\tests\test_organization_errors.py (2321 bytes)
+[FILE] backend\tests\test_organizations.py (9016 bytes)
+[FILE] backend\tests\test_user_schemas.py (1423 bytes)
+[FILE] backend\tests\test_users.py (16512 bytes)
+[FILE] backend-source-review.zip (67411 bytes)
+[DIR]  docs
+[DIR]  docs\architecture
+[FILE] docs\architecture\ADR-003-document-versioning-and-retention.md (7883 bytes)
+[FILE] docs\architecture\ADR-004-document-storage-strategy.md (7488 bytes)
+[FILE] project-structure.txt (106 bytes)

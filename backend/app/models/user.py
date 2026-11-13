@@ -1,42 +1,50 @@
+﻿
 
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
+
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
-    ForeignKey,
     String,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+    validates,
+)
+
+from app.models.authentication_identity import AuthenticationIdentity
 
 from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.document import Document
+    from app.models.membership import OrganizationMembership
     from app.models.organization import Organization
+    from app.models.platform_membership import PlatformMembership
+
 
 class User(Base):
     __tablename__ = "users"
-
     __table_args__ = (
         UniqueConstraint(
-            "organization_id",
             "email",
-            name="uq_user_organization_email",
+            name="uq_user_email",
+        ),
+        CheckConstraint(
+            "email = lower(email)",
+            name="ck_user_email_lowercase",
         ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True,
         default=uuid.uuid4,
-    )
-
-    organization_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
     )
 
     email: Mapped[str] = mapped_column(
@@ -46,12 +54,6 @@ class User(Base):
 
     full_name: Mapped[str] = mapped_column(
         String(150),
-        nullable=False,
-    )
-
-    role: Mapped[str] = mapped_column(
-        String(30),
-        default="member",
         nullable=False,
     )
 
@@ -74,14 +76,31 @@ class User(Base):
         nullable=False,
     )
 
-    organization: Mapped["Organization"] = relationship(
-        back_populates="users",
+    memberships: Mapped[list["OrganizationMembership"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
+    organizations_created: Mapped[list["Organization"]] = relationship(
+        back_populates="creator",
+        foreign_keys="Organization.created_by_user_id",
+    )
+
+    authentication_identities: Mapped[list["AuthenticationIdentity"]] = relationship(
+    back_populates="user",
+    cascade="all, delete-orphan",
+)
+    platform_memberships: Mapped[list["PlatformMembership"]] = relationship(
+        back_populates="user",
+        passive_deletes="all",
+    )
     documents: Mapped[list["Document"]] = relationship(
         back_populates="uploaded_by_user",
         foreign_keys="Document.uploaded_by",
     )
-
+    @validates("email")
+    def normalize_email(self, key: str, value: str) -> str:
+        return value.strip().lower()
     def __repr__(self) -> str:
         return f"<User(email={self.email!r})>"
+

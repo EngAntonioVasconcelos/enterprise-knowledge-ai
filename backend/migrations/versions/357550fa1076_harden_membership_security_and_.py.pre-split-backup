@@ -1,0 +1,526 @@
+﻿"""Harden membership security and organization lifecycle.
+
+Revision ID: 357550fa1076
+Revises: cc75167a863a
+"""
+
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+revision: str = "357550fa1076"
+down_revision: Union[str, Sequence[str], None] = "cc75167a863a"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    # ---------------------------------------------------------
+    # D-01: Organization soft deletion
+    # ---------------------------------------------------------
+    op.add_column(
+        "organizations",
+        sa.Column(
+            "deleted_at",
+            sa.DateTime(timezone=True),
+            nullable=True,
+        ),
+    )
+
+    op.create_index(
+        "ix_organizations_deleted_at",
+        "organizations",
+        ["deleted_at"],
+        unique=False,
+    )
+
+
+    # ---------------------------------------------------------
+    # D-01: Harden organization authorization and soft deletion
+    # ---------------------------------------------------------
+    op.execute("""
+        CREATE OR REPLACE FUNCTION app_private.has_active_membership(
+            p_organization_id uuid
+        )
+        RETURNS boolean
+        LANGUAGE sql
+        STABLE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+            SELECT
+                app_private.has_authenticated_context()
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_memberships AS m
+                    JOIN public.organizations AS o
+                      ON o.id = m.organization_id
+                    WHERE m.organization_id = p_organization_id
+                      AND m.user_id =
+                          NULLIF(current_setting('app.user_id', true), '')::uuid
+                      AND m.is_active IS TRUE
+                      AND o.deleted_at IS NULL
+                );
+        $function$;
+
+        CREATE OR REPLACE FUNCTION app_private.can_manage_organization(
+            p_organization_id uuid
+        )
+        RETURNS boolean
+        LANGUAGE sql
+        STABLE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+            SELECT
+                app_private.has_authenticated_context()
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_memberships AS m
+                    JOIN public.organizations AS o
+                      ON o.id = m.organization_id
+                    WHERE m.organization_id = p_organization_id
+                      AND m.user_id =
+                          NULLIF(current_setting('app.user_id', true), '')::uuid
+                      AND m.is_active IS TRUE
+                      AND m.role IN ('owner', 'admin')
+                      AND o.deleted_at IS NULL
+                );
+        $function$;
+
+        CREATE OR REPLACE FUNCTION app_private.is_bootstrap_creator(
+            p_organization_id uuid
+        )
+        RETURNS boolean
+        LANGUAGE sql
+        STABLE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+            SELECT
+                app_private.has_authenticated_context()
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organizations AS o
+                    WHERE o.id = p_organization_id
+                      AND o.deleted_at IS NULL
+                      AND o.created_by_user_id =
+                          NULLIF(current_setting('app.user_id', true), '')::uuid
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM public.organization_memberships AS m
+                          WHERE m.organization_id = o.id
+                      )
+                );
+        $function$;
+
+        CREATE OR REPLACE FUNCTION app_private.can_manage_organization_as_owner(
+            p_organization_id uuid
+        )
+        RETURNS boolean
+        LANGUAGE sql
+        STABLE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+            SELECT
+                app_private.has_authenticated_context()
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_memberships AS m
+                    JOIN public.organizations AS o
+                      ON o.id = m.organization_id
+                    WHERE m.organization_id = p_organization_id
+                      AND m.user_id =
+                          NULLIF(current_setting('app.user_id', true), '')::uuid
+                      AND m.is_active IS TRUE
+                      AND m.role = 'owner'
+                      AND o.deleted_at IS NULL
+                );
+        $function$;
+
+        CREATE OR REPLACE FUNCTION app_private.can_manage_organization_as_admin(
+            p_organization_id uuid
+        )
+        RETURNS boolean
+        LANGUAGE sql
+        STABLE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+            SELECT
+                app_private.has_authenticated_context()
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_memberships AS m
+                    JOIN public.organizations AS o
+                      ON o.id = m.organization_id
+                    WHERE m.organization_id = p_organization_id
+                      AND m.user_id =
+                          NULLIF(current_setting('app.user_id', true), '')::uuid
+                      AND m.is_active IS TRUE
+                      AND m.role = 'admin'
+                      AND o.deleted_at IS NULL
+                );
+        $function$;
+
+        CREATE OR REPLACE FUNCTION app_private.has_membership_in_active_organization(
+            p_organization_id uuid
+        )
+        RETURNS boolean
+        LANGUAGE sql
+        STABLE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+            SELECT
+                app_private.has_authenticated_context()
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organizations AS o
+                    JOIN public.organization_memberships AS m
+                      ON m.organization_id = o.id
+                    WHERE o.id = p_organization_id
+                      AND o.deleted_at IS NULL
+                      AND m.user_id =
+                          NULLIF(current_setting('app.user_id', true), '')::uuid
+                );
+        $function$;
+
+        ALTER FUNCTION app_private.has_membership_in_active_organization(uuid)
+            OWNER TO eka_rls_helper;
+        ALTER FUNCTION app_private.has_active_membership(uuid)
+            OWNER TO eka_rls_helper;
+        ALTER FUNCTION app_private.can_manage_organization(uuid)
+            OWNER TO eka_rls_helper;
+        ALTER FUNCTION app_private.is_bootstrap_creator(uuid)
+            OWNER TO eka_rls_helper;
+        ALTER FUNCTION app_private.can_manage_organization_as_owner(uuid)
+            OWNER TO eka_rls_helper;
+        ALTER FUNCTION app_private.can_manage_organization_as_admin(uuid)
+            OWNER TO eka_rls_helper;
+
+        REVOKE ALL ON FUNCTION app_private.has_membership_in_active_organization(uuid) FROM PUBLIC;
+        REVOKE ALL ON FUNCTION app_private.has_active_membership(uuid) FROM PUBLIC;
+        REVOKE ALL ON FUNCTION app_private.can_manage_organization(uuid) FROM PUBLIC;
+        REVOKE ALL ON FUNCTION app_private.is_bootstrap_creator(uuid) FROM PUBLIC;
+        REVOKE ALL ON FUNCTION app_private.can_manage_organization_as_owner(uuid) FROM PUBLIC;
+        REVOKE ALL ON FUNCTION app_private.can_manage_organization_as_admin(uuid) FROM PUBLIC;
+
+        GRANT EXECUTE ON FUNCTION app_private.has_membership_in_active_organization(uuid) TO eka_runtime;
+        GRANT EXECUTE ON FUNCTION app_private.has_active_membership(uuid) TO eka_runtime;
+        GRANT EXECUTE ON FUNCTION app_private.can_manage_organization(uuid) TO eka_runtime;
+        GRANT EXECUTE ON FUNCTION app_private.is_bootstrap_creator(uuid) TO eka_runtime;
+        GRANT EXECUTE ON FUNCTION app_private.can_manage_organization_as_owner(uuid) TO eka_runtime;
+        GRANT EXECUTE ON FUNCTION app_private.can_manage_organization_as_admin(uuid) TO eka_runtime;
+    """)
+
+    # Grant the new helper functions to the integration role when present.
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_roles
+                WHERE rolname = 'eka_test_runtime'
+            ) THEN
+                EXECUTE 'GRANT EXECUTE ON FUNCTION app_private.can_manage_organization_as_owner(uuid) TO eka_test_runtime';
+                EXECUTE 'GRANT EXECUTE ON FUNCTION app_private.can_manage_organization_as_admin(uuid) TO eka_test_runtime';
+                EXECUTE 'GRANT EXECUTE ON FUNCTION app_private.has_membership_in_active_organization(uuid) TO eka_test_runtime';
+            END IF;
+        END;
+        $$;
+    """)
+
+    # A user may read their own membership only while the organization
+    # remains active. Organization managers retain their existing access.
+    op.execute("""
+        DROP POLICY IF EXISTS organization_memberships_select_policy
+            ON public.organization_memberships;
+
+        CREATE POLICY organization_memberships_select_policy
+        ON public.organization_memberships
+        FOR SELECT
+        TO PUBLIC
+        USING (
+            (
+                app_private.has_authenticated_context()
+                AND user_id =
+                    NULLIF(
+                        current_setting('app.user_id', true), ''
+                    )::uuid
+                AND app_private.has_membership_in_active_organization(organization_id)
+            )
+            OR app_private.can_manage_organization(organization_id)
+        );
+    """)
+
+    # An owner may create any membership role.
+    # An admin may create only member and viewer roles.
+    # Bootstrap permits only the creator's first active owner membership.
+    op.execute("""
+        DROP POLICY IF EXISTS organization_memberships_insert_policy
+            ON public.organization_memberships;
+
+        CREATE POLICY organization_memberships_insert_policy
+        ON public.organization_memberships
+        FOR INSERT
+        TO PUBLIC
+        WITH CHECK (
+            app_private.can_manage_organization_as_owner(organization_id)
+            OR (
+                role IN ('member', 'viewer')
+                AND app_private.can_manage_organization_as_admin(organization_id)
+            )
+            OR (
+                app_private.is_bootstrap_creator(organization_id)
+                AND role = 'owner'
+                AND user_id =
+                    NULLIF(
+                        current_setting('app.user_id', true), ''
+                    )::uuid
+                AND is_active IS TRUE
+                AND has_held_privileged_role IS TRUE
+                AND has_held_owner_role IS TRUE
+            )
+        );
+    """)
+
+    # ---------------------------------------------------------
+    # D-02: Owner recovery audit
+    # ---------------------------------------------------------
+    op.create_table(
+        "organization_owner_recovery_events",
+        sa.Column(
+            "id",
+            sa.Uuid(),
+            nullable=False,
+        ),
+        sa.Column(
+            "organization_id",
+            sa.Uuid(),
+            nullable=False,
+        ),
+        sa.Column(
+            "membership_id",
+            sa.Uuid(),
+            nullable=False,
+        ),
+        sa.Column(
+            "recovered_user_id",
+            sa.Uuid(),
+            nullable=False,
+        ),
+        sa.Column(
+            "auth_issuer",
+            sa.String(length=512),
+            nullable=False,
+        ),
+        sa.Column(
+            "auth_subject",
+            sa.String(length=255),
+            nullable=False,
+        ),
+        sa.Column(
+            "event_type",
+            sa.String(length=50),
+            nullable=False,
+            server_default=sa.text("'owner_recovered'"),
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.PrimaryKeyConstraint(
+            "id",
+            name="pk_organization_owner_recovery_events",
+        ),
+        sa.ForeignKeyConstraint(
+            ["organization_id"],
+            ["organizations.id"],
+            name="fk_owner_recovery_events_organization",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["membership_id"],
+            ["organization_memberships.id"],
+            name="fk_owner_recovery_events_membership",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["recovered_user_id"],
+            ["users.id"],
+            name="fk_owner_recovery_events_user",
+            ondelete="RESTRICT",
+        ),
+        sa.CheckConstraint(
+            "event_type = 'owner_recovered'",
+            name="ck_owner_recovery_event_type",
+        ),
+    )
+
+    op.create_index(
+        "ix_owner_recovery_events_organization_created",
+        "organization_owner_recovery_events",
+        ["organization_id", "created_at"],
+        unique=False,
+    )
+
+    op.create_index(
+        "ix_owner_recovery_events_recovered_user",
+        "organization_owner_recovery_events",
+        ["recovered_user_id"],
+        unique=False,
+    )
+
+
+def downgrade() -> None:
+    # Restore the original membership SELECT policy from migration B.
+    op.execute("""
+        DROP POLICY IF EXISTS organization_memberships_select_policy
+            ON public.organization_memberships;
+
+        CREATE POLICY organization_memberships_select_policy
+        ON public.organization_memberships
+        FOR SELECT
+        TO PUBLIC
+        USING (
+            (
+                app_private.has_authenticated_context()
+                AND user_id =
+                    NULLIF(
+                        current_setting('app.user_id', true), ''
+                    )::uuid
+            )
+            OR app_private.can_manage_organization(organization_id)
+        );
+
+        DROP FUNCTION IF EXISTS
+            app_private.has_membership_in_active_organization(uuid);
+    """)
+
+    # Restore the original membership INSERT policy from migration B.
+    op.execute("""
+        DROP POLICY IF EXISTS organization_memberships_insert_policy
+            ON public.organization_memberships;
+
+        CREATE POLICY organization_memberships_insert_policy
+        ON public.organization_memberships
+        FOR INSERT
+        TO PUBLIC
+        WITH CHECK (
+            app_private.can_manage_organization(organization_id)
+            OR (
+                app_private.is_bootstrap_creator(organization_id)
+                AND role = 'owner'
+                AND user_id =
+                    NULLIF(
+                        current_setting('app.user_id', true), ''
+                    )::uuid
+                AND is_active IS TRUE
+                AND has_held_privileged_role IS TRUE
+            )
+        );
+    """)
+
+    # Restore the original helper function definitions from migration A.
+    op.execute("""
+        CREATE OR REPLACE FUNCTION app_private.has_active_membership(
+            p_organization_id uuid
+        )
+        RETURNS boolean
+        LANGUAGE sql
+        STABLE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+            SELECT
+                app_private.has_authenticated_context()
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_memberships AS m
+                    WHERE m.organization_id = p_organization_id
+                      AND m.user_id =
+                          NULLIF(current_setting('app.user_id', true), '')::uuid
+                      AND m.is_active IS TRUE
+                );
+        $function$;
+
+        CREATE OR REPLACE FUNCTION app_private.can_manage_organization(
+            p_organization_id uuid
+        )
+        RETURNS boolean
+        LANGUAGE sql
+        STABLE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+            SELECT
+                app_private.has_authenticated_context()
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_memberships AS m
+                    WHERE m.organization_id = p_organization_id
+                      AND m.user_id =
+                          NULLIF(current_setting('app.user_id', true), '')::uuid
+                      AND m.is_active IS TRUE
+                      AND m.role IN ('owner', 'admin')
+                );
+        $function$;
+
+        CREATE OR REPLACE FUNCTION app_private.is_bootstrap_creator(
+            p_organization_id uuid
+        )
+        RETURNS boolean
+        LANGUAGE sql
+        STABLE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+            SELECT
+                app_private.has_authenticated_context()
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organizations AS o
+                    WHERE o.id = p_organization_id
+                      AND o.created_by_user_id =
+                          NULLIF(current_setting('app.user_id', true), '')::uuid
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM public.organization_memberships AS m
+                          WHERE m.organization_id = o.id
+                      )
+                );
+        $function$;
+
+        DROP FUNCTION IF EXISTS
+            app_private.can_manage_organization_as_owner(uuid);
+        DROP FUNCTION IF EXISTS
+            app_private.can_manage_organization_as_admin(uuid);
+    """)
+
+    # ---------------------------------------------------------
+    # D-02: Owner recovery audit
+    # ---------------------------------------------------------
+    op.drop_index(
+        "ix_owner_recovery_events_recovered_user",
+        table_name="organization_owner_recovery_events",
+    )
+
+    op.drop_index(
+        "ix_owner_recovery_events_organization_created",
+        table_name="organization_owner_recovery_events",
+    )
+
+    op.drop_table("organization_owner_recovery_events")
+
+    op.drop_index(
+        "ix_organizations_deleted_at",
+        table_name="organizations",
+    )
+
+    op.drop_column("organizations", "deleted_at")

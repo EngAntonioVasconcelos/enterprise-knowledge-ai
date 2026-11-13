@@ -1,15 +1,19 @@
 
+
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from sqlalchemy import DateTime, String
+
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.document import Document
+    from app.models.membership import OrganizationMembership
     from app.models.user import User
+
 
 class Organization(Base):
     __tablename__ = "organizations"
@@ -31,6 +35,16 @@ class Organization(Base):
         index=True,
     )
 
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="RESTRICT",
+            name="fk_organizations_created_by_user_id_users",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -44,7 +58,17 @@ class Organization(Base):
         nullable=False,
     )
 
-    users: Mapped[list["User"]] = relationship(
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    creator: Mapped["User | None"] = relationship(
+        back_populates="organizations_created",
+        foreign_keys=[created_by_user_id],
+    )
+
+    memberships: Mapped[list["OrganizationMembership"]] = relationship(
         back_populates="organization",
         cascade="all, delete-orphan",
     )

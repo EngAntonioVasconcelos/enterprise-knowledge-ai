@@ -1,8 +1,8 @@
-
-from sqlalchemy import create_engine
+﻿from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
+from app.db import context as _session_context
 
 
 engine = create_engine(

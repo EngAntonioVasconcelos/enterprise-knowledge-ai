@@ -1,8 +1,7 @@
+﻿from sqlalchemy.exc import IntegrityError
 
-from sqlalchemy.exc import IntegrityError
 
-
-def test_create_organization_handles_integrity_error(
+def test_create_organization_handles_unexpected_integrity_error(
     client,
     db_session,
     monkeypatch,
@@ -28,18 +27,17 @@ def test_create_organization_handles_integrity_error(
         },
     )
 
-    assert response.status_code == 409
-
+    assert response.status_code == 500
     assert response.json() == {
-        "detail": "Organization slug already exists."
+        "detail": "An unexpected database error occurred."
     }
 
-def test_update_organization_handles_integrity_error(
+
+def test_update_organization_handles_unexpected_integrity_error(
     client,
     db_session,
     monkeypatch,
 ):
-    # Create an organization before simulating the database error.
     create_response = client.post(
         "/api/v1/organizations/",
         json={
@@ -52,7 +50,6 @@ def test_update_organization_handles_integrity_error(
 
     organization_id = create_response.json()["id"]
 
-    # Simulate a database integrity error during the update.
     def raise_integrity_error():
         raise IntegrityError(
             "UPDATE",
@@ -66,7 +63,6 @@ def test_update_organization_handles_integrity_error(
         raise_integrity_error,
     )
 
-    # Track whether the database rollback is executed.
     rollback_calls = []
     original_rollback = db_session.rollback
 
@@ -80,15 +76,36 @@ def test_update_organization_handles_integrity_error(
         track_rollback,
     )
 
-    # Attempt to update the organization.
     response = client.patch(
         f"/api/v1/organizations/{organization_id}",
         json={"name": "Updated Organization"},
     )
 
-    # Verify the API response and transaction rollback.
-    assert response.status_code == 409
+    assert response.status_code == 500
     assert response.json() == {
-        "detail": "Organization update conflicts with existing data."
+        "detail": "An unexpected database error occurred."
     }
     assert len(rollback_calls) == 1
+
+
+def test_create_organization_returns_conflict_for_duplicate_slug(client):
+    payload = {
+        "name": "Test Organization",
+        "slug": "test-organization",
+    }
+
+    first_response = client.post(
+        "/api/v1/organizations/",
+        json=payload,
+    )
+
+    second_response = client.post(
+        "/api/v1/organizations/",
+        json=payload,
+    )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 409
+    assert second_response.json() == {
+        "detail": "Organization slug already exists."
+    }

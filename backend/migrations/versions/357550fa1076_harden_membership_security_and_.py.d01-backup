@@ -1,0 +1,147 @@
+﻿"""Harden membership security and organization lifecycle.
+
+Revision ID: 357550fa1076
+Revises: cc75167a863a
+"""
+
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+revision: str = "357550fa1076"
+down_revision: Union[str, Sequence[str], None] = "cc75167a863a"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    # ---------------------------------------------------------
+    # D-01: Organization soft deletion
+    # ---------------------------------------------------------
+    op.add_column(
+        "organizations",
+        sa.Column(
+            "deleted_at",
+            sa.DateTime(timezone=True),
+            nullable=True,
+        ),
+    )
+
+    op.create_index(
+        "ix_organizations_deleted_at",
+        "organizations",
+        ["deleted_at"],
+        unique=False,
+    )
+
+    # ---------------------------------------------------------
+    # D-02: Owner recovery audit
+    # ---------------------------------------------------------
+    op.create_table(
+        "organization_owner_recovery_events",
+        sa.Column(
+            "id",
+            sa.Uuid(),
+            nullable=False,
+        ),
+        sa.Column(
+            "organization_id",
+            sa.Uuid(),
+            nullable=False,
+        ),
+        sa.Column(
+            "membership_id",
+            sa.Uuid(),
+            nullable=False,
+        ),
+        sa.Column(
+            "recovered_user_id",
+            sa.Uuid(),
+            nullable=False,
+        ),
+        sa.Column(
+            "auth_issuer",
+            sa.String(length=512),
+            nullable=False,
+        ),
+        sa.Column(
+            "auth_subject",
+            sa.String(length=255),
+            nullable=False,
+        ),
+        sa.Column(
+            "event_type",
+            sa.String(length=50),
+            nullable=False,
+            server_default=sa.text("'owner_recovered'"),
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.PrimaryKeyConstraint(
+            "id",
+            name="pk_organization_owner_recovery_events",
+        ),
+        sa.ForeignKeyConstraint(
+            ["organization_id"],
+            ["organizations.id"],
+            name="fk_owner_recovery_events_organization",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["membership_id"],
+            ["organization_memberships.id"],
+            name="fk_owner_recovery_events_membership",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["recovered_user_id"],
+            ["users.id"],
+            name="fk_owner_recovery_events_user",
+            ondelete="RESTRICT",
+        ),
+        sa.CheckConstraint(
+            "event_type = 'owner_recovered'",
+            name="ck_owner_recovery_event_type",
+        ),
+    )
+
+    op.create_index(
+        "ix_owner_recovery_events_organization_created",
+        "organization_owner_recovery_events",
+        ["organization_id", "created_at"],
+        unique=False,
+    )
+
+    op.create_index(
+        "ix_owner_recovery_events_recovered_user",
+        "organization_owner_recovery_events",
+        ["recovered_user_id"],
+        unique=False,
+    )
+
+
+def downgrade() -> None:
+    op.drop_index(
+        "ix_owner_recovery_events_recovered_user",
+        table_name="organization_owner_recovery_events",
+    )
+
+    op.drop_index(
+        "ix_owner_recovery_events_organization_created",
+        table_name="organization_owner_recovery_events",
+    )
+
+    op.drop_table("organization_owner_recovery_events")
+
+    op.drop_index(
+        "ix_organizations_deleted_at",
+        table_name="organizations",
+    )
+
+    op.drop_column("organizations", "deleted_at")

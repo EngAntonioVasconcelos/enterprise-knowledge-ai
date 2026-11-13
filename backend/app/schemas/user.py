@@ -1,13 +1,22 @@
 
+
 import uuid
 from datetime import datetime
-from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+)
 
-
-UserRole = Literal["admin", "member"]
-
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+)
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -15,7 +24,11 @@ class UserCreate(BaseModel):
         min_length=2,
         max_length=150,
     )
-    role: UserRole = "member"
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).strip().lower()
+    model_config = ConfigDict(extra="forbid")
 
 
 class UserUpdate(BaseModel):
@@ -24,18 +37,20 @@ class UserUpdate(BaseModel):
         min_length=2,
         max_length=150,
     )
-    role: UserRole | None = None
     is_active: bool | None = None
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class UserResponse(BaseModel):
     id: uuid.UUID
-    organization_id: uuid.UUID
     email: EmailStr
     full_name: str
-    role: UserRole
     is_active: bool
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="forbid",
+    )

@@ -1,15 +1,39 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Response,
+    status,
+)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.authorization import (
+    get_current_membership,
+    require_roles,
+)
 from app.db.session import get_db
-from app.models.organization import Organization
-from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.models.membership import OrganizationMembership
+from app.schemas.membership import (
+    MembershipResponse,
+    MembershipUpdate,
+    OrganizationUserCreate,
+    OrganizationUserResponse,
+)
+from app.services.membership_service import (
+    MembershipPermissionError,
+    deactivate_membership,
+    get_membership,
+    list_organization_memberships,
+    update_membership_role,
+)
+from app.services.organization_user_service import (
+    create_organization_user,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/users",
@@ -17,191 +41,222 @@ router = APIRouter(
 )
 
 
+def _build_organization_user_response(
+    membership: OrganizationMembership,
+) -> OrganizationUserResponse:
+    user = membership.user
+
+    return OrganizationUserResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+        membership=membership,
+    )
+
+
+
 @router.post(
     "/",
-    response_model=UserResponse,
+    response_model=OrganizationUserResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def create_user(
     organization_id: uuid.UUID,
-    user_data: UserCreate,
+    user_data: OrganizationUserCreate,
+    actor_membership: OrganizationMembership = Depends(
+        require_roles(["owner", "admin"])
+    ),
     db: Session = Depends(get_db),
 ):
-    # Verify that the organization exists.
-    organization = db.scalar(
-        select(Organization).where(
-            Organization.id == organization_id
-        )
-    )
-
-    if organization is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Organization not found.",
-        )
-
-    # Check whether the email is already registered in this organization.
-    existing_user = db.scalar(
-        select(User).where(
-            User.organization_id == organization_id,
-            User.email == str(user_data.email),
-        )
-    )
-
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User email already exists in this organization.",
-        )
-
-    # Create the user and associate it with the requested organization.
-    user = User(
-        organization_id=organization_id,
-        email=str(user_data.email),
-        full_name=user_data.full_name,
-        role=user_data.role,
-    )
-
-    db.add(user)
-
     try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User could not be created because of a data conflict.",
+        user, membership = create_organization_user(
+            db,
+            organization_id=organization_id,
+            actor_user_id=actor_membership.user_id,
+            email=str(user_data.email),
+            full_name=user_data.full_name,
+            role=user_data.role,
         )
 
-    db.refresh(user)
+        db.commit()
+        db.refresh(user)
+        db.refresh(membership)
 
-    return user
+    except MembershipPermissionError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc) + ".",
+        ) from exc
+
+    except ValueError as exc:
+        db.rollback()
+
+        if str(exc) == "Organization not found":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Organization not found.",
+            ) from exc
+
+        if str(exc) in {
+            "Membership already exists",
+            "Cannot add an inactive user",
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc) + ".",
+            ) from exc
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User could not be added to the organization.",
+        ) from exc
+
+    except IntegrityError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User could not be added because of a data conflict.",
+        ) from exc
+
+    return _build_organization_user_response(membership)
 
 
 @router.get(
     "/",
-    response_model=list[UserResponse],
+    response_model=list[OrganizationUserResponse],
 )
 def list_organization_users(
     organization_id: uuid.UUID,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100),
+    current_membership: OrganizationMembership = Depends(
+        get_current_membership
+    ),
     db: Session = Depends(get_db),
 ):
-    # Verify that the organization exists.
-    organization = db.scalar(
-        select(Organization).where(
-            Organization.id == organization_id
-        )
+    memberships = list_organization_memberships(
+        db,
+        organization_id=organization_id,
+        skip=skip,
+        limit=limit,
     )
 
-    if organization is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Organization not found.",
-        )
+    return [
+        _build_organization_user_response(membership)
+        for membership in memberships
+    ]
 
-    # Retrieve users belonging only to the requested organization.
-    statement = (
-        select(User)
-        .where(
-            User.organization_id == organization_id,
-            User.is_active.is_(True),
-        )
-        .order_by(User.created_at.desc(), User.id)
-        .offset(skip)
-        .limit(limit)
-    )
 
-    users = db.scalars(statement).all()
-
-    return users
 @router.get(
     "/{user_id}",
-    response_model=UserResponse,
+    response_model=OrganizationUserResponse,
 )
 def get_user(
     organization_id: uuid.UUID,
     user_id: uuid.UUID,
+    current_membership: OrganizationMembership = Depends(
+        get_current_membership
+    ),
     db: Session = Depends(get_db),
 ):
-    """
-    Retrieve a user belonging to a specific organization.
-    """
-
-    statement = select(User).where(
-        User.id == user_id,
-        User.organization_id == organization_id,
-        User.is_active.is_(True),
+    membership = get_membership(
+        db,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
-    user = db.scalar(statement)
-
-    if user is None:
+    if membership is None or not membership.is_active:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
 
-    return user
+    return _build_organization_user_response(membership)
+
 
 @router.patch(
-    "/{user_id}",
-    response_model=UserResponse,
+    "/{user_id}/membership",
+    response_model=MembershipResponse,
 )
-def update_user(
+def update_user_membership(
     organization_id: uuid.UUID,
     user_id: uuid.UUID,
-    user_data: UserUpdate,
+    membership_data: MembershipUpdate,
+    actor_membership: OrganizationMembership = Depends(
+        require_roles(["owner", "admin"])
+    ),
     db: Session = Depends(get_db),
 ):
-    """
-    Update an existing user within a specific organization.
-    """
+    update_data = membership_data.model_dump(exclude_unset=True)
 
-    statement = select(User).where(
-        User.id == user_id,
-        User.organization_id == organization_id,
-        User.is_active.is_(True),
+    if (
+        not update_data
+        or update_data.get("role") is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A valid membership role must be provided.",
+        )
+
+    target_membership = get_membership(
+        db,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
-    user = db.scalar(statement)
-
-    if user is None:
+    if (
+        target_membership is None
+        or not target_membership.is_active
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
 
-    update_data = user_data.model_dump(exclude_unset=True)
-
-    if not update_data:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="At least one field must be provided.",
-        )
-
-    if any(value is None for value in update_data.values()):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Fields cannot be null.",
-        )
-
-    for field, value in update_data.items():
-        setattr(user, field, value)
-
     try:
+        updated_membership = update_membership_role(
+            db,
+            organization_id=organization_id,
+            actor_user_id=actor_membership.user_id,
+            user_id=user_id,
+            role=update_data["role"],
+        )
+
         db.commit()
-    except IntegrityError:
+        db.refresh(updated_membership)
+
+    except MembershipPermissionError as exc:
         db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc) + ".",
+        ) from exc
+
+    except ValueError as exc:
+        db.rollback()
+
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="User update conflicts with existing data.",
-        )
+            detail=str(exc) + ".",
+        ) from exc
 
-    db.refresh(user)
+    except IntegrityError as exc:
+        db.rollback()
 
-    return user
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Membership update conflicts with existing data.",
+        ) from exc
+
+    return updated_membership
+
 
 
 @router.delete(
@@ -212,27 +267,54 @@ def update_user(
 def delete_user(
     organization_id: uuid.UUID,
     user_id: uuid.UUID,
+    actor_membership: OrganizationMembership = Depends(
+        require_roles(["owner", "admin"])
+    ),
     db: Session = Depends(get_db),
 ):
-    """
-    Deactivate a user within a specific organization.
-    """
-
-    statement = select(User).where(
-        User.id == user_id,
-        User.organization_id == organization_id,
+    target_membership = get_membership(
+        db,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
-    user = db.scalar(statement)
-
-    if user is None:
+    if target_membership is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
 
-    if user.is_active:
-        user.is_active = False
+    try:
+        deactivate_membership(
+            db,
+            organization_id=organization_id,
+            actor_user_id=actor_membership.user_id,
+            user_id=user_id,
+        )
         db.commit()
+
+    except MembershipPermissionError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc) + ".",
+        ) from exc
+
+    except ValueError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc) + ".",
+        ) from exc
+
+    except IntegrityError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Membership could not be deactivated.",
+        ) from exc
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

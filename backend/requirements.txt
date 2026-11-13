@@ -10,3 +10,4 @@ alembic
 psycopg[binary]
 pytest
 pytest-cov
+PyJWT[crypto]>=2.10,<3.0
