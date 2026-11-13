@@ -37,3 +37,12 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+# Manual backups: use Git history instead
+*.bak
+*.bak-*
+*.py.before_*
+*.py.pre-*
+*.py.*-backup
+
+# Archives
+*.zip
