@@ -400,16 +400,12 @@ def test_db01_admin_cannot_insert_owner_directly(postgres_db_session):
             f"A operação foi rejeitada, mas não pela RLS: {error}"
         )
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DB-02: current INSERT RLS policy permits admins to create admins",
-)
 def test_db02_admin_cannot_insert_admin_directly(postgres_db_session):
     db = postgres_db_session
     _, admin, organization = _create_admin_context(db)
     target = _create_user(db, "direct-admin-target")
 
-    with pytest.raises(DBAPIError):
+    with pytest.raises(DBAPIError) as exc_info:
         with db.begin_nested():
             db.add(
                 OrganizationMembership(
@@ -421,6 +417,8 @@ def test_db02_admin_cannot_insert_admin_directly(postgres_db_session):
                 )
             )
             db.flush()
+
+    assert "row-level security" in str(exc_info.value.orig).lower()
 
 
 @pytest.mark.xfail(
