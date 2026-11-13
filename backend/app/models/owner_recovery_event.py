@@ -58,7 +58,6 @@ class OrganizationOwnerRecoveryEvent(Base):
             "ix_owner_recovery_events_recovered_user",
             "recovered_user_id",
         ),
-        {"schema": "public"},
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
