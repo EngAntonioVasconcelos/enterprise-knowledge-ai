@@ -30,6 +30,12 @@ class OrganizationMembership(Base):
             "user_id",
             name="uq_membership_organization_user",
         ),
+        UniqueConstraint(
+            "organization_id",
+            "id",
+            "user_id",
+            name="uq_membership_organization_id_id_user_id",
+        ),
         CheckConstraint(
             "role IN ('owner', 'admin', 'member', 'viewer')",
             name="ck_membership_role",
