@@ -2,20 +2,33 @@
 import uuid
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import insert, select, text, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.db.context import (
+    CONTEXT_KEYS,
+    set_authentication_context,
     set_identity_context,
     set_organization_context,
 )
-from app.models import Organization, OrganizationMembership, User
+from app.models import (
+    AuthenticationIdentity,
+    Organization,
+    OrganizationMembership,
+    User,
+)
+from app.services.authentication_service import (
+    resolve_authenticated_user,
+)
 from app.services.membership_service import (
     create_membership,
     update_membership_role,
 )
 from app.services.organization_service import create_organization
+from app.services.organization_user_service import (
+    create_organization_user,
+)
 
 
 pytestmark = pytest.mark.integration
@@ -23,28 +36,65 @@ pytestmark = pytest.mark.integration
 TEST_ISSUER = "https://test-identity.example.com/"
 
 
-def _create_user(db, prefix="rls-user"):
-    unique = uuid.uuid4().hex
+_SUBJECTS = {}
 
-    user = User(
-        email=f"{prefix}-{unique}@example.com",
-        full_name="RLS Integration Test User",
-        is_active=True,
+
+def _apply_context(db, context):
+    db.info.update(context)
+    db.execute(
+        text("""
+            SELECT
+                set_config('app.auth_issuer', :auth_issuer, true),
+                set_config('app.auth_subject', :auth_subject, true),
+                set_config('app.user_id', :user_id, true),
+                set_config('app.organization_id', :organization_id, true)
+        """),
+        {key: str(value or "") for key, value in context.items()},
     )
 
-    db.add(user)
-    db.flush()
+
+def _provision_user(db, *, subject, email):
+    # Accounts are created by the same database function the login flow
+    # uses. The caller's context is restored afterwards.
+    saved = {key: db.info.get(key) for key in CONTEXT_KEYS}
+
+    set_authentication_context(db, issuer=TEST_ISSUER, subject=subject)
+    user_id = db.scalar(
+        text("SELECT app_private.provision_user(:email, :full_name)"),
+        {"email": email, "full_name": "RLS Integration Test User"},
+    )
+    user = db.get(User, user_id)
+
+    _apply_context(db, saved)
 
     return user
 
 
-def _authenticate(db, user):
+def _create_user(db, prefix="rls-user"):
+    unique = uuid.uuid4().hex
+    subject = f"test-subject-{unique}"
+
+    user = _provision_user(
+        db,
+        subject=subject,
+        email=f"{prefix}-{unique}@example.com",
+    )
+    _SUBJECTS[user.id] = subject
+
+    return user
+
+
+def _authenticate_as(db, user_id):
     set_identity_context(
         db,
         issuer=TEST_ISSUER,
-        subject=f"test-subject-{user.id}",
-        user_id=user.id,
+        subject=_SUBJECTS[user_id],
+        user_id=user_id,
     )
+
+
+def _authenticate(db, user):
+    _authenticate_as(db, user.id)
 
 
 def _create_organization(db, creator):
@@ -356,8 +406,6 @@ def test_model_a_documents_runtime_context_spoofing_limitation(postgres_db_sessi
     # by the application role, so a forged context can impersonate a member.
     assert result is not None
 
-from sqlalchemy import update
-
 
 def _create_admin_context(db):
     owner = _create_user(db, "direct-sql-owner")
@@ -602,7 +650,7 @@ def test_db09_last_owner_is_protected_under_concurrency(postgres_engine):
         owner_b_id = owner_b.id
 
     def give_up_ownership(session, user_id):
-        _authenticate(session, session.get(User, user_id))
+        _authenticate_as(session, user_id)
         session.execute(text("SET LOCAL lock_timeout = '15s'"))
         session.execute(
             update(OrganizationMembership)
@@ -644,7 +692,7 @@ def test_db09_last_owner_is_protected_under_concurrency(postgres_engine):
     assert "at least one active owner" in second_outcome["error"]
 
     with Session(postgres_engine) as check:
-        _authenticate(check, check.get(User, owner_b_id))
+        _authenticate_as(check, owner_b_id)
 
         active_owners = check.scalars(
             select(OrganizationMembership).where(
@@ -655,3 +703,206 @@ def test_db09_last_owner_is_protected_under_concurrency(postgres_engine):
         ).all()
 
     assert [m.user_id for m in active_owners] == [owner_b_id]
+
+
+def _visible_user_ids(db, *users):
+    return set(
+        db.scalars(
+            select(User.id).where(User.id.in_([user.id for user in users]))
+        )
+    )
+
+
+def test_users_are_invisible_without_identity_context(postgres_db_session):
+    db = postgres_db_session
+    user = _create_user(db, "identity-hidden")
+
+    _clear_database_context(db)
+
+    assert _visible_user_ids(db, user) == set()
+
+
+def test_user_reads_own_account_but_not_a_strangers(postgres_db_session):
+    db = postgres_db_session
+    user = _create_user(db, "identity-self")
+    stranger = _create_user(db, "identity-stranger")
+
+    _authenticate(db, user)
+
+    assert _visible_user_ids(db, user, stranger) == {user.id}
+
+
+def test_only_managers_read_accounts_of_their_organization(
+    postgres_db_session,
+):
+    db = postgres_db_session
+    owner = _create_user(db, "directory-owner")
+    member = _create_user(db, "directory-member")
+    other_owner = _create_user(db, "directory-other-owner")
+    organization = _create_organization(db, owner)
+    _create_organization(db, other_owner)
+
+    _authenticate(db, owner)
+    create_membership(
+        db,
+        organization_id=organization.id,
+        actor_user_id=owner.id,
+        user_id=member.id,
+        role="member",
+    )
+
+    everyone = (owner, member, other_owner)
+
+    assert _visible_user_ids(db, *everyone) == {owner.id, member.id}
+
+    _authenticate(db, member)
+    assert _visible_user_ids(db, *everyone) == {member.id}
+
+    _authenticate(db, other_owner)
+    assert _visible_user_ids(db, *everyone) == {other_owner.id}
+
+
+def test_login_resolves_only_the_presented_identity(postgres_db_session):
+    db = postgres_db_session
+    user = _create_user(db, "login-user")
+    other = _create_user(db, "login-other")
+
+    _clear_database_context(db)
+    db.info.update({key: None for key in CONTEXT_KEYS})
+
+    assert resolve_authenticated_user(
+        db, issuer=TEST_ISSUER, subject=_SUBJECTS[user.id]
+    ) is None
+
+    set_authentication_context(
+        db, issuer=TEST_ISSUER, subject=_SUBJECTS[user.id]
+    )
+
+    resolved = resolve_authenticated_user(
+        db, issuer=TEST_ISSUER, subject=_SUBJECTS[user.id]
+    )
+    assert resolved is not None
+    assert resolved.id == user.id
+
+    assert resolve_authenticated_user(
+        db, issuer=TEST_ISSUER, subject=_SUBJECTS[other.id]
+    ) is None
+
+
+def test_identities_of_other_users_are_never_visible(postgres_db_session):
+    db = postgres_db_session
+    owner = _create_user(db, "identity-owner")
+    member = _create_user(db, "identity-member")
+    organization = _create_organization(db, owner)
+
+    _authenticate(db, owner)
+    create_membership(
+        db,
+        organization_id=organization.id,
+        actor_user_id=owner.id,
+        user_id=member.id,
+        role="member",
+    )
+
+    visible = db.scalars(select(AuthenticationIdentity.user_id)).all()
+
+    assert visible == [owner.id]
+
+
+def test_runtime_cannot_write_identities_or_update_accounts(
+    postgres_db_session,
+):
+    db = postgres_db_session
+    user = _create_user(db, "identity-write")
+    _authenticate(db, user)
+
+    with pytest.raises(DBAPIError, match="permission denied"):
+        with db.begin_nested():
+            db.execute(
+                insert(AuthenticationIdentity).values(
+                    id=uuid.uuid4(),
+                    user_id=user.id,
+                    issuer=TEST_ISSUER,
+                    subject="forged-subject",
+                    is_active=True,
+                )
+            )
+
+    with pytest.raises(DBAPIError, match="permission denied"):
+        with db.begin_nested():
+            db.execute(
+                update(User)
+                .where(User.id == user.id)
+                .values(email="taken-over@example.com")
+            )
+
+
+def test_provisioning_requires_a_verified_identity(postgres_db_session):
+    db = postgres_db_session
+
+    with pytest.raises(DBAPIError, match="authenticated identity"):
+        with db.begin_nested():
+            db.execute(
+                text("SELECT app_private.provision_user(:email, :name)"),
+                {"email": "nobody@example.com", "name": "Nobody"},
+            )
+
+
+def test_provisioning_is_idempotent_and_links_by_email(postgres_db_session):
+    db = postgres_db_session
+    unique = uuid.uuid4().hex
+    email = f"provisioned-{unique}@example.com"
+
+    first = _provision_user(db, subject=f"first-{unique}", email=email)
+    again = _provision_user(
+        db, subject=f"first-{unique}", email=email.upper()
+    )
+    linked = _provision_user(db, subject=f"second-{unique}", email=email)
+
+    assert first.email == email
+    assert again.id == first.id
+    assert linked.id == first.id
+
+
+def test_only_managers_can_create_an_account_for_their_organization(
+    postgres_db_session,
+):
+    db = postgres_db_session
+    owner = _create_user(db, "account-owner")
+    member = _create_user(db, "account-member")
+    organization = _create_organization(db, owner)
+
+    _authenticate(db, owner)
+    set_organization_context(db, organization_id=organization.id)
+    create_membership(
+        db,
+        organization_id=organization.id,
+        actor_user_id=owner.id,
+        user_id=member.id,
+        role="member",
+    )
+
+    unique = uuid.uuid4().hex
+    created, membership = create_organization_user(
+        db,
+        organization_id=organization.id,
+        actor_user_id=owner.id,
+        email=f"account-new-{unique}@example.com",
+        full_name="Added By Owner",
+    )
+    assert membership.user_id == created.id
+    assert _visible_user_ids(db, created) == {created.id}
+
+    _authenticate(db, member)
+    set_organization_context(db, organization_id=organization.id)
+
+    with pytest.raises(DBAPIError, match="row-level security"):
+        with db.begin_nested():
+            db.execute(
+                insert(User).values(
+                    id=uuid.uuid4(),
+                    email=f"account-forged-{unique}@example.com",
+                    full_name="Forged Account",
+                    is_active=True,
+                )
+            )

@@ -5,7 +5,10 @@ from jwt.exceptions import PyJWKClientConnectionError
 from sqlalchemy.orm import Session
 
 from app.core.security import verify_access_token
-from app.db.context import set_identity_context
+from app.db.context import (
+    set_authentication_context,
+    set_identity_context,
+)
 from app.db.session import get_db
 from app.models.user import User
 from app.services.authentication_service import resolve_authenticated_user
@@ -55,6 +58,12 @@ def get_current_user(
         or not subject.strip()
     ):
         raise unauthorized_exception
+
+    set_authentication_context(
+        db,
+        issuer=issuer,
+        subject=subject,
+    )
 
     user = resolve_authenticated_user(
         db,

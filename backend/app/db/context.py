@@ -60,6 +60,32 @@ def _apply_context_to_current_transaction(session: Session) -> None:
         session.connection()
 
 
+def set_authentication_context(
+    session: Session,
+    *,
+    issuer: str,
+    subject: str,
+) -> None:
+    """Expose the verified token identity before the user is resolved.
+
+    Row-level security only lets a request read the identity, and the
+    account behind it, that match this issuer and subject.
+    """
+    if not issuer.strip() or not subject.strip():
+        raise ValueError("Issuer and subject must not be empty")
+
+    session.info.update(
+        {
+            "auth_issuer": issuer,
+            "auth_subject": subject,
+            "user_id": None,
+            "organization_id": None,
+        }
+    )
+
+    _apply_context_to_current_transaction(session)
+
+
 def set_identity_context(
     session: Session,
     *,

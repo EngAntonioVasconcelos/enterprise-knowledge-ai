@@ -167,3 +167,39 @@ def test_valid_token_returns_authenticated_user(db_session, monkeypatch):
     )
 
     assert result.id == user.id
+
+
+def test_identity_is_in_context_before_the_user_is_resolved(
+    db_session,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        authentication,
+        "verify_access_token",
+        lambda token: {
+            "iss": "https://identity.example.com",
+            "sub": "subject-123",
+        },
+    )
+
+    seen = {}
+
+    def mock_resolve_user(db, *, issuer, subject):
+        seen.update(db.info)
+        return None
+
+    monkeypatch.setattr(
+        authentication,
+        "resolve_authenticated_user",
+        mock_resolve_user,
+    )
+
+    with pytest.raises(HTTPException):
+        authentication.get_current_user(
+            credentials=create_credentials(),
+            db=db_session,
+        )
+
+    assert seen["auth_issuer"] == "https://identity.example.com"
+    assert seen["auth_subject"] == "subject-123"
+    assert seen["user_id"] is None
