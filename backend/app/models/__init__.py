@@ -1,5 +1,6 @@
 ﻿from app.models.authentication_identity import AuthenticationIdentity
 from app.models.document import Document
+from app.models.invitation import OrganizationInvitation
 from app.models.membership import OrganizationMembership
 from app.models.organization import Organization
 from app.models.owner_recovery_event import OrganizationOwnerRecoveryEvent
@@ -14,5 +15,5 @@ __all__ = [
     "PlatformMembership",
     "Document",
     "OrganizationOwnerRecoveryEvent",
+    "OrganizationInvitation",
 ]
-

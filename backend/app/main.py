@@ -6,6 +6,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import JSONResponse
 
+from app.api.routes.invitations import (
+    invitation_router,
+    organization_router as organization_invitations_router,
+)
 from app.api.routes.organizations import router as organizations_router
 from app.api.routes.users import router as users_router
 from app.db.session import engine
@@ -32,6 +36,8 @@ app.add_middleware(
 
 app.include_router(organizations_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
+app.include_router(organization_invitations_router, prefix="/api/v1")
+app.include_router(invitation_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["General"])
