@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.authentication import get_current_user
 from app.core.database_errors import database_rule_violation
+from app.core.errors import DomainError
 from app.api.dependencies.authorization import (
     get_current_membership,
     require_roles,
@@ -81,19 +82,9 @@ def create_organization(
 
         return organization
 
-    except ValueError as exc:
+    except DomainError:
         db.rollback()
-
-        if str(exc) == "Organization slug already exists":
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Organization slug already exists.",
-            ) from exc
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Organization could not be created.",
-        ) from exc
+        raise
 
     except IntegrityError as exc:
         db.rollback()

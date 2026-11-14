@@ -4,6 +4,8 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.errors import ConflictError, InvalidInputError, NotFoundError
+
 from app.models.organization import Organization
 from app.models.user import User
 from app.services.membership_service import (
@@ -22,19 +24,19 @@ def create_organization(
     normalized_slug = slug.strip().lower()
 
     if not normalized_name:
-        raise ValueError("Organization name cannot be empty")
+        raise InvalidInputError("Organization name cannot be empty")
 
     if not normalized_slug:
-        raise ValueError("Organization slug cannot be empty")
+        raise InvalidInputError("Organization slug cannot be empty")
 
     # Validate the creator before creating the organization.
     creator = db.get(User, creator_user_id)
 
     if creator is None:
-        raise ValueError("User not found")
+        raise NotFoundError("User not found")
 
     if not creator.is_active:
-        raise ValueError("Cannot add an inactive user")
+        raise ConflictError("Cannot add an inactive user")
 
     # Check whether the organization slug is already in use.
     existing_organization = db.scalar(
@@ -44,7 +46,7 @@ def create_organization(
     )
 
     if existing_organization is not None:
-        raise ValueError("Organization slug already exists")
+        raise ConflictError("Organization slug already exists")
 
     # Create the organization.
     organization = Organization(

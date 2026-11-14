@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.authorization import (
     require_roles,
 )
+from app.core.errors import DomainError
 from app.db.session import get_db
 from app.models.membership import OrganizationMembership
 from app.schemas.membership import (
@@ -23,7 +24,6 @@ from app.schemas.membership import (
     OrganizationUserResponse,
 )
 from app.services.membership_service import (
-    MembershipPermissionError,
     deactivate_membership,
     get_membership,
     list_organization_memberships,
@@ -157,21 +157,9 @@ def update_user_membership(
         db.commit()
         db.refresh(updated_membership)
 
-    except MembershipPermissionError as exc:
+    except DomainError:
         db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(exc) + ".",
-        ) from exc
-
-    except ValueError as exc:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc) + ".",
-        ) from exc
+        raise
 
     except IntegrityError as exc:
         db.rollback()
@@ -219,21 +207,9 @@ def delete_user(
         )
         db.commit()
 
-    except MembershipPermissionError as exc:
+    except DomainError:
         db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(exc) + ".",
-        ) from exc
-
-    except ValueError as exc:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc) + ".",
-        ) from exc
+        raise
 
     except IntegrityError as exc:
         db.rollback()

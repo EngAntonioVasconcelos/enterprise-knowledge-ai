@@ -4,6 +4,8 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.errors import InvalidInputError
+
 from app.models.user import User
 
 
@@ -11,7 +13,7 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     normalized_email = email.strip().lower()
 
     if not normalized_email:
-        raise ValueError("Email cannot be empty")
+        raise InvalidInputError("Email cannot be empty")
 
     statement = select(User).where(
         User.email == normalized_email
@@ -38,10 +40,10 @@ def create_user(
     normalized_full_name = full_name.strip()
 
     if not normalized_email:
-        raise ValueError("Email cannot be empty")
+        raise InvalidInputError("Email cannot be empty")
 
     if not normalized_full_name:
-        raise ValueError("Full name cannot be empty")
+        raise InvalidInputError("Full name cannot be empty")
 
     user = User(
         email=normalized_email,
@@ -67,7 +69,7 @@ def update_user(
     unsupported_fields = set(updates) - allowed_fields
 
     if unsupported_fields:
-        raise ValueError(
+        raise InvalidInputError(
             f"Unsupported user fields: {sorted(unsupported_fields)}"
         )
 
@@ -75,7 +77,7 @@ def update_user(
         normalized_full_name = updates["full_name"].strip()
 
         if not normalized_full_name:
-            raise ValueError("Full name cannot be empty")
+            raise InvalidInputError("Full name cannot be empty")
 
         user.full_name = normalized_full_name
 
@@ -83,7 +85,7 @@ def update_user(
         active_status = updates["is_active"]
 
         if not isinstance(active_status, bool):
-            raise ValueError("is_active must be a boolean")
+            raise InvalidInputError("is_active must be a boolean")
 
         user.is_active = active_status
 

@@ -7,6 +7,8 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
+from app.core.errors import DomainError
+
 from app.models.invitation import OrganizationInvitation
 from app.models.membership import OrganizationMembership
 from app.services.membership_service import (
@@ -19,24 +21,24 @@ INVITATION_LIFETIME = timedelta(days=7)
 PRIVILEGED_ROLES = {"owner", "admin"}
 
 
-class InvitationError(Exception):
+class InvitationError(DomainError):
     """Base class for invitation errors the API reports to the caller."""
 
 
 class InvitationAlreadyPendingError(InvitationError):
-    pass
+    status_code = 409
 
 
 class InvitationNotFoundError(InvitationError):
-    pass
+    status_code = 404
 
 
 class InvitationEmailMismatchError(InvitationError):
-    pass
+    status_code = 403
 
 
 class AlreadyMemberError(InvitationError):
-    pass
+    status_code = 409
 
 
 def hash_invitation_token(token: str) -> str:

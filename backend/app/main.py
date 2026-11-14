@@ -9,6 +9,7 @@ from starlette.responses import JSONResponse
 from app.api.routes.audit import router as audit_router
 from app.api.routes.directory import router as directory_router
 from app.core.database_errors import database_error_handler
+from app.core.errors import DomainError, domain_error_handler
 from app.api.routes.invitations import (
     invitation_router,
     organization_router as organization_invitations_router,
@@ -45,6 +46,7 @@ app.include_router(directory_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 
 app.add_exception_handler(DBAPIError, database_error_handler)
+app.add_exception_handler(DomainError, domain_error_handler)
 
 
 @app.get("/", tags=["General"])

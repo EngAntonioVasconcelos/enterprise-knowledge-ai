@@ -4,6 +4,8 @@ import uuid
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from app.core.errors import ConflictError, ForbiddenError, InvalidInputError, NotFoundError
+
 from app.models.membership import OrganizationMembership
 from app.models.organization import Organization
 from app.models.user import User
@@ -11,13 +13,13 @@ from app.models.user import User
 
 ALLOWED_ROLES = {"owner", "admin", "member", "viewer"}
 
-class MembershipPermissionError(PermissionError):
+class MembershipPermissionError(ForbiddenError):
     """Raised when an actor lacks permission to manage memberships."""
 
 
 def _validate_role(role: str) -> None:
     if role not in ALLOWED_ROLES:
-        raise ValueError(f"Invalid membership role: {role}")
+        raise InvalidInputError(f"Invalid membership role: {role}")
 
 
 def _lock_organization(
@@ -33,7 +35,7 @@ def _lock_organization(
     organization = db.scalar(statement)
 
     if organization is None:
-        raise ValueError("Organization not found")
+        raise NotFoundError("Organization not found")
 
     return organization
 
@@ -59,7 +61,7 @@ def _get_authorized_actor_membership(
     actor_membership = db.scalar(statement)
 
     if actor_membership is None:
-        raise ValueError(
+        raise NotFoundError(
             "Actor is not an active member of the organization"
         )
 
@@ -88,7 +90,7 @@ def _ensure_another_active_owner_exists(
     active_owners = db.scalar(statement) or 0
 
     if active_owners == 0:
-        raise ValueError(
+        raise ConflictError(
             "Cannot remove or demote the last active owner"
         )
 
@@ -117,7 +119,7 @@ def _lock_organization_for_bootstrap(
     )
 
     if organization is None:
-        raise ValueError("Organization not found")
+        raise NotFoundError("Organization not found")
 
     return organization
 
@@ -132,10 +134,10 @@ def create_initial_owner_membership(
     user = db.get(User, user_id)
 
     if user is None:
-        raise ValueError("User not found")
+        raise NotFoundError("User not found")
 
     if not user.is_active:
-        raise ValueError("Cannot add an inactive user")
+        raise ConflictError("Cannot add an inactive user")
 
     existing_membership = db.scalar(
         select(OrganizationMembership.id)
@@ -146,7 +148,7 @@ def create_initial_owner_membership(
     )
 
     if existing_membership is not None:
-        raise ValueError(
+        raise ConflictError(
             "Initial owner membership can only be created "
             "for an organization without existing memberships"
         )
@@ -212,14 +214,14 @@ def create_membership(
     user = db.get(User, user_id)
 
     if user is None:
-        raise ValueError("User not found")
+        raise NotFoundError("User not found")
 
     if not user.is_active:
-        raise ValueError("Cannot add an inactive user")
+        raise ConflictError("Cannot add an inactive user")
 
     if existing is not None:
         if existing.is_active:
-            raise ValueError("Membership already exists")
+            raise ConflictError("Membership already exists")
 
         if role == "owner":
             _ensure_another_active_owner_exists(db, existing)
@@ -322,10 +324,10 @@ def update_membership_role(
     target_membership = db.scalar(statement)
 
     if target_membership is None:
-        raise ValueError("Membership not found")
+        raise NotFoundError("Membership not found")
 
     if not target_membership.is_active:
-        raise ValueError("Cannot update an inactive membership")
+        raise ConflictError("Cannot update an inactive membership")
 
     requires_owner = (
         target_membership.has_held_privileged_role
@@ -386,7 +388,7 @@ def deactivate_membership(
     target_membership = db.scalar(statement)
 
     if target_membership is None:
-        raise ValueError("Membership not found")
+        raise NotFoundError("Membership not found")
 
     if (
         actor_membership.role != "owner"
