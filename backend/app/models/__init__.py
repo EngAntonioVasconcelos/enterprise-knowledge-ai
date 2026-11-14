@@ -1,4 +1,5 @@
-﻿from app.models.authentication_identity import AuthenticationIdentity
+﻿from app.models.audit_event import AuditEvent
+from app.models.authentication_identity import AuthenticationIdentity
 from app.models.document import Document
 from app.models.invitation import OrganizationInvitation
 from app.models.membership import OrganizationMembership
@@ -16,4 +17,5 @@ __all__ = [
     "Document",
     "OrganizationOwnerRecoveryEvent",
     "OrganizationInvitation",
+    "AuditEvent",
 ]
