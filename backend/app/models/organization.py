@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -17,6 +17,13 @@ if TYPE_CHECKING:
 
 class Organization(Base):
     __tablename__ = "organizations"
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'suspended', 'pending_deletion', 'deleted')",
+            name="ck_organization_status",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True,
@@ -55,6 +62,15 @@ class Organization(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    # Changed only by the platform (see migration f5c1a8d3e6b9). An
+    # organization that is not active is read-only in the application.
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="active",
+        server_default=text("'active'"),
         nullable=False,
     )
 

@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.authentication import get_current_user
+from app.core.database_errors import database_rule_violation
 from app.api.dependencies.authorization import (
     get_current_membership,
     require_roles,
@@ -27,6 +28,19 @@ router = APIRouter(
     prefix="/organizations",
     tags=["Organizations"],
 )
+
+
+def _raise_for_database_rule(exc: SQLAlchemyError) -> None:
+    if not isinstance(exc, DBAPIError):
+        return
+
+    violation = database_rule_violation(exc)
+
+    if violation is not None:
+        raise HTTPException(
+            status_code=violation[0],
+            detail=violation[1],
+        ) from exc
 
 
 def _is_organization_slug_conflict(exc: IntegrityError) -> bool:
@@ -84,6 +98,8 @@ def create_organization(
     except IntegrityError as exc:
         db.rollback()
 
+        _raise_for_database_rule(exc)
+
         if _is_organization_slug_conflict(exc):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -97,6 +113,8 @@ def create_organization(
 
     except SQLAlchemyError as exc:
         db.rollback()
+
+        _raise_for_database_rule(exc)
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -203,6 +221,8 @@ def update_organization(
     except IntegrityError as exc:
         db.rollback()
 
+        _raise_for_database_rule(exc)
+
         if _is_organization_slug_conflict(exc):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -216,6 +236,8 @@ def update_organization(
 
     except SQLAlchemyError as exc:
         db.rollback()
+
+        _raise_for_database_rule(exc)
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -3,10 +3,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from starlette.responses import JSONResponse
 
 from app.api.routes.directory import router as directory_router
+from app.core.database_errors import database_error_handler
 from app.api.routes.invitations import (
     invitation_router,
     organization_router as organization_invitations_router,
@@ -40,6 +41,8 @@ app.include_router(users_router, prefix="/api/v1")
 app.include_router(organization_invitations_router, prefix="/api/v1")
 app.include_router(invitation_router, prefix="/api/v1")
 app.include_router(directory_router, prefix="/api/v1")
+
+app.add_exception_handler(DBAPIError, database_error_handler)
 
 
 @app.get("/", tags=["General"])
