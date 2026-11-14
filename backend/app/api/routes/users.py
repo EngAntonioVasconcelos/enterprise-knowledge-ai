@@ -13,7 +13,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.authorization import (
-    get_current_membership,
     require_roles,
 )
 from app.db.session import get_db
@@ -63,7 +62,7 @@ def list_organization_users(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100),
     current_membership: OrganizationMembership = Depends(
-        get_current_membership
+        require_roles(["owner", "admin"])
     ),
     db: Session = Depends(get_db),
 ):
@@ -88,7 +87,7 @@ def get_user(
     organization_id: uuid.UUID,
     user_id: uuid.UUID,
     current_membership: OrganizationMembership = Depends(
-        get_current_membership
+        require_roles(["owner", "admin"])
     ),
     db: Session = Depends(get_db),
 ):
