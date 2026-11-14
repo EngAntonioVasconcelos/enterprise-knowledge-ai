@@ -26,6 +26,11 @@ DATABASE_RULES = (
         status.HTTP_403_FORBIDDEN,
         "The organization status cannot be changed here.",
     ),
+    (
+        "a disconnected connection cannot change",
+        status.HTTP_409_CONFLICT,
+        "This connection is disconnected and cannot be changed.",
+    ),
 )
 
 
