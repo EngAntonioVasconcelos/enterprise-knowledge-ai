@@ -49,5 +49,6 @@ since a superuser is a member of every role.
 
 - The real provider (SES in the EU, Brevo or Postmark) is chosen with
   hosting, in Phase 8. It only needs a new `EmailSender`.
-- Once it exists, the API can stop returning the token when an invitation
-  is created.
+- The API returns the invitation token only while a development sender
+  (`console`) is configured. With a real provider it returns no token:
+  the link reaches the invitee alone, by e-mail.

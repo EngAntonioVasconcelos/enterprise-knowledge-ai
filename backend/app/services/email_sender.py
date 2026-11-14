@@ -43,6 +43,14 @@ SENDERS = {
     "console": ConsoleEmailSender,
 }
 
+# Senders that do not reach the recipient. While one of them is in use,
+# the API hands the invitation link to the person who invites.
+DEVELOPMENT_SENDERS = frozenset({"console"})
+
+
+def delivers_email(name: str) -> bool:
+    return name not in DEVELOPMENT_SENDERS
+
 
 def get_email_sender(name: str) -> EmailSender:
     try:

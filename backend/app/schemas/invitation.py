@@ -36,8 +36,10 @@ class InvitationResponse(BaseModel):
 
 
 class InvitationCreatedResponse(InvitationResponse):
-    # Shown once. Only its hash is stored, so it cannot be retrieved later.
-    token: str
+    # Only while e-mails are not delivered (development sender): shown
+    # once, so the inviter can pass the link on. With a real provider the
+    # token reaches the invitee alone, by e-mail. Only its hash is stored.
+    token: str | None = None
 
 
 class InvitationAccept(BaseModel):

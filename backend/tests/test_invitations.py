@@ -154,3 +154,25 @@ def test_accept_maps_refusals_to_http_errors(
     )
 
     assert response.status_code == status_code
+
+
+def test_token_is_not_returned_once_emails_are_delivered(
+    client,
+    db_session,
+    monkeypatch,
+):
+    from app.core.config import settings
+    from app.models.email_outbox import EmailOutbox
+
+    monkeypatch.setattr(settings, "EMAIL_SENDER", "real-provider")
+    organization_id = _organization(client)
+
+    response = _invite(client, organization_id)
+
+    assert response.status_code == 201
+    assert response.json()["token"] is None
+    # The link still goes out, by e-mail only.
+    [email] = db_session.query(EmailOutbox).all()
+    assert email.reference_id == uuid.UUID(response.json()["id"])
+    assert "#token=" in email.body
+

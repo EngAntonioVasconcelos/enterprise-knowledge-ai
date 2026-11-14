@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.authentication import get_current_user
 from app.api.dependencies.authorization import require_roles
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.membership import OrganizationMembership
 from app.models.user import User
@@ -25,6 +26,7 @@ from app.services.invitation_service import (
     list_pending_invitations,
     revoke_invitation,
 )
+from app.services.email_sender import delivers_email
 from app.services.membership_service import MembershipPermissionError
 
 
@@ -81,7 +83,7 @@ def create(
 
     return InvitationCreatedResponse(
         **InvitationResponse.model_validate(invitation).model_dump(),
-        token=token,
+        token=None if delivers_email(settings.EMAIL_SENDER) else token,
     )
 
 
