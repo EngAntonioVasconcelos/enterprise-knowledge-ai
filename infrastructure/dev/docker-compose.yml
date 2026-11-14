@@ -1,0 +1,30 @@
+# PostgreSQL for local development.
+# Data is kept in the named volume eka_dev_pgdata, so it survives restarts
+# and "docker compose down". Only "docker compose down -v" deletes it.
+# Values come from infrastructure/dev/.env (never committed); see
+# docs/development/dev-database.md.
+services:
+  postgres:
+    image: postgres:18.6
+    container_name: eka-dev-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - "127.0.0.1:1996:5432"
+    volumes:
+      - eka_dev_pgdata:/var/lib/postgresql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  eka_dev_pgdata:
+    name: eka_dev_pgdata
