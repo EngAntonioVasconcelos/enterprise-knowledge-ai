@@ -1,15 +1,20 @@
-﻿import uuid
+﻿import threading
+import uuid
 
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session
 
 from app.db.context import (
     set_identity_context,
     set_organization_context,
 )
 from app.models import Organization, OrganizationMembership, User
-from app.services.membership_service import create_membership
+from app.services.membership_service import (
+    create_membership,
+    update_membership_role,
+)
 from app.services.organization_service import create_organization
 
 
@@ -203,19 +208,23 @@ def test_owner_can_create_membership_in_own_organization(
 
 def test_inactive_membership_cannot_read_organization(postgres_db_session):
     db = postgres_db_session
-    creator = _create_user(db, "inactive-owner")
-    organization = _create_organization(db, creator)
+    owner = _create_user(db, "inactive-owner")
+    member = _create_user(db, "inactive-member")
+    organization = _create_organization(db, owner)
 
-    membership = db.scalar(
-        select(OrganizationMembership).where(
-            OrganizationMembership.organization_id == organization.id,
-            OrganizationMembership.user_id == creator.id,
-        )
+    _authenticate(db, owner)
+    membership = create_membership(
+        db,
+        organization_id=organization.id,
+        actor_user_id=owner.id,
+        user_id=member.id,
+        role="member",
     )
-    assert membership is not None
 
     membership.is_active = False
     db.flush()
+
+    _authenticate(db, member)
 
     result = db.scalar(
         select(Organization).where(Organization.id == organization.id)
@@ -421,10 +430,6 @@ def test_db02_admin_cannot_insert_admin_directly(postgres_db_session):
     assert "row-level security" in str(exc_info.value.orig).lower()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DB-03: current UPDATE policy does not prevent membership transfers",
-)
 def test_db03_manager_cannot_transfer_membership_between_managed_organizations(
     postgres_db_session,
 ):
@@ -444,7 +449,7 @@ def test_db03_manager_cannot_transfer_membership_between_managed_organizations(
         role="member",
     )
 
-    with pytest.raises(DBAPIError):
+    with pytest.raises(DBAPIError, match="membership identity is immutable"):
         with db.begin_nested():
             db.execute(
                 update(OrganizationMembership)
@@ -453,10 +458,6 @@ def test_db03_manager_cannot_transfer_membership_between_managed_organizations(
             )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DB-04: current UPDATE policy does not protect membership user_id",
-)
 def test_db04_manager_cannot_change_membership_user_id_directly(
     postgres_db_session,
 ):
@@ -475,7 +476,7 @@ def test_db04_manager_cannot_change_membership_user_id_directly(
         role="member",
     )
 
-    with pytest.raises(DBAPIError):
+    with pytest.raises(DBAPIError, match="membership identity is immutable"):
         with db.begin_nested():
             db.execute(
                 update(OrganizationMembership)
@@ -484,10 +485,6 @@ def test_db04_manager_cannot_change_membership_user_id_directly(
             )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DB-05: current UPDATE policy does not protect organization creator",
-)
 def test_db05_manager_cannot_change_organization_creator_directly(
     postgres_db_session,
 ):
@@ -496,7 +493,7 @@ def test_db05_manager_cannot_change_organization_creator_directly(
     replacement_creator = _create_user(db, "replacement-creator")
     organization = _create_organization(db, owner)
 
-    with pytest.raises(DBAPIError):
+    with pytest.raises(DBAPIError, match="organization identity and creator are immutable"):
         with db.begin_nested():
             db.execute(
                 update(Organization)
@@ -505,10 +502,6 @@ def test_db05_manager_cannot_change_organization_creator_directly(
             )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DB-06: current UPDATE policy does not protect the last active owner",
-)
 def test_db06_owner_cannot_deactivate_last_owner_directly(
     postgres_db_session,
 ):
@@ -516,7 +509,7 @@ def test_db06_owner_cannot_deactivate_last_owner_directly(
     owner = _create_user(db, "last-owner-deactivate")
     organization = _create_organization(db, owner)
 
-    with pytest.raises(DBAPIError):
+    with pytest.raises(DBAPIError, match="at least one active owner"):
         with db.begin_nested():
             db.execute(
                 update(OrganizationMembership)
@@ -530,10 +523,6 @@ def test_db06_owner_cannot_deactivate_last_owner_directly(
             )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DB-07: current UPDATE policy does not protect the last active owner",
-)
 def test_db07_owner_cannot_demote_last_owner_directly(
     postgres_db_session,
 ):
@@ -541,7 +530,7 @@ def test_db07_owner_cannot_demote_last_owner_directly(
     owner = _create_user(db, "last-owner-demote")
     organization = _create_organization(db, owner)
 
-    with pytest.raises(DBAPIError):
+    with pytest.raises(DBAPIError, match="at least one active owner"):
         with db.begin_nested():
             db.execute(
                 update(OrganizationMembership)
@@ -555,4 +544,114 @@ def test_db07_owner_cannot_demote_last_owner_directly(
             )
 
 
+def test_db08_membership_role_history_cannot_be_erased(postgres_db_session):
+    db = postgres_db_session
+    owner = _create_user(db, "history-owner")
+    former_admin = _create_user(db, "history-former-admin")
+    organization = _create_organization(db, owner)
 
+    _authenticate(db, owner)
+    create_membership(
+        db,
+        organization_id=organization.id,
+        actor_user_id=owner.id,
+        user_id=former_admin.id,
+        role="admin",
+    )
+    membership = update_membership_role(
+        db,
+        organization_id=organization.id,
+        actor_user_id=owner.id,
+        user_id=former_admin.id,
+        role="member",
+    )
+    assert membership.has_held_privileged_role is True
+
+    with pytest.raises(DBAPIError, match="role history cannot be erased"):
+        with db.begin_nested():
+            db.execute(
+                update(OrganizationMembership)
+                .where(OrganizationMembership.id == membership.id)
+                .values(has_held_privileged_role=False)
+            )
+
+
+def test_db09_last_owner_is_protected_under_concurrency(postgres_engine):
+    # Two owners give up ownership at the same time, on separate
+    # connections. Each one alone is allowed; together they would leave the
+    # organization without an owner. Exactly one must be rejected.
+    #
+    # This test commits its data: concurrency cannot be observed inside a
+    # single rolled-back transaction. The rows stay in the disposable test
+    # database, under unique names.
+    with Session(postgres_engine) as setup:
+        owner_a = _create_user(setup, "concurrent-owner-a")
+        owner_b = _create_user(setup, "concurrent-owner-b")
+        organization = _create_organization(setup, owner_a)
+        create_membership(
+            setup,
+            organization_id=organization.id,
+            actor_user_id=owner_a.id,
+            user_id=owner_b.id,
+            role="owner",
+        )
+        setup.commit()
+
+        organization_id = organization.id
+        owner_a_id = owner_a.id
+        owner_b_id = owner_b.id
+
+    def give_up_ownership(session, user_id):
+        _authenticate(session, session.get(User, user_id))
+        session.execute(text("SET LOCAL lock_timeout = '15s'"))
+        session.execute(
+            update(OrganizationMembership)
+            .where(
+                OrganizationMembership.organization_id == organization_id,
+                OrganizationMembership.user_id == user_id,
+            )
+            .values(role="member")
+        )
+
+    second_outcome = {}
+
+    def second_owner_gives_up():
+        with Session(postgres_engine) as second:
+            try:
+                give_up_ownership(second, owner_b_id)
+                second.commit()
+                second_outcome["error"] = None
+            except DBAPIError as exc:
+                second.rollback()
+                second_outcome["error"] = str(exc.orig)
+
+    with Session(postgres_engine) as first:
+        give_up_ownership(first, owner_a_id)
+
+        worker = threading.Thread(target=second_owner_gives_up)
+        worker.start()
+        worker.join(timeout=1)
+
+        # The second transaction must be waiting for the first to finish.
+        assert worker.is_alive()
+
+        first.commit()
+
+    worker.join(timeout=20)
+    assert not worker.is_alive()
+
+    assert second_outcome["error"] is not None
+    assert "at least one active owner" in second_outcome["error"]
+
+    with Session(postgres_engine) as check:
+        _authenticate(check, check.get(User, owner_b_id))
+
+        active_owners = check.scalars(
+            select(OrganizationMembership).where(
+                OrganizationMembership.organization_id == organization_id,
+                OrganizationMembership.role == "owner",
+                OrganizationMembership.is_active.is_(True),
+            )
+        ).all()
+
+    assert [m.user_id for m in active_owners] == [owner_b_id]
