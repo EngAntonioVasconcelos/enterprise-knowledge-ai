@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     OIDC_AUDIENCE: str | None = None
     OIDC_JWKS_URL: str | None = None
     OIDC_JWKS_TIMEOUT_SECONDS: float = 5.0
+    # Prefix of the custom claims that carry email, email_verified and
+    # name in the access token (an Auth0 Action adds them). Empty means
+    # the standard claim names.
+    OIDC_CLAIMS_NAMESPACE: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
