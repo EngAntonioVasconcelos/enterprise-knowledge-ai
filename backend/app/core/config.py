@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # Login of the outbox dispatcher; it must hold the eka_mailer role.
     MAILER_DATABASE_URL: str | None = None
 
+    # Login of the background worker; it must hold the eka_worker role
+    # (docs/development/background-jobs.md).
+    WORKER_DATABASE_URL: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",

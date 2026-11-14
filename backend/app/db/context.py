@@ -131,3 +131,31 @@ def set_organization_context(
     session.info["organization_id"] = str(organization_id)
 
     _apply_context_to_current_transaction(session)
+
+
+
+def set_worker_context(
+    session: Session,
+    *,
+    organization_id: UUID,
+) -> None:
+    """Scope a worker transaction to the organization of its job.
+
+    The worker acts for no user: identity stays empty, so policies written
+    for the API never match it. Policies for eka_worker read only
+    app.organization_id.
+    """
+    if session.info.get("user_id"):
+        raise RuntimeError("A worker session must not carry a user")
+
+    session.info.update(
+        {
+            "auth_issuer": None,
+            "auth_subject": None,
+            "user_id": None,
+            "organization_id": str(organization_id),
+        }
+    )
+
+    _apply_context_to_current_transaction(session)
+
