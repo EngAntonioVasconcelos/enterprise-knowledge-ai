@@ -1,0 +1,24 @@
+# Disposable PostgreSQL for integration tests.
+# Data lives in memory: every start is an empty cluster, so each run
+# also proves that a clean installation works.
+# The credentials below are for this local, throwaway database only.
+services:
+  postgres:
+    image: postgres:18.6
+    container_name: eka-test-pg
+    environment:
+      POSTGRES_DB: eka_test
+      POSTGRES_USER: eka_test_admin
+      POSTGRES_PASSWORD: local-test-admin-only
+    ports:
+      - "127.0.0.1:1999:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"'
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
