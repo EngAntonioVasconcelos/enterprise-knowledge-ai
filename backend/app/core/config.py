@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     # the standard claim names.
     OIDC_CLAIMS_NAMESPACE: str | None = None
 
+    # Invitation e-mails (docs/development/email-outbox.md).
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
+    EMAIL_SENDER: str = "console"
+    EMAIL_FROM: str = "Enterprise Knowledge AI <no-reply@localhost>"
+    # Login of the outbox dispatcher; it must hold the eka_mailer role.
+    MAILER_DATABASE_URL: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",

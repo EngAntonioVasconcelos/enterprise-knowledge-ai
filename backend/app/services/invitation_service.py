@@ -11,6 +11,7 @@ from app.core.errors import DomainError
 
 from app.models.invitation import OrganizationInvitation
 from app.models.membership import OrganizationMembership
+from app.services.email_outbox_service import enqueue_invitation_email
 from app.services.membership_service import (
     _get_authorized_actor_membership,
     _lock_organization,
@@ -113,6 +114,10 @@ def create_invitation(
 
     db.add(invitation)
     db.flush()
+
+    # Same transaction: the e-mail exists if and only if the invitation
+    # does.
+    enqueue_invitation_email(db, invitation=invitation, token=token)
 
     return invitation, token
 
