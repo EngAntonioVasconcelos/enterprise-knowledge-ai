@@ -46,3 +46,6 @@ Thumbs.db
 
 # Archives
 *.zip
+
+# Files exported by the Claude app
+Claude outputs/

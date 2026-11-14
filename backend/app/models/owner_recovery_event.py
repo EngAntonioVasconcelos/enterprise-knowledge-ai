@@ -9,6 +9,7 @@ from sqlalchemy import (
     Index,
     PrimaryKeyConstraint,
     String,
+    Text,
     Uuid,
     text,
 )
@@ -45,6 +46,8 @@ class OrganizationOwnerRecoveryEvent(Base):
             "event_type = 'owner_recovered'",
             name="ck_owner_recovery_event_type",
         ),
+        # ck_owner_recovery_event_reason lives only in the database
+        # (migration b7d2e5a8c1f4): SQLite, used by unit tests, has no btrim.
         Index(
             "ix_owner_recovery_events_organization_created",
             "organization_id",
@@ -86,12 +89,23 @@ class OrganizationOwnerRecoveryEvent(Base):
         nullable=False,
     )
 
-    actor_auth_issuer: Mapped[str] = mapped_column(
+    # Empty for operational recovery, which has no OIDC token.
+    actor_auth_issuer: Mapped[str | None] = mapped_column(
         String(512),
+        nullable=True,
+    )
+
+    actor_auth_subject: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    reason: Mapped[str] = mapped_column(
+        Text,
         nullable=False,
     )
 
-    actor_auth_subject: Mapped[str] = mapped_column(
+    database_login: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
     )
