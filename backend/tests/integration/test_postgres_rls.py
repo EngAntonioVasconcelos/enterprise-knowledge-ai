@@ -26,9 +26,6 @@ from app.services.membership_service import (
     update_membership_role,
 )
 from app.services.organization_service import create_organization
-from app.services.organization_user_service import (
-    create_organization_user,
-)
 
 
 pytestmark = pytest.mark.integration
@@ -864,44 +861,24 @@ def test_provisioning_is_idempotent_and_links_by_email(postgres_db_session):
     assert linked.id == first.id
 
 
-def test_only_managers_can_create_an_account_for_their_organization(
+def test_application_cannot_create_accounts_directly(
     postgres_db_session,
 ):
+    # Accounts are created only by app_private.provision_user, on a
+    # verified login. Not even an organization owner can insert one.
     db = postgres_db_session
     owner = _create_user(db, "account-owner")
-    member = _create_user(db, "account-member")
     organization = _create_organization(db, owner)
 
     _authenticate(db, owner)
     set_organization_context(db, organization_id=organization.id)
-    create_membership(
-        db,
-        organization_id=organization.id,
-        actor_user_id=owner.id,
-        user_id=member.id,
-        role="member",
-    )
 
-    unique = uuid.uuid4().hex
-    created, membership = create_organization_user(
-        db,
-        organization_id=organization.id,
-        actor_user_id=owner.id,
-        email=f"account-new-{unique}@example.com",
-        full_name="Added By Owner",
-    )
-    assert membership.user_id == created.id
-    assert _visible_user_ids(db, created) == {created.id}
-
-    _authenticate(db, member)
-    set_organization_context(db, organization_id=organization.id)
-
-    with pytest.raises(DBAPIError, match="row-level security"):
+    with pytest.raises(DBAPIError, match="permission denied"):
         with db.begin_nested():
             db.execute(
                 insert(User).values(
                     id=uuid.uuid4(),
-                    email=f"account-forged-{unique}@example.com",
+                    email=f"account-forged-{uuid.uuid4().hex}@example.com",
                     full_name="Forged Account",
                     is_active=True,
                 )

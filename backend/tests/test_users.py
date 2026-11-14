@@ -5,8 +5,11 @@ from unittest.mock import Mock
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.db.session import get_db
+from app.main import app
 from app.models.membership import OrganizationMembership
 from app.models.user import User
+from app.schemas.membership import OrganizationUserResponse
 
 
 def create_test_organization(client):
@@ -24,84 +27,61 @@ def create_test_organization(client):
     return response.json()["id"]
 
 
-def create_organization_user(client, organization_id, **overrides):
-    payload = {
-        "email": "employee@example.com",
-        "full_name": "John Smith",
-        **overrides,
-    }
+class _Added:
+    """Result of adding a member in test setup, shaped like the API response."""
 
-    response = client.post(
-        f"/api/v1/organizations/{organization_id}/users/",
-        json=payload,
+    status_code = 201
+
+    def __init__(self, payload):
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def add_member(client, organization_id, **overrides):
+    """Add a member directly in the test database.
+
+    Members join through invitations, which are accepted by a PostgreSQL
+    function (tests/integration/test_invitations_rls.py). These SQLite tests
+    only need someone in the organization to act on.
+    """
+    db = next(app.dependency_overrides[get_db]())
+    email = overrides.get("email", "employee@example.com")
+    role = overrides.get("role", "member")
+
+    user = db.scalar(select(User).where(User.email == email))
+    if user is None:
+        user = User(
+            email=email,
+            full_name=overrides.get("full_name", "John Smith"),
+            is_active=True,
+        )
+        db.add(user)
+        db.flush()
+
+    membership = OrganizationMembership(
+        organization_id=uuid.UUID(str(organization_id)),
+        user_id=user.id,
+        role=role,
+        is_active=True,
+        has_held_privileged_role=role in {"owner", "admin"},
+        has_held_owner_role=role == "owner",
     )
+    db.add(membership)
+    db.commit()
 
-    return response
-
-
-def test_create_user(client):
-    organization_id = create_test_organization(client)
-
-    response = create_organization_user(
-        client,
-        organization_id,
-        email="employee@example.com",
+    return _Added(
+        OrganizationUserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            is_active=user.is_active,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            membership=membership,
+        ).model_dump(mode="json")
     )
-
-    assert response.status_code == 201
-
-    data = response.json()
-
-    assert data["email"] == "employee@example.com"
-    assert data["full_name"] == "John Smith"
-    assert data["is_active"] is True
-    assert data["membership"]["organization_id"] == organization_id
-    assert data["membership"]["role"] == "member"
-    assert data["membership"]["is_active"] is True
-
-
-def test_create_user_with_admin_role(client):
-    organization_id = create_test_organization(client)
-
-    response = create_organization_user(
-        client,
-        organization_id,
-        email="admin@example.com",
-        full_name="Organization Admin",
-        role="admin",
-    )
-
-    assert response.status_code == 201
-    assert response.json()["membership"]["role"] == "admin"
-
-
-def test_create_user_with_nonexistent_organization(client):
-    organization_id = uuid.uuid4()
-
-    response = create_organization_user(client, organization_id)
-
-    assert response.status_code == 404
-
-
-def test_create_duplicate_user_membership(client):
-    organization_id = create_test_organization(client)
-
-    payload = {
-        "email": "employee@example.com",
-        "full_name": "John Smith",
-    }
-
-    first_response = client.post(
-        f"/api/v1/organizations/{organization_id}/users/",
-        json=payload,
-    )
-    second_response = client.post(
-        f"/api/v1/organizations/{organization_id}/users/",
-        json=payload,
-    )
-
-    assert first_response.status_code == 201
-    assert second_response.status_code == 409
 
 
 def test_list_organization_users_includes_owner(client):
@@ -120,7 +100,7 @@ def test_list_organization_users(client):
     organization_id = create_test_organization(client)
 
     for index in range(2):
-        response = create_organization_user(
+        response = add_member(
             client,
             organization_id,
             email=f"employee{index}@example.com",
@@ -144,7 +124,7 @@ def test_list_organization_users_with_pagination(client):
     organization_id = create_test_organization(client)
 
     for index in range(3):
-        response = create_organization_user(
+        response = add_member(
             client,
             organization_id,
             email=f"employee{index}@example.com",
@@ -170,38 +150,10 @@ def test_list_users_with_nonexistent_organization(client):
     assert response.status_code == 404
 
 
-def test_create_user_handles_integrity_error(
-    client,
-    db_session,
-    monkeypatch,
-):
-    organization_id = create_test_organization(client)
-
-    def raise_integrity_error():
-        raise IntegrityError(
-            "INSERT",
-            {},
-            Exception("Simulated integrity error"),
-        )
-
-    monkeypatch.setattr(db_session, "commit", raise_integrity_error)
-
-    rollback_mock = Mock()
-    monkeypatch.setattr(db_session, "rollback", rollback_mock)
-
-    response = create_organization_user(client, organization_id)
-
-    assert response.status_code == 409
-    assert response.json() == {
-        "detail": "User could not be added because of a data conflict."
-    }
-    rollback_mock.assert_called_once()
-
-
 def test_get_user(client):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(
+    user_response = add_member(
         client,
         organization_id,
         email="john@example.com",
@@ -236,7 +188,7 @@ def test_get_nonexistent_user(client):
 def test_update_user_membership_role(client):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(
+    user_response = add_member(
         client,
         organization_id,
         email="john@example.com",
@@ -257,7 +209,7 @@ def test_update_user_membership_role(client):
 def test_update_user_membership_with_empty_payload(client):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(client, organization_id)
+    user_response = add_member(client, organization_id)
     user_id = user_response.json()["id"]
 
     response = client.patch(
@@ -271,7 +223,7 @@ def test_update_user_membership_with_empty_payload(client):
 def test_update_user_membership_with_invalid_role(client):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(client, organization_id)
+    user_response = add_member(client, organization_id)
     user_id = user_response.json()["id"]
 
     response = client.patch(
@@ -283,68 +235,13 @@ def test_update_user_membership_with_invalid_role(client):
 
 
 
-def test_admin_cannot_create_another_admin(
-    client,
-    client_for_user,
-    db_session,
-):
-    organization_id = create_test_organization(client)
-
-    admin_response = create_organization_user(
-        client,
-        organization_id,
-        email="admin@example.com",
-        full_name="Organization Admin",
-        role="admin",
-    )
-
-    assert admin_response.status_code == 201
-
-    admin_user = db_session.get(
-        User,
-        uuid.UUID(admin_response.json()["id"]),
-    )
-
-    assert admin_user is not None
-
-    with client_for_user(admin_user) as admin_client:
-        response = admin_client.post(
-            f"/api/v1/organizations/{organization_id}/users/",
-            json={
-                "email": "another-admin@example.com",
-                "full_name": "Another Admin",
-                "role": "admin",
-            },
-        )
-
-    assert response.status_code == 403
-    assert response.json()["detail"] == (
-    "Insufficient organization permissions."
-)
-
-
-    # The authenticated test user is the organization Owner.
-    # This test's current authentication fixture will be adjusted
-    # when multi-user authentication test helpers are introduced.
-    response = client.post(
-        f"/api/v1/organizations/{organization_id}/users/",
-        json={
-            "email": "another-owner@example.com",
-            "full_name": "Another Owner",
-            "role": "owner",
-        },
-    )
-
-    assert response.status_code == 201
-
-
 def test_deactivate_user_deactivates_membership_only(
     client,
     db_session,
 ):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(
+    user_response = add_member(
         client,
         organization_id,
         email="john@example.com",
@@ -375,7 +272,7 @@ def test_deactivate_user_deactivates_membership_only(
 def test_delete_already_deactivated_membership(client):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(client, organization_id)
+    user_response = add_member(client, organization_id)
     user_id = user_response.json()["id"]
 
     first_response = client.delete(
@@ -404,7 +301,7 @@ def test_delete_user_from_another_organization(client):
     first_organization_id = create_test_organization(client)
     second_organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(
+    user_response = add_member(
         client,
         first_organization_id,
         email="john@example.com",
@@ -428,7 +325,7 @@ def test_delete_user_from_another_organization(client):
 def test_deactivated_membership_is_excluded_from_list(client):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(client, organization_id)
+    user_response = add_member(client, organization_id)
     user_id = user_response.json()["id"]
 
     client.delete(
@@ -447,7 +344,7 @@ def test_deactivated_membership_is_excluded_from_list(client):
 def test_deactivated_membership_cannot_be_retrieved(client):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(client, organization_id)
+    user_response = add_member(client, organization_id)
     user_id = user_response.json()["id"]
 
     client.delete(
@@ -464,7 +361,7 @@ def test_deactivated_membership_cannot_be_retrieved(client):
 def test_deactivated_membership_cannot_be_updated(client):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(client, organization_id)
+    user_response = add_member(client, organization_id)
     user_id = user_response.json()["id"]
 
     client.delete(
@@ -486,7 +383,7 @@ def test_update_membership_handles_integrity_error(
 ):
     organization_id = create_test_organization(client)
 
-    user_response = create_organization_user(
+    user_response = add_member(
         client,
         organization_id,
         email="john@example.com",
@@ -523,7 +420,7 @@ def test_admin_cannot_change_another_admin_membership(
 ):
     organization_id = create_test_organization(client)
 
-    first_admin_response = create_organization_user(
+    first_admin_response = add_member(
         client,
         organization_id,
         email="first-admin@example.com",
@@ -532,7 +429,7 @@ def test_admin_cannot_change_another_admin_membership(
     )
     assert first_admin_response.status_code == 201
 
-    second_admin_response = create_organization_user(
+    second_admin_response = add_member(
         client,
         organization_id,
         email="second-admin@example.com",
@@ -567,7 +464,7 @@ def test_admin_cannot_remove_another_admin(
 ):
     organization_id = create_test_organization(client)
 
-    first_admin_response = create_organization_user(
+    first_admin_response = add_member(
         client,
         organization_id,
         email="first-admin@example.com",
@@ -576,7 +473,7 @@ def test_admin_cannot_remove_another_admin(
     )
     assert first_admin_response.status_code == 201
 
-    second_admin_response = create_organization_user(
+    second_admin_response = add_member(
         client,
         organization_id,
         email="second-admin@example.com",
@@ -602,3 +499,14 @@ def test_admin_cannot_remove_another_admin(
     assert response.json()["detail"] == (
     "Only an owner can deactivate owner or admin memberships."
 )
+
+
+def test_members_cannot_be_added_without_an_invitation(client):
+    organization_id = create_test_organization(client)
+
+    response = client.post(
+        f"/api/v1/organizations/{organization_id}/users/",
+        json={"email": "employee@example.com", "full_name": "John Smith"},
+    )
+
+    assert response.status_code == 405

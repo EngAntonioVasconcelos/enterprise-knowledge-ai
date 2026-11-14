@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserResponse
 
 
 MembershipRole = Literal[
@@ -24,12 +24,6 @@ class MembershipCreate(BaseModel):
 
 class MembershipUpdate(BaseModel):
     role: MembershipRole | None = None
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class OrganizationUserCreate(UserCreate):
-    role: MembershipRole = "member"
 
     model_config = ConfigDict(extra="forbid")
 

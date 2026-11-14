@@ -21,7 +21,6 @@ from app.models.membership import OrganizationMembership
 from app.schemas.membership import (
     MembershipResponse,
     MembershipUpdate,
-    OrganizationUserCreate,
     OrganizationUserResponse,
 )
 from app.services.membership_service import (
@@ -30,9 +29,6 @@ from app.services.membership_service import (
     get_membership,
     list_organization_memberships,
     update_membership_role,
-)
-from app.services.organization_user_service import (
-    create_organization_user,
 )
 
 router = APIRouter(
@@ -56,75 +52,6 @@ def _build_organization_user_response(
         membership=membership,
     )
 
-
-
-@router.post(
-    "/",
-    response_model=OrganizationUserResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_user(
-    organization_id: uuid.UUID,
-    user_data: OrganizationUserCreate,
-    actor_membership: OrganizationMembership = Depends(
-        require_roles(["owner", "admin"])
-    ),
-    db: Session = Depends(get_db),
-):
-    try:
-        user, membership = create_organization_user(
-            db,
-            organization_id=organization_id,
-            actor_user_id=actor_membership.user_id,
-            email=str(user_data.email),
-            full_name=user_data.full_name,
-            role=user_data.role,
-        )
-
-        db.commit()
-        db.refresh(user)
-        db.refresh(membership)
-
-    except MembershipPermissionError as exc:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(exc) + ".",
-        ) from exc
-
-    except ValueError as exc:
-        db.rollback()
-
-        if str(exc) == "Organization not found":
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found.",
-            ) from exc
-
-        if str(exc) in {
-            "Membership already exists",
-            "Cannot add an inactive user",
-        }:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=str(exc) + ".",
-            ) from exc
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User could not be added to the organization.",
-        ) from exc
-
-    except IntegrityError as exc:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User could not be added because of a data conflict.",
-        ) from exc
-
-    return _build_organization_user_response(membership)
 
 
 @router.get(

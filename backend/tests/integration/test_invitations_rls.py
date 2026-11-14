@@ -16,7 +16,10 @@ from app.services.invitation_service import (
     create_invitation,
     revoke_invitation,
 )
-from app.services.membership_service import create_membership
+from app.services.membership_service import (
+    create_membership,
+    deactivate_membership,
+)
 from tests.integration.test_postgres_rls import (
     _authenticate,
     _create_organization,
@@ -192,3 +195,28 @@ def test_non_members_cannot_join_without_an_invitation(postgres_db_session):
                 )
             )
             db.flush()
+
+
+def test_former_member_rejoins_through_an_invitation(postgres_db_session):
+    db = postgres_db_session
+    owner, guest, organization = _setup(db)
+    original = create_membership(
+        db,
+        organization_id=organization.id,
+        actor_user_id=owner.id,
+        user_id=guest.id,
+        role="member",
+    )
+    deactivate_membership(
+        db,
+        organization_id=organization.id,
+        actor_user_id=owner.id,
+        user_id=guest.id,
+    )
+    _, token = _invite(db, owner, organization, guest.email, "viewer")
+
+    _authenticate(db, guest)
+    rejoined = accept_invitation(db, token=token)
+
+    assert rejoined.id == original.id
+    assert (rejoined.role, rejoined.is_active) == ("viewer", True)

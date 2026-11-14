@@ -194,4 +194,8 @@ def accept_invitation(db: Session, *, token: str) -> OrganizationMembership:
                 raise error(fragment) from exc
         raise
 
-    return db.get(OrganizationMembership, membership_id)
+    return db.get(
+        OrganizationMembership,
+        membership_id,
+        populate_existing=True,
+    )
