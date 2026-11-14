@@ -9,7 +9,6 @@ from app.models.user import User
 
 from app.services.membership_service import (
     MembershipPermissionError,
-    _get_authorized_actor_membership,
     create_initial_owner_membership,
     create_membership,
     update_membership_role,
@@ -1012,4 +1011,3 @@ def test_owner_cannot_deactivate_membership_in_another_organization(
 
     db_session.refresh(target_membership)
     assert target_membership.is_active is True
-

@@ -1,6 +1,4 @@
 
-from datetime import datetime, timezone
-
 from app.models.authentication_identity import AuthenticationIdentity
 from app.models.user import User
 from app.services.authentication_service import resolve_authenticated_user

@@ -48,6 +48,8 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
+      - name: Lint
+        run: python -m ruff check .
       - name: Check that migrations have a single head
         run: test "$(python -m alembic heads | wc -l)" -eq 1
       - name: Prepare an empty database (clean installation)

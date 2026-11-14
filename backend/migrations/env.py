@@ -7,14 +7,9 @@ from alembic import context
 
 from app.core.config import settings
 from app.db.base import Base
-from app.models import (
-    Document,
-    Organization,
-    OrganizationMembership,
-    OrganizationOwnerRecoveryEvent,
-    PlatformMembership,
-    User,
-)
+# Registers every model on Base.metadata, so autogenerate and
+# 'alembic check' see all tables, including ones added later.
+import app.models  # noqa: F401
 
 
 config = context.config
@@ -82,4 +77,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-

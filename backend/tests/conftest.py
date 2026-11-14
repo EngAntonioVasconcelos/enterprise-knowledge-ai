@@ -12,7 +12,7 @@ from app.db.base import Base
 from app.db.context import set_identity_context
 from app.db.session import get_db
 from app.main import app
-from app.models import Document, Organization, User
+from app.models import User
 
 
 # Create an in-memory SQLite database for testing.

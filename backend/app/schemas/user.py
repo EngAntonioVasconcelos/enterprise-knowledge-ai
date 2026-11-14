@@ -8,13 +8,6 @@ from pydantic import (
     ConfigDict,
     EmailStr,
     Field,
-)
-
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    EmailStr,
-    Field,
     field_validator,
 )
 
