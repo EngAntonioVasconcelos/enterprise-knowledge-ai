@@ -151,6 +151,47 @@ def _sync_item(
     return outcome
 
 
+def _same_revision(
+    db: Session,
+    connection: DataConnection,
+    item: SourceItem,
+) -> Document | None:
+    """The document, when the source says this item has not changed.
+
+    Then nothing is downloaded or parsed again.
+    """
+    if not item.revision:
+        return None
+    document = db.scalars(
+        select(Document).where(
+            Document.connection_id == connection.id,
+            Document.external_id == item.external_id,
+        )
+    ).one_or_none()
+    if document is None:
+        return None
+    current = documents.current_version(db, document)
+    if current is None or current.source_revision != item.revision:
+        return None
+    return document
+
+
+def _refresh_item(db: Session, *, document: Document, item: SourceItem) -> str:
+    outcome = "unchanged"
+    if document.status == "removed":
+        current = documents.current_version(db, document)
+        documents.activate_version(db, document=document, version=current)
+        outcome = "restored"
+    if document.title != item.title:
+        document.title = item.title
+    replace_document_permissions(
+        db, document=document, permissions=list(item.permissions)
+    )
+    document.last_synced_at = _now()
+    db.flush()
+    return outcome
+
+
 def _remove(db: Session, connection: DataConnection, external_ids) -> int:
     if not external_ids:
         return 0
@@ -190,6 +231,7 @@ def sync_connection(
     if factory is None:
         raise LookupError(f"No connector for provider {connection.provider}")
 
+    storage = storage or get_object_storage()
     connector = factory(
         ConnectionContext(
             organization_id=connection.organization_id,
@@ -197,9 +239,10 @@ def sync_connection(
             provider=connection.provider,
             settings=dict(connection.settings),
             credentials=_credentials(db, connection),
+            db=db,
+            storage=storage,
         )
     )
-    storage = storage or get_object_storage()
 
     def refused(exc: ConnectorAuthError) -> dict[str, int]:
         # Retrying will not help: the connection needs an admin. What was
@@ -220,6 +263,13 @@ def sync_connection(
     for item in changes.changed:
         seen.add(item.external_id)
         try:
+            known = _same_revision(db, connection, item)
+            if known is not None:
+                with db.begin_nested():
+                    outcome = _refresh_item(db, document=known, item=item)
+                summary[outcome] += 1
+                continue
+
             text = connector.fetch_text(item)
             with db.begin_nested():
                 outcome = _sync_item(

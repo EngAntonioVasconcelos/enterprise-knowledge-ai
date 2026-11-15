@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 
 from app.db.context import set_worker_context
 from app.models.background_job import BackgroundJob
-# Job handlers register themselves when their module is imported.
+# Job handlers and connectors register themselves when imported.
+import app.connectors.file_upload  # noqa: F401
 import app.services.sync_service  # noqa: F401
 from app.services.job_queue import (
     UnknownJobKindError,

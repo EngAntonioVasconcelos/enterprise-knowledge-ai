@@ -59,6 +59,10 @@ class ConnectionContext:
     provider: str
     settings: dict
     credentials: dict | None
+    # For connectors whose source is the platform itself (uploads): the
+    # worker session, scoped to the job's organization, and storage.
+    db: object | None = None
+    storage: object | None = None
 
 
 ConnectorFactory = Callable[[ConnectionContext], SourceConnector]
