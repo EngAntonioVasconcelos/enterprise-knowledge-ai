@@ -15,7 +15,14 @@ Two searches, then one list:
   language is not evidence: with equal votes such passages pushed down the
   right answer found by meaning (AI-1: hybrid MRR 0.79 against 0.87 for
   meaning alone, 0.27 against 0.88 for English questions on Portuguese
-  documents). Paraphrases are left to search by meaning.
+  documents). Paraphrases are left to search by meaning. A passage with
+  a code or number of the question ("WS-09") counts double: an exact
+  identifier is the strongest evidence there is (AI-2b: with 400 similar
+  documents, meaning alone pushed "formulario WS-09" out of the top 10).
+- Near copies (the same policy for Lisboa, Porto, Braga...) are moved
+  below the distinct passages: the best copy keeps its place and says how
+  many similar passages follow; the others come after the distinct
+  results instead of filling the first page (AI-2b).
 
 Optionally (rerank=True) a cross-encoder reads the question next to each of
 the first candidates and puts them in a new order (app/services/reranking).
@@ -54,7 +61,9 @@ logger = logging.getLogger("eka.search")
 MAX_QUERY_CHARS = 500
 MAX_RESULTS = 50
 SNIPPET_CHARS = 320
-CANDIDATES = 40
+# How many passages each method proposes to the fusion. More than the page
+# shown, so that near copies can be moved down without losing answers.
+CANDIDATES = 100
 RRF_K = 60
 MODES = ("hybrid", "keyword", "semantic")
 FUSIONS = ("weighted", "rrf")
@@ -63,6 +72,10 @@ FUSIONS = ("weighted", "rrf")
 # or number of the question ("WS-09", "4400") always does: codes are
 # precise evidence.
 MIN_COVERAGE = 0.5
+CODE_VOTE = 2.0
+# Passages that share at least this share of their words (numbers ignored)
+# are near copies of each other.
+NEAR_COPY = 0.6
 
 # Words that carry no meaning on their own, in Portuguese and English. A
 # question in natural language ("quantos dias de ferias tenho por ano?")
@@ -120,6 +133,10 @@ class SearchHit:
     # Share of the question's meaningful words this passage contains (search
     # by words only; None when not measured).
     coverage: float | None = None
+    # The passage contains a code or number of the question.
+    code_match: bool = False
+    # How many near copies of this passage were moved below the others.
+    similar: int = 0
     rerank_score: float | None = None
     # The full passage, for the reranker and the answer step; not returned
     # by the API (the snippet is).
@@ -191,11 +208,7 @@ def _snippet(content: str) -> str:
 def _hits(rows, terms: list[str] | None = None) -> list[SearchHit]:
     hits = []
     for row in rows:
-        coverage = None
-        if terms:
-            coverage = row.matched / len(terms)
-            if row.codes:
-                coverage = max(coverage, MIN_COVERAGE)
+        coverage = row.matched / len(terms) if terms else None
         hits.append(
             SearchHit(
                 chunk_id=row[0],
@@ -208,6 +221,7 @@ def _hits(rows, terms: list[str] | None = None) -> list[SearchHit]:
                 end_char=row[7],
                 score=float(row[8]),
                 coverage=coverage,
+                code_match=bool(terms) and bool(row.codes),
                 content=row[5],
             )
         )
@@ -264,6 +278,8 @@ def _vote(hit: SearchHit, fusion: str) -> float:
     """How much a passage found by words counts (1 = a full vote)."""
     if fusion == "rrf" or hit.coverage is None:
         return 1.0
+    if hit.code_match:
+        return CODE_VOTE
     return hit.coverage if hit.coverage >= MIN_COVERAGE else 0.0
 
 
@@ -288,7 +304,11 @@ def fuse(
                 continue
             scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + weight / (RRF_K + rank)
             current = merged.get(hit.chunk_id, hit)
-            extra = {"coverage": hit.coverage} if field == "keyword_rank" else {}
+            extra = (
+                {"coverage": hit.coverage, "code_match": hit.code_match}
+                if field == "keyword_rank"
+                else {}
+            )
             merged[hit.chunk_id] = replace(current, **{field: rank}, **extra)
     # Ties are common (two passages each found by one method at the same
     # rank). Break them the same way every time, so a question always
@@ -299,7 +319,46 @@ def fuse(
         return (-scores[chunk_id], min(ranks), hit.title, hit.start_char, str(chunk_id))
 
     ordered = sorted(merged, key=order)
-    return [replace(merged[c], score=round(scores[c], 6)) for c in ordered[:limit]]
+    fused = [replace(merged[c], score=round(scores[c], 6)) for c in ordered]
+    if fusion == "weighted":
+        fused = move_near_copies_down(fused)
+    return fused[:limit]
+
+
+def _word_set(hit: SearchHit) -> frozenset[str]:
+    return frozenset(w for w in re.findall(r"[a-z]+", _plain(hit.content or hit.snippet)) if len(w) > 2)
+
+
+def move_near_copies_down(hits: list[SearchHit]) -> list[SearchHit]:
+    """Distinct passages first, in order; near copies after them.
+
+    Two passages are near copies when they share at least NEAR_COPY of
+    their words (Jaccard), numbers ignored: per-site versions of one
+    policy, copies of a file. The first (best) of each group keeps its
+    place and counts the others in "similar". Nothing is removed: a person
+    in Porto can still reach the Porto version.
+    """
+    kept: list[tuple[SearchHit, frozenset[str]]] = []
+    copies: list[SearchHit] = []
+    counts: dict[uuid.UUID, int] = {}
+    for hit in hits:
+        words = _word_set(hit)
+        original = next(
+            (
+                first
+                for first, first_words in kept
+                if words
+                and first_words
+                and len(words & first_words) / len(words | first_words) >= NEAR_COPY
+            ),
+            None,
+        )
+        if original is None:
+            kept.append((hit, words))
+        else:
+            copies.append(hit)
+            counts[original.chunk_id] = counts.get(original.chunk_id, 0) + 1
+    return [replace(hit, similar=counts.get(hit.chunk_id, 0)) for hit, _ in kept] + copies
 
 
 def search(

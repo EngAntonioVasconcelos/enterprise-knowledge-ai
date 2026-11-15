@@ -13,6 +13,7 @@ from app.services.search_service import (
     SearchHit,
     SearchResult,
     fuse,
+    move_near_copies_down,
     rerank_hits,
     rerank_text,
 )
@@ -117,14 +118,24 @@ def test_weighted_fusion_ignores_passages_that_share_too_little():
     assert weighted[-1].title == "junk" and weighted[-1].keyword_rank is None
 
 
-def test_weighted_fusion_keeps_strong_word_and_code_matches():
-    strong = _hit("strong", coverage=1.0)
-    code = _hit("code", coverage=0.5)
-    fused = fuse([strong, code], [_hit("meaning"), code], 10, "weighted")
+def test_weighted_fusion_keeps_strong_word_matches():
+    strong = _hit("strong", "words alpha", coverage=1.0)
+    fused = fuse([strong], [_hit("meaning", "other text")], 10, "weighted")
 
-    assert fused[0].title == "code"
-    assert fused[0].coverage == 0.5
-    assert {h.title for h in fused} == {"code", "strong", "meaning"}
+    assert {h.title for h in fused} == {"strong", "meaning"}
+    assert next(h for h in fused if h.title == "strong").coverage == 1.0
+
+
+def test_a_passage_with_the_questions_code_counts_double():
+    code = _hit("code", "form WS-09 for incidents", coverage=0.5, code_match=True)
+    topics = ["holidays planning", "parking rules", "canteen menu", "printer setup", "fleet fuel"]
+    semantic = [_hit(f"s{i}", topic) for i, topic in enumerate(topics)]
+
+    fused = fuse([code], semantic, 10, "weighted")
+
+    assert fused[0].title == "code" and fused[0].code_match
+    plain = replace(code, code_match=False)
+    assert fuse([plain], semantic, 10, "weighted")[-1].title == "code"
 
 
 def test_an_unknown_fusion_is_refused():
@@ -168,3 +179,16 @@ def test_search_asks_for_enough_candidates_and_uses_the_settings(provider, monke
         rerank_candidates=8,
     )
     assert asked["limit"] == 8
+
+
+def test_near_copies_move_below_the_distinct_passages():
+    lisboa = _hit("Lisboa", "Parking rules: the car park has 400 places and opens at 7 for staff")
+    porto = _hit("Porto", "Parking rules: the car park has 250 places and opens at 7 for staff")
+    answer = _hit("answer", "Forklift licence is required to operate forklifts in the depot")
+    braga = _hit("Braga", "Parking rules: the car park has 90 places and opens at 7 for staff")
+
+    ordered = move_near_copies_down([lisboa, porto, answer, braga])
+
+    assert [h.title for h in ordered] == ["Lisboa", "answer", "Porto", "Braga"]
+    assert ordered[0].similar == 2 and ordered[1].similar == 0
+    assert fuse([lisboa, porto, answer], [], 10, "rrf")[1].title == "Porto"

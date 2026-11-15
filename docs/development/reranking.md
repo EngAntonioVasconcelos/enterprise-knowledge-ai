@@ -112,3 +112,51 @@ setting whose MRR is within 0.02 of the best reranker setting, with leaks
 0, codes 1.00, average up to 1.5 s and 95th percentile up to 2.5 s. If no
 setting fits the time, the reranker stays off and the answer step relies
 on the weighted hybrid plus the question translation (AJ-2).
+
+## Measured (15 November 2026, large library, about 880 passages)
+
+Recall@5 (MRR): words 0.46 (0.45), meaning 0.70 (0.67), hybrid 0.70
+(0.67), rerank-20 0.72 (0.72), rerank-10 0.70 (0.70), rerank-20-short 0.72
+(0.72), rerank-10-short 0.70 (0.70); leaks 0. Average / p95 time: hybrid
+56 / 76 ms; rerank-20 2.56 / 2.93 s; rerank-10 1.74 / 1.93 s;
+rerank-10-short 1.47 / 1.72 s. try_reranker on the same CPU: 20 x 1200
+characters 5.33 s, 20 x 600 2.84 s, 10 x 1200 2.56 s, 10 x 600 1.43 s.
+
+What it showed:
+- The larger library cost a lot (hybrid 0.87 to 0.70). Almost every miss
+  was outside the first 10 results (rank -): the reranker cannot reorder
+  an answer it never receives. Its gain was +0.03 MRR, below the +0.05
+  required, and codes fell to 0.83 in every hybrid variant.
+- Decision by the rule: the reranker stays off by default (API rerank is
+  false). Within the time budget only rerank-10-short fits, so the
+  defaults are RERANK_CANDIDATES=10 and RERANK_MAX_CHARS=600 for when it is
+  turned on. It is measured again after the first stage improves.
+- The problem is the first stage (recall). "formulario WS-09" was first by
+  words but out of the top 10 in hybrid: its word vote (0.5, half of the
+  meaningful words) lost to ten passages found by meaning. And the 400
+  distractors include about 20 near copies of each subject (one per site),
+  which can fill the first page on their own.
+
+## AI-2c: fixing the first stage
+
+- A passage with a code or number of the question counts double in the
+  fusion (CODE_VOTE = 2.0).
+- Near copies (passages sharing at least 60% of their words, numbers
+  ignored) are moved below the distinct passages. The best copy keeps its
+  place and reports `similar` (how many follow); nothing is removed, so
+  the Porto version of a policy is still reachable.
+- Each method proposes 100 candidates instead of 40, so moving copies down
+  does not lose answers.
+- Misses in the report now show the first 3 titles returned, to see what
+  pushed the answer out.
+
+Honest note: the near copies in the test come from our own generator (20
+per subject is more than most companies have). Moving copies down is
+still a product feature: per-site versions and duplicated files are common
+and a first page of ten copies helps nobody.
+
+Rule fixed before measuring: keep AI-2c if, on the large library, hybrid
+MRR rises, codes return to 1.00, leaks stay 0 and hybrid stays under 150
+ms on average; and on the small library no group loses more than one
+question. Next for cross-language (pt-to-en 0.17 on the large library):
+question translation in AJ-2, and measuring multilingual-e5-base.

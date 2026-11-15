@@ -206,7 +206,13 @@ def evaluate(db, world, dataset: dict, modes=MODES) -> dict:
                 stats["r5"] += 1.0 if rank is not None and rank <= 5 else 0.0
                 stats["mrr"] += 1.0 / rank if rank else 0.0
             if rank is None or rank > 5:
-                misses.append({"query": question["query"], "rank": rank})
+                misses.append(
+                    {
+                        "query": question["query"],
+                        "rank": rank,
+                        "first": [hit.title for hit in result.hits[:3]],
+                    }
+                )
 
         if not available:
             results[mode] = {"available": False}

@@ -18,6 +18,10 @@ class SearchHitResponse(BaseModel):
     semantic_rank: int | None = None
     # Share of the question's meaningful words in the passage (0 to 1).
     coverage: float | None = None
+    # The passage contains a code or number of the question.
+    code_match: bool = False
+    # Near copies of this passage (other sites, file copies) shown further down.
+    similar: int = 0
     # The reranker's score when the results were reranked (higher is better).
     rerank_score: float | None = None
 

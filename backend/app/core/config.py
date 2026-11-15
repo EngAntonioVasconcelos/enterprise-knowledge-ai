@@ -76,9 +76,10 @@ class Settings(BaseSettings):
     # overlap is for tests; none turns it off.
     RERANK_PROVIDER: str = "fastembed"
     # How many of the first results it reads, and how many characters of
-    # each (0 = the whole passage). Chosen by measurement (AI-2b).
+    # each (0 = the whole passage). Measured in AI-2b: 10 x 600 is the
+    # only setting within 1.5 s on a laptop CPU. Off unless rerank=true.
     RERANK_CANDIDATES: int = 10
-    RERANK_MAX_CHARS: int = 800
+    RERANK_MAX_CHARS: int = 600
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

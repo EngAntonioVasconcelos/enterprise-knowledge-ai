@@ -109,6 +109,7 @@ def main() -> int:
             print(f"\nMissed by {mode} (not in the first 5):")
             for miss in result["misses"]:
                 print(f"  rank {miss['rank'] or '-':>2}  {miss['query']}")
+                print(f"           first: {' | '.join(miss['first'])}")
 
     out = Path("var/eval")
     out.mkdir(parents=True, exist_ok=True)
