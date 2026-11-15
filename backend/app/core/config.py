@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     # development only.
     DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS: bool = False
 
+    # Embeddings (docs/development/embeddings.md): fastembed runs
+    # intfloat/multilingual-e5-small locally; hashing is for tests;
+    # none turns search by meaning off.
+    EMBEDDING_PROVIDER: str = "fastembed"
+    EMBEDDING_CACHE_DIR: str = "var/models"
+
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",

@@ -41,6 +41,7 @@ from app.services.connection_scope import (
     file_types_fingerprint,
 )
 from app.services.credential_service import load_credentials
+from app.services.embedding_service import request_embeddings
 from app.services.indexing_service import index_version
 from app.services.document_permission_service import (
     replace_document_permissions,
@@ -152,6 +153,8 @@ def _sync_item(
         documents.activate_version(db, document=document, version=version)
         # The new version becomes searchable in the same transaction.
         index_version(db, version=version, text=normalized)
+        # Vectors are slow: a separate job computes them.
+        request_embeddings(db, version=version)
         outcome = "new_version"
     elif document.status == "removed":
         # Back at the source with the same content.

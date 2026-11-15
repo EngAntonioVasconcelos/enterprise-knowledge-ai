@@ -21,10 +21,14 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Database-only objects that the models leave out on purpose: the
-# full-text column PostgreSQL generates for each chunk, and its index.
+# full-text column PostgreSQL generates for each chunk, its index, and
+# the vector table (pgvector types are used through SQL only).
 DATABASE_ONLY = {
     ("column", "content_tsv"),
     ("index", "ix_document_chunks_content_tsv"),
+    ("table", "chunk_embeddings"),
+    ("index", "ix_chunk_embeddings_document_id"),
+    ("index", "ix_chunk_embeddings_e5_small_hnsw"),
 }
 
 

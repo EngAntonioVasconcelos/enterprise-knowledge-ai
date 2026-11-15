@@ -18,6 +18,7 @@ from app.models.background_job import BackgroundJob
 import app.connectors.file_upload  # noqa: F401
 import app.connectors.google_drive  # noqa: F401
 import app.services.catalog_service  # noqa: F401
+import app.services.embedding_service  # noqa: F401
 import app.services.sync_service  # noqa: F401
 from app.services.job_queue import (
     UnknownJobKindError,
