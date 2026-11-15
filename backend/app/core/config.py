@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # (docs/development/background-jobs.md).
     WORKER_DATABASE_URL: str | None = None
 
+    # Connection credentials (ADR-007). The API needs only the public
+    # key; the private key belongs to the worker.
+    CREDENTIALS_MASTER_PUBLIC_KEY: str | None = None
+    CREDENTIALS_MASTER_PRIVATE_KEY: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",

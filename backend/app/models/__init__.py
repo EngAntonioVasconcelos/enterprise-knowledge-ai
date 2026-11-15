@@ -1,6 +1,7 @@
 ﻿from app.models.audit_event import AuditEvent
 from app.models.authentication_identity import AuthenticationIdentity
 from app.models.background_job import BackgroundJob
+from app.models.credential import ConnectionCredential, OrganizationKey
 from app.models.data_connection import DataConnection
 from app.models.document import Document
 from app.models.email_outbox import EmailOutbox
@@ -24,4 +25,6 @@ __all__ = [
     "EmailOutbox",
     "BackgroundJob",
     "DataConnection",
+    "OrganizationKey",
+    "ConnectionCredential",
 ]

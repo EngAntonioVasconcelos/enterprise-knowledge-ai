@@ -1,12 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.authorization import require_roles
 from app.core.errors import DomainError
 from app.db.session import get_db
 from app.models.membership import OrganizationMembership
+from app.schemas.credential import CredentialsStatus, CredentialsUpdate
 from app.schemas.connection import (
     ConnectionCreate,
     ConnectionResponse,
@@ -18,6 +19,10 @@ from app.services.connection_service import (
     get_connection,
     list_connections,
     update_connection,
+)
+from app.services.credential_service import (
+    credentials_status,
+    store_credentials,
 )
 
 
@@ -133,3 +138,48 @@ def disconnect(
 
     db.refresh(connection)
     return connection
+
+
+
+@router.put(
+    "/{connection_id}/credentials",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+def put_credentials(
+    organization_id: uuid.UUID,
+    connection_id: uuid.UUID,
+    data: CredentialsUpdate,
+    manager: OrganizationMembership = Depends(MANAGERS),
+    db: Session = Depends(get_db),
+):
+    """Seal and store the secret; nothing about it is ever returned."""
+    try:
+        store_credentials(
+            db,
+            organization_id=organization_id,
+            connection_id=connection_id,
+            secret=data.secret,
+        )
+        db.commit()
+    except DomainError:
+        db.rollback()
+        raise
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/{connection_id}/credentials",
+    response_model=CredentialsStatus,
+)
+def get_credentials_status(
+    organization_id: uuid.UUID,
+    connection_id: uuid.UUID,
+    manager: OrganizationMembership = Depends(MANAGERS),
+    db: Session = Depends(get_db),
+):
+    return credentials_status(
+        db, organization_id=organization_id, connection_id=connection_id
+    )
+
