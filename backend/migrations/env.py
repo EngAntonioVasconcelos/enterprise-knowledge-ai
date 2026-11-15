@@ -1,4 +1,5 @@
-﻿from logging.config import fileConfig
+﻿import warnings
+from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -13,6 +14,11 @@ import app.models  # noqa: F401
 
 
 config = context.config
+
+# SQLAlchemy does not know pgvector's 'vector' type when it reads the
+# database. Those columns are excluded below (DATABASE_ONLY), so the
+# warning is noise; hide only that one message.
+warnings.filterwarnings("ignore", message="Did not recognize type 'vector'")
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

@@ -1,0 +1,444 @@
+{
+ "name": "Atlantico Logistica retrieval set",
+ "version": 1,
+ "documents": {
+  "ferias": {
+   "title": "Manual do Colaborador - F\u00e9rias e Aus\u00eancias",
+   "lang": "pt",
+   "restricted": false,
+   "text": "1. F\u00e9rias\n\nCada colaborador tem direito a 25 dias \u00fateis de f\u00e9rias por ano civil. As f\u00e9rias s\u00e3o marcadas no portal interno at\u00e9 15 de abril de cada ano e aprovadas pela chefia direta.\n\n1.1 Acumula\u00e7\u00e3o\n\nNo m\u00e1ximo 5 dias de f\u00e9rias n\u00e3o gozados podem passar para o ano seguinte, e devem ser gozados at\u00e9 31 de mar\u00e7o.\n\n2. Faltas por doen\u00e7a\n\nA aus\u00eancia por doen\u00e7a deve ser comunicada \u00e0 chefia no pr\u00f3prio dia. A partir do terceiro dia \u00e9 obrigat\u00f3rio entregar o certificado de incapacidade tempor\u00e1ria.\n"
+  },
+  "expenses": {
+   "title": "Travel and Expense Policy",
+   "lang": "en",
+   "restricted": false,
+   "text": "1. Daily allowance\n\nEmployees travelling on company business receive a per diem of 50 euros per day for meals. Hotel costs are reimbursed up to 120 euros per night.\n\n2. Claims\n\nExpense claims are submitted with form EXP-22 within 30 days of the trip, with all original receipts attached. Late claims are not reimbursed.\n\n3. Using your own car\n\nWhen an employee uses a private car for work, mileage is paid at 0.40 euros per kilometre.\n"
+  },
+  "onboarding": {
+   "title": "Guia de Integra\u00e7\u00e3o de Novos Colaboradores",
+   "lang": "pt",
+   "restricted": false,
+   "text": "1. Primeiro dia\n\nNo primeiro dia o novo colaborador recebe o computador, o cart\u00e3o de acesso e as credenciais de rede. \u00c9 apresentado ao seu mentor, que o acompanha durante os primeiros tr\u00eas meses.\n\n2. Forma\u00e7\u00e3o obrigat\u00f3ria\n\nA forma\u00e7\u00e3o de seguran\u00e7a e sa\u00fade no trabalho \u00e9 obrigat\u00f3ria e deve ser conclu\u00edda nos primeiros cinco dias de trabalho.\n"
+  },
+  "security": {
+   "title": "IT Security Standard",
+   "lang": "en",
+   "restricted": false,
+   "text": "1. Passwords\n\nPasswords must have at least 14 characters and must not be reused across systems. Multi-factor authentication is mandatory for email and remote access.\n\n2. Phishing\n\nSuspicious emails must be reported to the Security Desk on extension 4400 before clicking any link or opening attachments.\n\n3. Laptops\n\nEvery company laptop uses full-disk encryption. A lost or stolen laptop must be reported within 2 hours.\n"
+  },
+  "remote": {
+   "title": "Regulamento de Teletrabalho",
+   "lang": "pt",
+   "restricted": false,
+   "text": "1. Regime\n\nOs colaboradores podem trabalhar a partir de casa at\u00e9 tr\u00eas dias por semana, desde que a fun\u00e7\u00e3o o permita e a chefia concorde.\n\n2. Compensa\u00e7\u00e3o\n\nA empresa paga um subs\u00eddio mensal de 30 euros para despesas de internet e eletricidade. O monitor e a cadeira podem ser requisitados ao armaz\u00e9m de equipamentos.\n"
+  },
+  "warehouse": {
+   "title": "Warehouse Safety Rules",
+   "lang": "en",
+   "restricted": false,
+   "text": "1. Forklifts\n\nOnly staff with a valid forklift licence may operate forklifts. The licence is renewed every five years.\n\n2. Protective equipment\n\nHigh-visibility vests and safety boots are mandatory in all loading areas.\n\n3. Racks and incidents\n\nThe maximum load per rack bay is 1200 kilograms. Any incident or near miss is reported with form WS-09 within 24 hours.\n"
+  },
+  "fleet": {
+   "title": "Gest\u00e3o da Frota de Cami\u00f5es",
+   "lang": "pt",
+   "restricted": false,
+   "text": "1. Manuten\u00e7\u00e3o\n\nCada cami\u00e3o faz uma revis\u00e3o completa a cada 40 000 quil\u00f3metros ou uma vez por ano, o que acontecer primeiro.\n\n2. Avarias\n\nUma avaria em viagem \u00e9 comunicada \u00e0 central de frota indicando o c\u00f3digo de avaria do painel, por exemplo CV-311 para falhas no sistema de travagem.\n\n3. Tac\u00f3grafo\n\nOs dados do tac\u00f3grafo digital s\u00e3o descarregados todas as semanas e guardados durante um ano.\n"
+  },
+  "returns": {
+   "title": "Customer Returns Procedure",
+   "lang": "en",
+   "restricted": false,
+   "text": "1. Return window\n\nCustomers may return goods within 14 days of delivery. Every return needs a return authorisation number issued by customer service.\n\n2. Refunds\n\nApproved refunds are paid within 10 business days to the original payment method.\n"
+  },
+  "procurement": {
+   "title": "Pol\u00edtica de Compras",
+   "lang": "pt",
+   "restricted": false,
+   "text": "1. Or\u00e7amentos\n\nQualquer compra acima de 5 000 euros exige pelo menos tr\u00eas or\u00e7amentos de fornecedores diferentes.\n\n2. Aprova\u00e7\u00e3o\n\nAs compras acima de 20 000 euros s\u00e3o aprovadas pelo diretor financeiro antes da encomenda.\n"
+  },
+  "conduct": {
+   "title": "Code of Conduct",
+   "lang": "en",
+   "restricted": false,
+   "text": "1. Gifts\n\nEmployees may accept gifts from suppliers only up to a value of 75 euros per year. Anything above must be declined or declared.\n\n2. Conflicts of interest\n\nAny personal or family interest in a supplier or customer must be disclosed to the compliance officer.\n\n3. Speaking up\n\nConcerns about misconduct can be raised anonymously through the whistleblowing channel.\n"
+  },
+  "training": {
+   "title": "Plano de Forma\u00e7\u00e3o Anual",
+   "lang": "pt",
+   "restricted": false,
+   "text": "1. Or\u00e7amento\n\nCada colaborador disp\u00f5e de um or\u00e7amento de forma\u00e7\u00e3o de 600 euros por ano para cursos externos.\n\n2. Pedidos\n\nOs pedidos de forma\u00e7\u00e3o s\u00e3o enviados aos Recursos Humanos at\u00e9 31 de janeiro, com a descri\u00e7\u00e3o do curso e o seu custo.\n"
+  },
+  "health": {
+   "title": "Health Insurance Plan",
+   "lang": "en",
+   "restricted": false,
+   "text": "1. Coverage\n\nThe company health plan covers 80 percent of dental treatment and 90 percent of hospital costs.\n\n2. Family\n\nSpouses and children up to 25 years old can be added to the plan at a reduced premium.\n"
+  },
+  "salaries": {
+   "title": "Tabela Salarial 2026 (confidencial)",
+   "lang": "pt",
+   "restricted": true,
+   "text": "1. Bandas\n\nA banda salarial E3 situa-se entre 2 800 e 3 400 euros brutos mensais. O centro de custo dos aumentos \u00e9 o CC-4471.\n"
+  },
+  "layoffs": {
+   "title": "Depot Restructuring Plan (confidential)",
+   "lang": "en",
+   "restricted": true,
+   "text": "1. Project Gaivota\n\nThe Porto depot will be restructured in the second quarter, affecting 12 positions. The project is confidential until the works council is informed.\n"
+  }
+ },
+ "questions": [
+  {
+   "query": "quantos dias \u00fateis de f\u00e9rias tenho por ano",
+   "lang": "pt",
+   "category": "pt-words",
+   "expect_doc": "ferias",
+   "expect_phrase": "25 dias \u00fateis",
+   "expect_absent": null
+  },
+  {
+   "query": "at\u00e9 quando posso marcar as f\u00e9rias no portal",
+   "lang": "pt",
+   "category": "pt-words",
+   "expect_doc": "ferias",
+   "expect_phrase": "15 de abril",
+   "expect_absent": null
+  },
+  {
+   "query": "or\u00e7amento de forma\u00e7\u00e3o por colaborador",
+   "lang": "pt",
+   "category": "pt-words",
+   "expect_doc": "training",
+   "expect_phrase": "600 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "subs\u00eddio mensal de teletrabalho",
+   "lang": "pt",
+   "category": "pt-words",
+   "expect_doc": "remote",
+   "expect_phrase": "30 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "revis\u00e3o dos cami\u00f5es quil\u00f3metros",
+   "lang": "pt",
+   "category": "pt-words",
+   "expect_doc": "fleet",
+   "expect_phrase": "40 000",
+   "expect_absent": null
+  },
+  {
+   "query": "compras acima de 5 000 euros or\u00e7amentos",
+   "lang": "pt",
+   "category": "pt-words",
+   "expect_doc": "procurement",
+   "expect_phrase": "tr\u00eas or\u00e7amentos",
+   "expect_absent": null
+  },
+  {
+   "query": "posso guardar dias de descanso que n\u00e3o usei para o pr\u00f3ximo ano?",
+   "lang": "pt",
+   "category": "pt-meaning",
+   "expect_doc": "ferias",
+   "expect_phrase": "5 dias",
+   "expect_absent": null
+  },
+  {
+   "query": "quanto tempo tenho para entregar o atestado m\u00e9dico quando fico doente?",
+   "lang": "pt",
+   "category": "pt-meaning",
+   "expect_doc": "ferias",
+   "expect_phrase": "terceiro dia",
+   "expect_absent": null
+  },
+  {
+   "query": "quem me acompanha quando entro na empresa?",
+   "lang": "pt",
+   "category": "pt-meaning",
+   "expect_doc": "onboarding",
+   "expect_phrase": "mentor",
+   "expect_absent": null
+  },
+  {
+   "query": "quantos dias posso trabalhar em casa?",
+   "lang": "pt",
+   "category": "pt-meaning",
+   "expect_doc": "remote",
+   "expect_phrase": "tr\u00eas dias por semana",
+   "expect_absent": null
+  },
+  {
+   "query": "quem tem de autorizar uma compra muito grande?",
+   "lang": "pt",
+   "category": "pt-meaning",
+   "expect_doc": "procurement",
+   "expect_phrase": "diretor financeiro",
+   "expect_absent": null
+  },
+  {
+   "query": "durante quanto tempo guardamos os registos de condu\u00e7\u00e3o?",
+   "lang": "pt",
+   "category": "pt-meaning",
+   "expect_doc": "fleet",
+   "expect_phrase": "um ano",
+   "expect_absent": null
+  },
+  {
+   "query": "qual \u00e9 o prazo para pedir um curso externo?",
+   "lang": "pt",
+   "category": "pt-meaning",
+   "expect_doc": "training",
+   "expect_phrase": "31 de janeiro",
+   "expect_absent": null
+  },
+  {
+   "query": "per diem for meals when travelling",
+   "lang": "en",
+   "category": "en-words",
+   "expect_doc": "expenses",
+   "expect_phrase": "50 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "maximum load per rack bay",
+   "lang": "en",
+   "category": "en-words",
+   "expect_doc": "warehouse",
+   "expect_phrase": "1200 kilograms",
+   "expect_absent": null
+  },
+  {
+   "query": "minimum password length",
+   "lang": "en",
+   "category": "en-words",
+   "expect_doc": "security",
+   "expect_phrase": "14 characters",
+   "expect_absent": null
+  },
+  {
+   "query": "refund paid within business days",
+   "lang": "en",
+   "category": "en-words",
+   "expect_doc": "returns",
+   "expect_phrase": "10 business days",
+   "expect_absent": null
+  },
+  {
+   "query": "dental treatment coverage",
+   "lang": "en",
+   "category": "en-words",
+   "expect_doc": "health",
+   "expect_phrase": "80 percent",
+   "expect_absent": null
+  },
+  {
+   "query": "gifts from suppliers value limit",
+   "lang": "en",
+   "category": "en-words",
+   "expect_doc": "conduct",
+   "expect_phrase": "75 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "how much do I get paid for driving my own vehicle for work?",
+   "lang": "en",
+   "category": "en-meaning",
+   "expect_doc": "expenses",
+   "expect_phrase": "0.40 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "what should I do if I receive a strange email asking me to click something?",
+   "lang": "en",
+   "category": "en-meaning",
+   "expect_doc": "security",
+   "expect_phrase": "extension 4400",
+   "expect_absent": null
+  },
+  {
+   "query": "can my husband join the medical plan?",
+   "lang": "en",
+   "category": "en-meaning",
+   "expect_doc": "health",
+   "expect_phrase": "Spouses",
+   "expect_absent": null
+  },
+  {
+   "query": "how long can a client wait before sending a product back?",
+   "lang": "en",
+   "category": "en-meaning",
+   "expect_doc": "returns",
+   "expect_phrase": "14 days",
+   "expect_absent": null
+  },
+  {
+   "query": "I lost my work computer, how quickly must I tell someone?",
+   "lang": "en",
+   "category": "en-meaning",
+   "expect_doc": "security",
+   "expect_phrase": "2 hours",
+   "expect_absent": null
+  },
+  {
+   "query": "what clothing is required where trucks are loaded?",
+   "lang": "en",
+   "category": "en-meaning",
+   "expect_doc": "warehouse",
+   "expect_phrase": "High-visibility",
+   "expect_absent": null
+  },
+  {
+   "query": "how can I report misconduct without giving my name?",
+   "lang": "en",
+   "category": "en-meaning",
+   "expect_doc": "conduct",
+   "expect_phrase": "anonymously",
+   "expect_absent": null
+  },
+  {
+   "query": "how many vacation days do I get each year?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "ferias",
+   "expect_phrase": "25 dias \u00fateis",
+   "expect_absent": null
+  },
+  {
+   "query": "how many days a week can I work from home?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "remote",
+   "expect_phrase": "tr\u00eas dias por semana",
+   "expect_absent": null
+  },
+  {
+   "query": "what is the annual training budget per employee?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "training",
+   "expect_phrase": "600 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "who approves purchases above 20000 euros?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "procurement",
+   "expect_phrase": "diretor financeiro",
+   "expect_absent": null
+  },
+  {
+   "query": "qual \u00e9 o limite do hotel por noite em viagem?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "expenses",
+   "expect_phrase": "120 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "prazo para entregar as despesas de uma viagem",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "expenses",
+   "expect_phrase": "30 days",
+   "expect_absent": null
+  },
+  {
+   "query": "quanto cobre o seguro de sa\u00fade no dentista?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "health",
+   "expect_phrase": "80 percent",
+   "expect_absent": null
+  },
+  {
+   "query": "quem pode conduzir empilhadores?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "warehouse",
+   "expect_phrase": "forklift licence",
+   "expect_absent": null
+  },
+  {
+   "query": "at\u00e9 que valor posso aceitar presentes de fornecedores?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "conduct",
+   "expect_phrase": "75 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "EXP-22",
+   "lang": "en",
+   "category": "exact-code",
+   "expect_doc": "expenses",
+   "expect_phrase": "EXP-22",
+   "expect_absent": null
+  },
+  {
+   "query": "formul\u00e1rio WS-09",
+   "lang": "pt",
+   "category": "exact-code",
+   "expect_doc": "warehouse",
+   "expect_phrase": "WS-09",
+   "expect_absent": null
+  },
+  {
+   "query": "c\u00f3digo de avaria CV-311",
+   "lang": "pt",
+   "category": "exact-code",
+   "expect_doc": "fleet",
+   "expect_phrase": "CV-311",
+   "expect_absent": null
+  },
+  {
+   "query": "extension 4400",
+   "lang": "en",
+   "category": "exact-code",
+   "expect_doc": "security",
+   "expect_phrase": "4400",
+   "expect_absent": null
+  },
+  {
+   "query": "banda salarial E3",
+   "lang": "pt",
+   "category": "permission",
+   "expect_doc": null,
+   "expect_phrase": null,
+   "expect_absent": [
+    "salaries"
+   ]
+  },
+  {
+   "query": "centro de custo CC-4471",
+   "lang": "pt",
+   "category": "permission",
+   "expect_doc": null,
+   "expect_phrase": null,
+   "expect_absent": [
+    "salaries"
+   ]
+  },
+  {
+   "query": "project Gaivota Porto depot positions",
+   "lang": "en",
+   "category": "permission",
+   "expect_doc": null,
+   "expect_phrase": null,
+   "expect_absent": [
+    "layoffs"
+   ]
+  },
+  {
+   "query": "vai haver despedimentos no armaz\u00e9m do Porto?",
+   "lang": "pt",
+   "category": "permission",
+   "expect_doc": null,
+   "expect_phrase": null,
+   "expect_absent": [
+    "layoffs"
+   ]
+  }
+ ]
+}

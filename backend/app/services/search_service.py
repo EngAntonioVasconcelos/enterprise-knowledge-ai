@@ -19,6 +19,8 @@ falls back to words and says so in the result.
 """
 
 import logging
+import re
+import unicodedata
 import uuid
 from dataclasses import dataclass, replace
 
@@ -41,6 +43,41 @@ SNIPPET_CHARS = 320
 CANDIDATES = 40
 RRF_K = 60
 MODES = ("hybrid", "keyword", "semantic")
+
+# Words that carry no meaning on their own, in Portuguese and English. A
+# question in natural language ("quantos dias de ferias tenho por ano?")
+# is searched as "any of the remaining words", ranked by how many match and
+# how close together they are; requiring every word would find nothing.
+STOPWORDS = frozenset("""
+a o as os um uma uns umas de do da dos das em no na nos nas por para pelo pela
+com sem e ou que se ao aos como qual quais quanto quantos quanta quantas quando
+onde quem porque eu tu ele ela nos vos eles elas me te lhe meu minha meus minhas
+seu sua seus suas tenho tem temos posso pode podem ser sao esta estao isso este
+essa esse mais muito muita ja ate the an of to in on at for by with from and or
+is are was were be been do does did can could should would will how what when
+where who whom which why my your our their i you we they it its this that these
+those me us there here if about into than then so not no yes get got have has
+""".split())
+TOKEN = re.compile(r"[0-9a-z]+(?:[-./][0-9a-z]+)*")
+ADVANCED = re.compile(r'"|(^|\s)-\S|\sor\s', re.IGNORECASE)
+
+
+def _plain(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value.lower())
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
+def keyword_query(query: str) -> str:
+    """The text given to websearch_to_tsquery.
+
+    Advanced syntax ("exact phrase", -exclude, or) is kept as typed;
+    otherwise the meaningful words are joined with "or".
+    """
+    if ADVANCED.search(query):
+        return query
+    tokens = TOKEN.findall(_plain(query))
+    meaningful = [t for t in tokens if t not in STOPWORDS] or tokens
+    return " or ".join(dict.fromkeys(meaningful)) or query
 
 
 @dataclass(frozen=True)
@@ -82,7 +119,7 @@ KEYWORD_SQL = text(f"""
     ) AS q
     WHERE c.organization_id = :organization_id
       AND c.content_tsv @@ q.query
-    ORDER BY score DESC, c.document_id, c.ordinal
+    ORDER BY score DESC, d.title, c.ordinal, c.id
     LIMIT :limit
 """)
 
@@ -142,7 +179,11 @@ def keyword_search(
 ) -> list[SearchHit]:
     rows = db.execute(
         KEYWORD_SQL,
-        {"query": query, "organization_id": organization_id, "limit": limit},
+        {
+            "query": keyword_query(query),
+            "organization_id": organization_id,
+            "limit": limit,
+        },
     ).all()
     return [replace(hit, keyword_rank=i + 1) for i, hit in enumerate(_hits(rows))]
 
@@ -176,7 +217,15 @@ def fuse(keyword: list[SearchHit], semantic: list[SearchHit], limit: int) -> lis
             scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (RRF_K + rank)
             current = merged.get(hit.chunk_id, hit)
             merged[hit.chunk_id] = replace(current, **{field: rank})
-    ordered = sorted(merged, key=lambda chunk_id: (-scores[chunk_id], str(chunk_id)))
+    # Ties are common (two passages each found by one method at the same
+    # rank). Break them the same way every time, so a question always
+    # returns the same order: best single rank, then title, then position.
+    def order(chunk_id: uuid.UUID):
+        hit = merged[chunk_id]
+        ranks = [r for r in (hit.keyword_rank, hit.semantic_rank) if r is not None]
+        return (-scores[chunk_id], min(ranks), hit.title, hit.start_char, str(chunk_id))
+
+    ordered = sorted(merged, key=order)
     return [replace(merged[c], score=round(scores[c], 6)) for c in ordered[:limit]]
 
 
