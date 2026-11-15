@@ -45,6 +45,21 @@ class Settings(BaseSettings):
     STORAGE_BACKEND: str = "local"
     LOCAL_STORAGE_PATH: str = "var/storage"
 
+    # Google Drive (docs/development/google-drive.md). The OAuth client
+    # is the platform's own; each connection's authorization is sealed
+    # in the credential store (ADR-007). The API and the worker both
+    # need the client id and secret.
+    GOOGLE_OAUTH_CLIENT_ID: str | None = None
+    GOOGLE_OAUTH_CLIENT_SECRET: str | None = None
+    # Where Google sends the browser back; empty means
+    # FRONTEND_BASE_URL + /connections/google/callback.
+    GOOGLE_OAUTH_REDIRECT_URI: str | None = None
+    GOOGLE_DRIVE_SCOPE: str = (
+        "https://www.googleapis.com/auth/drive.readonly"
+    )
+    # Signs the OAuth state: a long random value, API only.
+    OAUTH_STATE_SECRET: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",

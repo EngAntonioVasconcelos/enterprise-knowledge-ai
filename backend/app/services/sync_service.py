@@ -27,6 +27,7 @@ from app.connectors.base import (
     CONNECTORS,
     ConnectionContext,
     ConnectorAuthError,
+    ConnectorError,
     SourceItem,
 )
 from app.core.errors import DomainError
@@ -244,6 +245,29 @@ def sync_connection(
         )
     )
 
+    try:
+        return _run(
+            db,
+            connection=connection,
+            connector=connector,
+            storage=storage,
+            summary=summary,
+        )
+    finally:
+        # Connectors that hold a network client release it here.
+        close = getattr(connector, "close", None)
+        if callable(close):
+            close()
+
+
+def _run(
+    db: Session,
+    *,
+    connection: DataConnection,
+    connector,
+    storage: ObjectStorage,
+    summary: dict[str, int],
+) -> dict[str, int]:
     def refused(exc: ConnectorAuthError) -> dict[str, int]:
         # Retrying will not help: the connection needs an admin. What was
         # already synchronized in this run is kept.
@@ -259,6 +283,10 @@ def sync_connection(
 
     seen: set[str] = set()
     errors: list[str] = []
+    # The source failed (not one file): stop, keep the old cursor, and
+    # let the job retry. Items already done are skipped next time by
+    # their revision.
+    interrupted = False
 
     for item in changes.changed:
         seen.add(item.external_id)
@@ -282,6 +310,12 @@ def sync_connection(
             summary[outcome] += 1
         except ConnectorAuthError as exc:
             return refused(exc)
+        except ConnectorError as exc:
+            summary["failed"] += 1
+            errors.append(f"{item.external_id}: {type(exc).__name__}")
+            logger.warning("sync %s: source failed: %s", connection.id, exc)
+            interrupted = True
+            break
         except Exception as exc:
             summary["failed"] += 1
             errors.append(f"{item.external_id}: {type(exc).__name__}")
@@ -294,7 +328,9 @@ def sync_connection(
 
     summary["removed"] += _remove(db, connection, changes.removed)
 
-    if changes.complete:
+    # A complete listing removes what it did not see; an interrupted one
+    # did not see everything, so it removes nothing.
+    if changes.complete and not interrupted:
         missing = db.scalars(
             select(Document.external_id).where(
                 Document.connection_id == connection.id,
@@ -305,7 +341,8 @@ def sync_connection(
             db, connection, [e for e in missing if e not in seen]
         )
 
-    connection.sync_cursor = changes.cursor
+    if not interrupted:
+        connection.sync_cursor = changes.cursor
     connection.last_synced_at = _now()
     connection.status = "active"
     connection.last_error = (

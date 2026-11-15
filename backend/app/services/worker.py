@@ -16,6 +16,7 @@ from app.db.context import set_worker_context
 from app.models.background_job import BackgroundJob
 # Job handlers and connectors register themselves when imported.
 import app.connectors.file_upload  # noqa: F401
+import app.connectors.google_drive  # noqa: F401
 import app.services.sync_service  # noqa: F401
 from app.services.job_queue import (
     UnknownJobKindError,

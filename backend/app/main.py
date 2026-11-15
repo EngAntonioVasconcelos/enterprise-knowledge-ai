@@ -10,6 +10,7 @@ from app.api.routes.audit import router as audit_router
 from app.api.routes.connections import router as connections_router
 from app.api.routes.directory import router as directory_router
 from app.api.routes.documents import router as documents_router
+from app.api.routes.google_oauth import router as google_oauth_router
 from app.api.routes.uploads import router as uploads_router
 from app.core.database_errors import database_error_handler
 from app.core.errors import DomainError, domain_error_handler
@@ -50,6 +51,7 @@ app.include_router(audit_router, prefix="/api/v1")
 app.include_router(connections_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(uploads_router, prefix="/api/v1")
+app.include_router(google_oauth_router, prefix="/api/v1")
 
 app.add_exception_handler(DBAPIError, database_error_handler)
 app.add_exception_handler(DomainError, domain_error_handler)
