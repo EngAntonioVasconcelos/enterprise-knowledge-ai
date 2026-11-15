@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.services.connection_scope import validate_scope
+
 
 MAX_SETTINGS_BYTES = 16_384
 
@@ -45,6 +47,9 @@ def _validate_settings(value: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             f"settings must be at most {MAX_SETTINGS_BYTES} bytes"
         )
+
+    if "scope" in value:
+        validate_scope(value["scope"])
 
     secret_keys = _secret_like_keys(value)
     if secret_keys:

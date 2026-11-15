@@ -68,6 +68,7 @@ async def upload(
             filename=file.filename,
             data=data,
             visibility=visibility,
+            uploader_role=member.role,
         )
         db.commit()
     except DomainError:

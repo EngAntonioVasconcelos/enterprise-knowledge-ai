@@ -19,8 +19,9 @@ Options compared:
 ## Measurements
 
 `python -m scripts.benchmark_tabular` (synthetic sales, 1,000,000 rows,
-CSV 54 MB). Development sandbox, best of three runs; numbers from the
-developer's machine are added below when available.
+CSV 54 MB), best of three runs, on two machines.
+
+Development sandbox (Linux):
 
 | Step | PostgreSQL | DuckDB |
 |---|---|---|
@@ -29,9 +30,18 @@ developer's machine are added below when available.
 | Top 10 products in 2025 | 0.12 s | 0.04 s |
 | Distinct customers per channel | 0.66 s | 0.06 s |
 
+Developer machine (Windows, test PostgreSQL in Docker, 15 Nov 2026):
+
+| Step | PostgreSQL | DuckDB |
+|---|---|---|
+| Import | 1.52 s | 0.37 s |
+| Revenue by region and month | 0.57 s | 0.08 s |
+| Top 10 products in 2025 | 0.20 s | 0.06 s |
+| Distinct customers per channel | 1.03 s | 0.08 s |
+
 DuckDB times include opening a fresh, locked-down database for every
 question. Both engines return the same answers. Reading a 50,000-row
-Excel sheet takes about 3 s with openpyxl in either option: Excel parsing,
+Excel sheet takes 3 to 4 s with openpyxl in either option: Excel parsing,
 not the engine, is the slow step, and it happens in the worker.
 
 ## Decision
@@ -59,7 +69,8 @@ DuckDB over Parquet, with the permission decision kept in PostgreSQL.
   the schema check (`alembic check`) would see them.
 - A wrong query competes with the platform's own transactions on the
   same server; DuckDB runs apart, with its own limits.
-- It was 3 to 11 times slower on the analytical questions measured.
+- It was 3 to 12 times slower on the analytical questions measured,
+  on both machines.
 
 PostgreSQL remains the system of record (identities, permissions,
 versions, audit). Live PostgreSQL databases of customers are a separate

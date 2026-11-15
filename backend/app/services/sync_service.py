@@ -35,6 +35,10 @@ from app.models.background_job import BackgroundJob
 from app.models.data_connection import DataConnection
 from app.models.document import Document
 from app.services import document_service as documents
+from app.services.connection_scope import (
+    allowed_mime_types,
+    file_types_fingerprint,
+)
 from app.services.credential_service import load_credentials
 from app.services.document_permission_service import (
     replace_document_permissions,
@@ -193,6 +197,33 @@ def _refresh_item(db: Session, *, document: Document, item: SourceItem) -> str:
     return outcome
 
 
+def _source_cursor(connection: DataConnection) -> str | None:
+    """The connector's cursor, or None for a full listing.
+
+    With a file-type filter, the cursor is saved with the filter's
+    fingerprint: when an admin changes the filter, the next sync lists
+    everything again, so newly allowed files come in and newly
+    excluded ones leave.
+    """
+    cursor = connection.sync_cursor
+    fingerprint = file_types_fingerprint(connection.settings)
+    if fingerprint is None:
+        if cursor is not None and cursor.startswith("scope:"):
+            return None
+        return cursor
+    prefix = f"scope:{fingerprint}:"
+    if cursor is None or not cursor.startswith(prefix):
+        return None
+    return cursor[len(prefix):] or None
+
+
+def _saved_cursor(connection: DataConnection, cursor: str | None) -> str | None:
+    fingerprint = file_types_fingerprint(connection.settings)
+    if fingerprint is None:
+        return cursor
+    return f"scope:{fingerprint}:{cursor or ''}"
+
+
 def _remove(db: Session, connection: DataConnection, external_ids) -> int:
     if not external_ids:
         return 0
@@ -277,7 +308,7 @@ def _run(
         return summary
 
     try:
-        changes = connector.list_changes(connection.sync_cursor)
+        changes = connector.list_changes(_source_cursor(connection))
     except ConnectorAuthError as exc:
         return refused(exc)
 
@@ -288,7 +319,15 @@ def _run(
     # their revision.
     interrupted = False
 
+    # The admin's file-type filter: excluded files are not read, and
+    # leave retrieval if they were in.
+    allowed = allowed_mime_types(connection.settings)
+    excluded = []
+
     for item in changes.changed:
+        if allowed is not None and item.mime_type not in allowed:
+            excluded.append(item.external_id)
+            continue
         seen.add(item.external_id)
         try:
             known = _same_revision(db, connection, item)
@@ -326,7 +365,9 @@ def _run(
                 exc,
             )
 
-    summary["removed"] += _remove(db, connection, changes.removed)
+    summary["removed"] += _remove(
+        db, connection, [*changes.removed, *excluded]
+    )
 
     # A complete listing removes what it did not see; an interrupted one
     # did not see everything, so it removes nothing.
@@ -342,7 +383,7 @@ def _run(
         )
 
     if not interrupted:
-        connection.sync_cursor = changes.cursor
+        connection.sync_cursor = _saved_cursor(connection, changes.cursor)
     connection.last_synced_at = _now()
     connection.status = "active"
     connection.last_error = (

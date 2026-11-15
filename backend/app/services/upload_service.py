@@ -11,9 +11,15 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.errors import DomainError, InvalidInputError, NotFoundError
+from app.core.errors import (
+    DomainError,
+    ForbiddenError,
+    InvalidInputError,
+    NotFoundError,
+)
 from app.models.data_connection import DataConnection
 from app.models.file_upload import FileUpload
+from app.services.connection_scope import allowed_mime_types
 from app.services.object_storage import ObjectStorage, get_object_storage
 from app.services.sync_service import request_sync
 from app.services.text_extraction import (
@@ -55,11 +61,16 @@ def create_upload(
     data: bytes,
     visibility: str,
     storage: ObjectStorage | None = None,
+    uploader_role: str | None = None,
 ) -> FileUpload:
     if connection.provider != "file_upload":
         raise NotAnUploadConnectionError(
             "Files can only be uploaded to a file upload connection"
         )
+    roles = (connection.settings.get("scope") or {}).get("roles")
+    if uploader_role is not None and roles and uploader_role not in roles:
+        # The file would be invisible to the person who uploaded it.
+        raise ForbiddenError("Your role does not use this connection")
     if visibility not in ("organization", "private"):
         raise InvalidInputError("visibility must be organization or private")
     if len(data) > MAX_FILE_BYTES:
@@ -71,6 +82,11 @@ def create_upload(
         mime_type = detect_type(data)
     except ExtractionError as exc:
         raise UnsupportedUploadError(str(exc).capitalize()) from None
+    allowed = allowed_mime_types(connection.settings)
+    if allowed is not None and mime_type not in allowed:
+        raise UnsupportedUploadError(
+            "This connection does not accept this type of file"
+        )
 
     upload_id = uuid.uuid4()
     # Ids only: the key reveals nothing about the file.
