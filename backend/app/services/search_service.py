@@ -8,6 +8,18 @@ Two searches, then one list:
   passage scores 1 / (60 + its position) in every list it appears in; a
   passage near the top of both lists wins. Positions, not raw scores, are
   combined, because word scores and vector distances are not comparable.
+  Weighted fusion (default): a passage found by words votes in proportion
+  to how much of the question it matches (its coverage), and only if it
+  matches at least half of the meaningful words or one of the question's
+  codes. Sharing one common word ("days") with a question in another
+  language is not evidence: with equal votes such passages pushed down the
+  right answer found by meaning (AI-1: hybrid MRR 0.79 against 0.87 for
+  meaning alone, 0.27 against 0.88 for English questions on Portuguese
+  documents). Paraphrases are left to search by meaning.
+
+Optionally (rerank=True) a cross-encoder reads the question next to each of
+the first candidates and puts them in a new order (app/services/reranking).
+It only reorders passages the person may already read.
 
 Permissions are not checked here: the queries run as the person, and the
 database returns only passages of documents they may open (row-level
@@ -33,6 +45,7 @@ from app.services.embeddings import (
     get_embedder,
     vector_literal,
 )
+from app.services.reranking import RERANK_CANDIDATES, RerankUnavailableError, get_reranker
 
 
 logger = logging.getLogger("eka.search")
@@ -43,6 +56,12 @@ SNIPPET_CHARS = 320
 CANDIDATES = 40
 RRF_K = 60
 MODES = ("hybrid", "keyword", "semantic")
+FUSIONS = ("weighted", "rrf")
+# In the weighted fusion, a passage found by words votes only if it matches
+# at least this share of the question's meaningful words. One with a code
+# or number of the question ("WS-09", "4400") always does: codes are
+# precise evidence.
+MIN_COVERAGE = 0.5
 
 # Words that carry no meaning on their own, in Portuguese and English. A
 # question in natural language ("quantos dias de ferias tenho por ano?")
@@ -50,7 +69,7 @@ MODES = ("hybrid", "keyword", "semantic")
 # how close together they are; requiring every word would find nothing.
 STOPWORDS = frozenset("""
 a o as os um uma uns umas de do da dos das em no na nos nas por para pelo pela
-com sem e ou que se ao aos como qual quais quanto quantos quanta quantas quando
+com sem e ou que se ao aos nao como qual quais quanto quantos quanta quantas quando
 onde quem porque eu tu ele ela nos vos eles elas me te lhe meu minha meus minhas
 seu sua seus suas tenho tem temos posso pode podem ser sao esta estao isso este
 essa esse mais muito muita ja ate the an of to in on at for by with from and or
@@ -67,17 +86,21 @@ def _plain(value: str) -> str:
     return "".join(c for c in decomposed if not unicodedata.combining(c))
 
 
+def keyword_terms(query: str) -> list[str]:
+    """The meaningful words of a plain question (none for advanced syntax)."""
+    if ADVANCED.search(query):
+        return []
+    tokens = TOKEN.findall(_plain(query))
+    return list(dict.fromkeys([t for t in tokens if t not in STOPWORDS] or tokens))
+
+
 def keyword_query(query: str) -> str:
     """The text given to websearch_to_tsquery.
 
     Advanced syntax ("exact phrase", -exclude, or) is kept as typed;
     otherwise the meaningful words are joined with "or".
     """
-    if ADVANCED.search(query):
-        return query
-    tokens = TOKEN.findall(_plain(query))
-    meaningful = [t for t in tokens if t not in STOPWORDS] or tokens
-    return " or ".join(dict.fromkeys(meaningful)) or query
+    return " or ".join(keyword_terms(query)) or query
 
 
 @dataclass(frozen=True)
@@ -93,6 +116,13 @@ class SearchHit:
     score: float
     keyword_rank: int | None = None
     semantic_rank: int | None = None
+    # Share of the question's meaningful words this passage contains (search
+    # by words only; None when not measured).
+    coverage: float | None = None
+    rerank_score: float | None = None
+    # The full passage, for the reranker and the answer step; not returned
+    # by the API (the snippet is).
+    content: str = ""
 
 
 @dataclass(frozen=True)
@@ -100,6 +130,7 @@ class SearchResult:
     mode: str
     hits: list[SearchHit]
     note: str | None = None
+    reranked: bool = False
 
 
 COLUMNS = """
@@ -107,8 +138,16 @@ COLUMNS = """
     c.start_char, c.end_char
 """
 
+# matched: how many of the meaningful words the passage contains; codes:
+# how many of the question's codes and numbers. Passages with the codes
+# come first, then those that match more of the question, then the
+# PostgreSQL rank.
 KEYWORD_SQL = text(f"""
-    SELECT {COLUMNS}, ts_rank_cd(c.content_tsv, q.query, 32) AS score
+    SELECT {COLUMNS}, ts_rank_cd(c.content_tsv, q.query, 32) AS score,
+           (SELECT count(*) FROM unnest(CAST(:terms AS text[])) AS t(term)
+             WHERE c.content_tsv @@ plainto_tsquery('simple', t.term)) AS matched,
+           (SELECT count(*) FROM unnest(CAST(:codes AS text[])) AS t(term)
+             WHERE c.content_tsv @@ plainto_tsquery('simple', t.term)) AS codes
     FROM document_chunks AS c
     JOIN documents AS d
       ON d.id = c.document_id
@@ -119,7 +158,7 @@ KEYWORD_SQL = text(f"""
     ) AS q
     WHERE c.organization_id = :organization_id
       AND c.content_tsv @@ q.query
-    ORDER BY score DESC, d.title, c.ordinal, c.id
+    ORDER BY codes DESC, matched DESC, score DESC, d.title, c.ordinal, c.id
     LIMIT :limit
 """)
 
@@ -148,21 +187,30 @@ def _snippet(content: str) -> str:
     return content[: cut if cut > 0 else SNIPPET_CHARS] + "..."
 
 
-def _hits(rows) -> list[SearchHit]:
-    return [
-        SearchHit(
-            chunk_id=row[0],
-            document_id=row[1],
-            version_id=row[2],
-            title=row[3],
-            heading=row[4],
-            snippet=_snippet(row[5]),
-            start_char=row[6],
-            end_char=row[7],
-            score=float(row[8]),
+def _hits(rows, terms: list[str] | None = None) -> list[SearchHit]:
+    hits = []
+    for row in rows:
+        coverage = None
+        if terms:
+            coverage = row.matched / len(terms)
+            if row.codes:
+                coverage = max(coverage, MIN_COVERAGE)
+        hits.append(
+            SearchHit(
+                chunk_id=row[0],
+                document_id=row[1],
+                version_id=row[2],
+                title=row[3],
+                heading=row[4],
+                snippet=_snippet(row[5]),
+                start_char=row[6],
+                end_char=row[7],
+                score=float(row[8]),
+                coverage=coverage,
+                content=row[5],
+            )
         )
-        for row in rows
-    ]
+    return hits
 
 
 def _clean(query: str, limit: int) -> tuple[str, int]:
@@ -177,15 +225,18 @@ def _clean(query: str, limit: int) -> tuple[str, int]:
 def keyword_search(
     db: Session, *, organization_id: uuid.UUID, query: str, limit: int
 ) -> list[SearchHit]:
+    terms = keyword_terms(query)
     rows = db.execute(
         KEYWORD_SQL,
         {
             "query": keyword_query(query),
+            "terms": terms,
+            "codes": [t for t in terms if any(ch.isdigit() for ch in t)],
             "organization_id": organization_id,
             "limit": limit,
         },
     ).all()
-    return [replace(hit, keyword_rank=i + 1) for i, hit in enumerate(_hits(rows))]
+    return [replace(hit, keyword_rank=i + 1) for i, hit in enumerate(_hits(rows, terms))]
 
 
 def semantic_search(
@@ -208,15 +259,36 @@ def semantic_search(
     return [replace(hit, semantic_rank=i + 1) for i, hit in enumerate(_hits(rows))]
 
 
-def fuse(keyword: list[SearchHit], semantic: list[SearchHit], limit: int) -> list[SearchHit]:
-    """Reciprocal Rank Fusion of two ranked lists."""
+def _vote(hit: SearchHit, fusion: str) -> float:
+    """How much a passage found by words counts (1 = a full vote)."""
+    if fusion == "rrf" or hit.coverage is None:
+        return 1.0
+    return hit.coverage if hit.coverage >= MIN_COVERAGE else 0.0
+
+
+def fuse(
+    keyword: list[SearchHit],
+    semantic: list[SearchHit],
+    limit: int,
+    fusion: str = "weighted",
+) -> list[SearchHit]:
+    """Reciprocal Rank Fusion of two ranked lists.
+
+    fusion="weighted" (default) weighs each word vote by its coverage and
+    ignores passages below MIN_COVERAGE; "rrf" gives every passage a full
+    vote (the first version, kept to compare).
+    """
     merged: dict[uuid.UUID, SearchHit] = {}
     scores: dict[uuid.UUID, float] = {}
     for hits, field in ((keyword, "keyword_rank"), (semantic, "semantic_rank")):
         for rank, hit in enumerate(hits, start=1):
-            scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (RRF_K + rank)
+            weight = _vote(hit, fusion) if field == "keyword_rank" else 1.0
+            if weight == 0.0:
+                continue
+            scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + weight / (RRF_K + rank)
             current = merged.get(hit.chunk_id, hit)
-            merged[hit.chunk_id] = replace(current, **{field: rank})
+            extra = {"coverage": hit.coverage} if field == "keyword_rank" else {}
+            merged[hit.chunk_id] = replace(current, **{field: rank}, **extra)
     # Ties are common (two passages each found by one method at the same
     # rank). Break them the same way every time, so a question always
     # returns the same order: best single rank, then title, then position.
@@ -236,11 +308,53 @@ def search(
     query: str,
     limit: int = 20,
     mode: str = "hybrid",
+    rerank: bool = False,
+    fusion: str = "weighted",
 ) -> SearchResult:
     if mode not in MODES:
         raise InvalidInputError(f"mode must be one of: {', '.join(MODES)}")
+    if fusion not in FUSIONS:
+        raise InvalidInputError(f"fusion must be one of: {', '.join(FUSIONS)}")
     query, limit = _clean(query, limit)
+    if not rerank:
+        return _search(db, organization_id, query, limit, mode, fusion)
 
+    # The reranker reorders the first candidates; ask for at least that many.
+    result = _search(db, organization_id, query, max(limit, RERANK_CANDIDATES), mode, fusion)
+    try:
+        hits = rerank_hits(query, result.hits)
+    except RerankUnavailableError as exc:
+        logger.warning("reranking unavailable: %s", exc)
+        note = "Reranking is unavailable; results are in search order."
+        return replace(
+            result,
+            hits=result.hits[:limit],
+            note=f"{result.note} {note}" if result.note else note,
+        )
+    return replace(result, hits=hits[:limit], reranked=True)
+
+
+def rerank_hits(query: str, hits: list[SearchHit]) -> list[SearchHit]:
+    """The first candidates in the reranker's order; the rest keep theirs."""
+    head, tail = hits[:RERANK_CANDIDATES], hits[RERANK_CANDIDATES:]
+    if not head:
+        return hits
+    reranker = get_reranker()
+    scores = reranker.score(query, [hit.content or hit.snippet for hit in head])
+    scored = [replace(hit, rerank_score=round(float(s), 6)) for hit, s in zip(head, scores)]
+    # Stable: equal reranker scores keep the search order.
+    ordered = sorted(range(len(scored)), key=lambda i: (-scored[i].rerank_score, i))
+    return [scored[i] for i in ordered] + tail
+
+
+def _search(
+    db: Session,
+    organization_id: uuid.UUID,
+    query: str,
+    limit: int,
+    mode: str,
+    fusion: str,
+) -> SearchResult:
     if mode == "keyword":
         return SearchResult(
             "keyword",
@@ -269,7 +383,7 @@ def search(
     keyword = keyword_search(
         db, organization_id=organization_id, query=query, limit=CANDIDATES
     )
-    return SearchResult("hybrid", fuse(keyword, semantic, limit))
+    return SearchResult("hybrid", fuse(keyword, semantic, limit, fusion))
 
 
 def search_text(

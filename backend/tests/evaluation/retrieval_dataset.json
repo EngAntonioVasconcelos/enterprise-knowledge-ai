@@ -1,6 +1,6 @@
 {
  "name": "Atlantico Logistica retrieval set",
- "version": 1,
+ "version": 2,
  "documents": {
   "ferias": {
    "title": "Manual do Colaborador - F\u00e9rias e Aus\u00eancias",
@@ -85,6 +85,24 @@
    "lang": "en",
    "restricted": true,
    "text": "1. Project Gaivota\n\nThe Porto depot will be restructured in the second quarter, affecting 12 positions. The project is confidential until the works council is informed.\n"
+  },
+  "vehicles": {
+   "title": "Company Car Policy for Sales Staff",
+   "lang": "en",
+   "restricted": false,
+   "text": "1. Eligibility\n\nSales managers with more than 25 000 kilometres of business travel per year receive a company car. The car is replaced every four years.\n\n2. Fuel card\n\nThe fuel card covers business trips only. Private fuel is charged back at the end of each month.\n"
+  },
+  "holidays": {
+   "title": "Calend\u00e1rio de Feriados 2026",
+   "lang": "pt",
+   "restricted": false,
+   "text": "1. Feriados nacionais\n\nOs escrit\u00f3rios e armaz\u00e9ns fecham nos feriados nacionais: 1 de janeiro, 25 de abril, 1 de maio, 10 de junho, 15 de agosto, 5 de outubro, 1 de novembro, 1 e 8 de dezembro e 25 de dezembro.\n\n2. Pontes\n\nA administra\u00e7\u00e3o pode decretar uma ponte entre um feriado e o fim de semana, compensada com um dia de f\u00e9rias.\n"
+  },
+  "recruitment": {
+   "title": "Recruitment Guide",
+   "lang": "en",
+   "restricted": false,
+   "text": "1. Interviews\n\nEvery candidate has two interviews: one with Human Resources and one with the hiring manager.\n\n2. Probation\n\nNew employees have a probation period of 90 days, reviewed by the hiring manager before it ends.\n"
   }
  },
  "questions": [
@@ -432,6 +450,146 @@
   },
   {
    "query": "vai haver despedimentos no armaz\u00e9m do Porto?",
+   "lang": "pt",
+   "category": "permission",
+   "expect_doc": null,
+   "expect_phrase": null,
+   "expect_absent": [
+    "layoffs"
+   ]
+  },
+  {
+   "query": "qual \u00e9 o subs\u00eddio di\u00e1rio para refei\u00e7\u00f5es numa desloca\u00e7\u00e3o?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "expenses",
+   "expect_phrase": "50 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "quantos caracteres deve ter a palavra-passe?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "security",
+   "expect_phrase": "14 characters",
+   "expect_absent": null
+  },
+  {
+   "query": "perdi o port\u00e1til da empresa, at\u00e9 quando tenho de avisar?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "security",
+   "expect_phrase": "2 hours",
+   "expect_absent": null
+  },
+  {
+   "query": "em quantos dias recebo o reembolso de uma devolu\u00e7\u00e3o?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "returns",
+   "expect_phrase": "10 business days",
+   "expect_absent": null
+  },
+  {
+   "query": "posso p\u00f4r os meus filhos no seguro de sa\u00fade?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "health",
+   "expect_phrase": "children up to 25",
+   "expect_absent": null
+  },
+  {
+   "query": "qual \u00e9 o peso m\u00e1ximo numa estante do armaz\u00e9m?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "warehouse",
+   "expect_phrase": "1200 kilograms",
+   "expect_absent": null
+  },
+  {
+   "query": "como denuncio uma irregularidade de forma an\u00f3nima?",
+   "lang": "pt",
+   "category": "pt-to-en",
+   "expect_doc": "conduct",
+   "expect_phrase": "anonymously",
+   "expect_absent": null
+  },
+  {
+   "query": "how much is the monthly allowance for working from home?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "remote",
+   "expect_phrase": "30 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "who guides me during my first months?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "onboarding",
+   "expect_phrase": "mentor",
+   "expect_absent": null
+  },
+  {
+   "query": "how often must trucks be serviced?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "fleet",
+   "expect_phrase": "40 000",
+   "expect_absent": null
+  },
+  {
+   "query": "how many quotes do I need for a purchase over 5000 euros?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "procurement",
+   "expect_phrase": "tr\u00eas or\u00e7amentos",
+   "expect_absent": null
+  },
+  {
+   "query": "how long is tachograph data kept?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "fleet",
+   "expect_phrase": "durante um ano",
+   "expect_absent": null
+  },
+  {
+   "query": "until when can I use the vacation days carried over?",
+   "lang": "en",
+   "category": "en-to-pt",
+   "expect_doc": "ferias",
+   "expect_phrase": "31 de mar\u00e7o",
+   "expect_absent": null
+  },
+  {
+   "query": "brake fault code CV-311",
+   "lang": "en",
+   "category": "exact-code",
+   "expect_doc": "fleet",
+   "expect_phrase": "CV-311",
+   "expect_absent": null
+  },
+  {
+   "query": "extens\u00e3o 4400 seguran\u00e7a",
+   "lang": "pt",
+   "category": "exact-code",
+   "expect_doc": "security",
+   "expect_phrase": "4400",
+   "expect_absent": null
+  },
+  {
+   "query": "salary band for the E3 role",
+   "lang": "en",
+   "category": "permission",
+   "expect_doc": null,
+   "expect_phrase": null,
+   "expect_absent": [
+    "salaries"
+   ]
+  },
+  {
+   "query": "quantos postos de trabalho v\u00e3o ser cortados?",
    "lang": "pt",
    "category": "permission",
    "expect_doc": null,

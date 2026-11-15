@@ -71,6 +71,11 @@ class Settings(BaseSettings):
     EMBEDDING_PROVIDER: str = "fastembed"
     EMBEDDING_CACHE_DIR: str = "var/models"
 
+    # Reranking (docs/development/reranking.md): fastembed runs
+    # BAAI/bge-reranker-v2-m3 (INT8) locally, in EMBEDDING_CACHE_DIR;
+    # overlap is for tests; none turns it off.
+    RERANK_PROVIDER: str = "fastembed"
+
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",

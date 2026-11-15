@@ -1,8 +1,8 @@
 """Measure how well search finds the right passage (Phase 6, AI-1).
 
 The dataset (tests/evaluation/retrieval_dataset.json) is a fictional
-company, Atlantico Logistica: 14 documents in Portuguese and English, two
-of them confidential, and 43 questions with the passage that answers them.
+company, Atlantico Logistica: 17 documents in Portuguese and English, two
+of them confidential, and 60 questions with the passage that answers them.
 Questions are grouped by what they test: shared words, meaning only
 (paraphrases), the other language, exact codes, and permissions (the
 asker must NOT see the answer).
@@ -12,7 +12,11 @@ is rolled back: sync through the connector contract, passages, vectors
 with the configured embedder, then search as a member through row-level
 security. Nothing is kept.
 
-Metrics, per search mode and per group:
+Variants compared (VARIANTS): words, meaning, hybrid with the weighted
+fusion (default), hybrid with the first plain fusion (hybrid-rrf), and
+hybrid reordered by the reranker (hybrid+rerank).
+
+Metrics, per variant and per group:
 - Recall@1 and Recall@5: the right passage is first / in the first five;
 - MRR@10: the average of 1 / position of the right passage (0 if absent
   from the first ten); 1.0 means always first;
@@ -43,6 +47,13 @@ from tests.integration.test_document_permissions import _as_runtime, _as_worker
 
 
 DATASET_PATH = Path(__file__).resolve().parents[1] / "evaluation" / "retrieval_dataset.json"
+VARIANTS = {
+    "keyword": {"mode": "keyword"},
+    "semantic": {"mode": "semantic"},
+    "hybrid": {"mode": "hybrid"},
+    "hybrid-rrf": {"mode": "hybrid", "fusion": "rrf"},
+    "hybrid+rerank": {"mode": "hybrid", "rerank": True},
+}
 MODES = ("keyword", "semantic", "hybrid")
 TOP_K = 10
 
@@ -139,6 +150,7 @@ def evaluate(db, world, dataset: dict, modes=MODES) -> dict:
     _as_runtime(db, world.rui)
     results = {}
     for mode in modes:
+        options = VARIANTS[mode]
         per_group = defaultdict(lambda: {"n": 0, "r1": 0.0, "r5": 0.0, "mrr": 0.0})
         leaks, misses, elapsed, available = 0, [], 0.0, True
         for question in dataset["questions"]:
@@ -149,13 +161,13 @@ def evaluate(db, world, dataset: dict, modes=MODES) -> dict:
                     organization_id=world.organization,
                     query=question["query"],
                     limit=TOP_K,
-                    mode=mode,
+                    **options,
                 )
             except InvalidInputError:
                 available = False
                 break
             elapsed += time.perf_counter() - started
-            if result.mode != mode:
+            if result.mode != options["mode"] or result.reranked != options.get("rerank", False):
                 available = False
                 break
             passages = _passages(db, [hit.chunk_id for hit in result.hits])

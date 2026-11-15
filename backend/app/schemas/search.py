@@ -16,6 +16,10 @@ class SearchHitResponse(BaseModel):
     # Position in each list (1 = first); None when the passage was not in it.
     keyword_rank: int | None = None
     semantic_rank: int | None = None
+    # Share of the question's meaningful words in the passage (0 to 1).
+    coverage: float | None = None
+    # The reranker's score when the results were reranked (higher is better).
+    rerank_score: float | None = None
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
@@ -24,6 +28,7 @@ class SearchResponse(BaseModel):
     query: str
     mode: str
     note: str | None = None
+    reranked: bool = False
     results: list[SearchHitResponse]
 
     model_config = ConfigDict(extra="forbid")

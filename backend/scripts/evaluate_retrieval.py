@@ -1,14 +1,16 @@
-"""Measure search quality with the configured embedding model (AI-1).
+"""Measure search quality with the configured models (AI-1, AI-2).
 
 Runs the Atlantico Logistica dataset (tests/evaluation) through the real
 pipeline in the disposable test database (eka_test), inside a transaction
-that is rolled back: nothing is kept. Prints Recall@5 and MRR@10 per search
-mode and question group, the leaks (must be 0), the time per search, and
+that is rolled back: nothing is kept. Compares words, meaning, hybrid
+(weighted fusion, the default), hybrid-rrf (the first fusion) and
+hybrid+rerank. Prints Recall@5 and MRR@10 per variant and question group, the leaks (must be 0), the time per search, and
 the questions each mode missed. A copy of the numbers is saved in
 var/eval/ (ignored by Git) to compare future changes.
 
 Run from the backend folder, with the test database running and the
-model downloaded (python -m scripts.try_embeddings):
+models downloaded (python -m scripts.try_embeddings and
+python -m scripts.try_reranker):
     python -m scripts.evaluate_retrieval
 """
 
@@ -25,9 +27,11 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.services.embeddings import EmbeddingUnavailableError, get_embedder
+from app.services.reranking import RerankUnavailableError, get_reranker
 from scripts.prepare_test_database import TEST_ADMIN_URL
 from tests.integration import test_document_permissions as permissions
 from tests.integration.retrieval_harness import (
+    VARIANTS,
     evaluate,
     format_report,
     ingest,
@@ -46,6 +50,13 @@ def main() -> int:
         print(f"Embeddings unavailable ({exc}); only search by words is measured.")
         model = "none"
     print(f"Embedding provider: {settings.EMBEDDING_PROVIDER} ({model})")
+    try:
+        started = time.perf_counter()
+        reranker = get_reranker().model
+        print(f"Reranker: {reranker}, loaded in {time.perf_counter() - started:.1f} s")
+    except RerankUnavailableError as exc:
+        reranker = "none"
+        print(f"Reranker unavailable ({exc}); hybrid+rerank is not measured.")
 
     dataset = load_dataset()
     engine = create_engine(TEST_ADMIN_URL)
@@ -64,7 +75,7 @@ def main() -> int:
                 f"Ingested {len(dataset['documents'])} documents, {embedded} passages "
                 f"with vectors, in {time.perf_counter() - started:.1f} s"
             )
-            results = evaluate(db, world, dataset)
+            results = evaluate(db, world, dataset, modes=tuple(VARIANTS))
     finally:
         db.close()
         transaction.rollback()
@@ -83,7 +94,10 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     path = out / f"retrieval-{model.replace('/', '_')}-{stamp}.json"
-    path.write_text(json.dumps({"model": model, "results": results}, indent=1), encoding="utf-8")
+    path.write_text(
+        json.dumps({"model": model, "reranker": reranker, "results": results}, indent=1),
+        encoding="utf-8",
+    )
     print(f"\nSaved: {path}")
     return 0 if all(r.get("leaks", 0) == 0 for r in results.values()) else 1
 
