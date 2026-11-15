@@ -186,7 +186,9 @@ def test_the_worker_writes_only_for_the_organization_of_its_job(docs_db):
     assert "row-level security" in str(error.value.orig)
 
 
-def test_managers_read_documents_and_the_api_cannot_write_them(docs_db):
+def test_without_source_permission_even_the_owner_sees_nothing(docs_db):
+    # Strict rule (migration a2d7c4e9f1b6): reading follows the source's
+    # permissions, for owners and admins too.
     db = docs_db
     owner_id, organization_id, connection_id = _setup(db)
     document, _ = _ingest(db, organization_id, connection_id, "v1")
@@ -209,7 +211,7 @@ def test_managers_read_documents_and_the_api_cannot_write_them(docs_db):
 
     assert db.scalars(
         select(Document.id).where(Document.id == document_id)
-    ).all() == [document_id]
+    ).all() == []
     _refused(
         db,
         update(Document).where(Document.id == document_id).values(title="x"),
