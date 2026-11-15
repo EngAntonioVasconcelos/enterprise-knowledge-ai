@@ -3,7 +3,7 @@ from app.models.authentication_identity import AuthenticationIdentity
 from app.models.background_job import BackgroundJob
 from app.models.credential import ConnectionCredential, OrganizationKey
 from app.models.data_connection import DataConnection
-from app.models.document import Document
+from app.models.document import Document, DocumentVersion
 from app.models.email_outbox import EmailOutbox
 from app.models.invitation import OrganizationInvitation
 from app.models.membership import OrganizationMembership
@@ -27,4 +27,5 @@ __all__ = [
     "DataConnection",
     "OrganizationKey",
     "ConnectionCredential",
+    "DocumentVersion",
 ]
