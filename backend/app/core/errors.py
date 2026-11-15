@@ -33,6 +33,12 @@ class ForbiddenError(DomainError, PermissionError):
     status_code = status.HTTP_403_FORBIDDEN
 
 
+class UnavailableError(DomainError):
+    """A dependency the request needs is not available (a model, a provider)."""
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     detail = exc.message if exc.message.endswith(".") else exc.message + "."
 

@@ -9,15 +9,18 @@ distractors that share words with the questions without answering them
 (tests/integration/retrieval_distractors.py), so the numbers are closer to
 a real company. --library small uses only the 17 documents.
 
-Compares words, meaning, hybrid (weighted fusion) and the reranker read
-with 20 or 10 candidates, whole passages or their first 600 characters.
+Compares words, meaning, hybrid (weighted fusion) and hybrid with the
+reranker as configured (RERANK_CANDIDATES, RERANK_MAX_CHARS). With
+--compare-rerank it also measures the reranker with 20 or 10 candidates,
+whole passages or their first 600 characters (much slower: each reranker
+variant reads every question's candidates on the CPU).
 Prints Recall@5 and MRR@10 per variant and question group, leaks (must be
 0), the average and 95th percentile time per search, and the questions
 each variant missed. The numbers are saved in var/eval/ (ignored by Git).
 
 Run from the backend folder, with the test database running and the
 models downloaded (python -m scripts.try_embeddings and
-python -m scripts.try_reranker). It takes a few minutes on a CPU:
+python -m scripts.try_reranker). About 2 to 3 minutes on a laptop CPU:
     python -m scripts.evaluate_retrieval
 """
 
@@ -51,6 +54,9 @@ from tests.integration.retrieval_harness import (
 def main() -> int:
     parser = argparse.ArgumentParser(description="Measure search quality.")
     parser.add_argument("--library", choices=("large", "small"), default="large")
+    parser.add_argument(
+        "--compare-rerank", action="store_true", help="also the four reranker settings (slow)"
+    )
     args = parser.parse_args()
     if make_url(TEST_ADMIN_URL).database != "eka_test":
         print("PAROU: this evaluation runs only on the test database eka_test.")
@@ -75,7 +81,9 @@ def main() -> int:
     dataset = load_dataset()
     if args.library == "large":
         dataset = with_distractors(dataset)
-    variants = ("keyword", "semantic", "hybrid", *RERANK_VARIANTS)
+    variants = ("keyword", "semantic", "hybrid", "hybrid+rerank")
+    if args.compare_rerank:
+        variants += tuple(RERANK_VARIANTS)
     engine = create_engine(TEST_ADMIN_URL)
     connection = engine.connect()
     transaction = connection.begin()

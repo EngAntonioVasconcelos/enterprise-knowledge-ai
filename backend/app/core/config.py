@@ -81,6 +81,17 @@ class Settings(BaseSettings):
     RERANK_CANDIDATES: int = 10
     RERANK_MAX_CHARS: int = 600
 
+    # Answers (docs/development/answers.md). LLM_PROVIDER:
+    # openai_compatible (hosted or local, e.g. Ollama), extractive (tests)
+    # or none. LLM_API_KEY is a secret: only in .env, never in Git.
+    LLM_PROVIDER: str = "none"
+    LLM_BASE_URL: str | None = None
+    LLM_MODEL: str | None = None
+    LLM_API_KEY: str | None = None
+    LLM_TIMEOUT_SECONDS: float = 120.0
+    # The answer step reorders the first results with the reranker (AI-2c).
+    ANSWER_RERANK: bool = True
+
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",
