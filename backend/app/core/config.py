@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     # Signs the OAuth state: a long random value, API only.
     OAUTH_STATE_SECRET: str | None = None
 
+    # Database connectors (docs/development/postgresql-connector.md).
+    # Private and local addresses are refused unless this is true;
+    # development only.
+    DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS: bool = False
+
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",

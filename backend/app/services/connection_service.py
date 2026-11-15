@@ -41,6 +41,13 @@ class ConnectionDisconnectedError(ConflictError):
     pass
 
 
+def _validate_provider_settings(provider: str, settings: dict) -> None:
+    if provider == "postgresql":
+        from app.connectors.postgresql import validate_settings
+
+        validate_settings(settings)
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -128,6 +135,7 @@ def create_connection(
         raise ConnectionNameTakenError(
             "A connection with this name already exists"
         )
+    _validate_provider_settings(provider, settings)
 
     connection = DataConnection(
         organization_id=organization_id,
@@ -176,6 +184,7 @@ def update_connection(
         connection.status = status
 
     if settings is not None:
+        _validate_provider_settings(connection.provider, settings)
         connection.settings = settings
 
     connection.updated_at = _now()

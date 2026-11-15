@@ -35,6 +35,7 @@ from app.models.background_job import BackgroundJob
 from app.models.data_connection import DataConnection
 from app.models.document import Document
 from app.services import document_service as documents
+from app.services.catalog_service import INTROSPECT_JOB
 from app.services.connection_scope import (
     allowed_mime_types,
     file_types_fingerprint,
@@ -81,13 +82,19 @@ def request_sync(
             f"A {connection.status} connection is not synchronized"
         )
 
+    # A database is never copied: its sync refreshes the catalog.
+    if connection.kind == "database":
+        kind, dedupe_key = INTROSPECT_JOB, f"introspect:{connection.id}"
+    else:
+        kind, dedupe_key = SYNC_JOB, f"sync:{connection.id}"
+
     return enqueue_job(
         db,
         organization_id=connection.organization_id,
-        kind=SYNC_JOB,
+        kind=kind,
         created_by_user_id=actor_user_id,
         payload={"connection_id": str(connection.id)},
-        dedupe_key=f"sync:{connection.id}",
+        dedupe_key=dedupe_key,
     )
 
 

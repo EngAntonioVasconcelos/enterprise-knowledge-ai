@@ -124,6 +124,13 @@ class ConnectionResponse(BaseModel):
 
 
 
+class ConnectionCatalog(BaseModel):
+    catalog: dict[str, Any] | None = None
+    catalog_updated_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+
 class SyncRequested(BaseModel):
     job_id: uuid.UUID
     status: str

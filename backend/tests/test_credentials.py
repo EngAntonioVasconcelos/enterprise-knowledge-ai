@@ -150,7 +150,11 @@ def test_a_secret_moved_to_another_connection_does_not_open(
     first = _connection(client, organization_id)
     second = client.post(
         f"/api/v1/organizations/{organization_id}/connections/",
-        json={"provider": "postgresql", "name": "Warehouse"},
+        json={
+            "provider": "postgresql",
+            "name": "Warehouse",
+            "settings": {"host": "db.example.com", "database": "warehouse"},
+        },
     ).json()["id"]
     client.put(_url(organization_id, first), json={"secret": SECRET})
     client.put(_url(organization_id, second), json={"secret": {"x": "y"}})

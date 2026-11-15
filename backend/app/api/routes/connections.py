@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.membership import OrganizationMembership
 from app.schemas.credential import CredentialsStatus, CredentialsUpdate
 from app.schemas.connection import (
+    ConnectionCatalog,
     ConnectionCreate,
     ConnectionResponse,
     ConnectionUpdate,
@@ -185,6 +186,19 @@ def get_credentials_status(
         db, organization_id=organization_id, connection_id=connection_id
     )
 
+
+
+@router.get("/{connection_id}/catalog", response_model=ConnectionCatalog)
+def get_catalog(
+    organization_id: uuid.UUID,
+    connection_id: uuid.UUID,
+    manager: OrganizationMembership = Depends(MANAGERS),
+    db: Session = Depends(get_db),
+):
+    """The tables and columns of a database connection; never its data."""
+    return get_connection(
+        db, organization_id=organization_id, connection_id=connection_id
+    )
 
 
 @router.post(

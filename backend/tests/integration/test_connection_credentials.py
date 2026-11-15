@@ -82,7 +82,7 @@ def _setup(db):
         actor_user_id=owner.id,
         provider="postgresql",
         name="Warehouse",
-        settings={},
+        settings={"host": "db.example.com", "database": "warehouse"},
     )
     db.flush()
     return owner, organization.id, connection.id

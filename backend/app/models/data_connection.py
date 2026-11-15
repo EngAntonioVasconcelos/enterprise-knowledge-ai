@@ -109,6 +109,18 @@ class DataConnection(Base):
         nullable=True,
     )
 
+    # Database connections: the tables and columns the agent may query,
+    # described by the worker (migration f9d2b6e4a1c7). Never data.
+    catalog: Mapped[dict | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=True,
+    )
+
+    catalog_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey(
             "users.id",
