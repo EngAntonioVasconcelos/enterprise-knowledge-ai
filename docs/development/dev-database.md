@@ -1,8 +1,15 @@
 # Development database in Docker
 
 The development database runs in the container `eka-dev-pg`
-(`infrastructure/dev/docker-compose.yml`), PostgreSQL 18.6, the same
-version as CI and the test database. It listens only on `127.0.0.1:1996`.
+(`infrastructure/dev/docker-compose.yml`), image
+`pgvector/pgvector:0.8.2-pg18-trixie`: PostgreSQL 18 with the pgvector
+extension, the same image as CI and the test database. It listens only
+on `127.0.0.1:1996`.
+
+From Phase 6 (vector search) this database is required: the migrations
+create the `vector` extension, which the previous database on Windows
+(port 1997) does not have. pgvector 0.8.2 is the minimum version: it
+fixes a security vulnerability of earlier versions.
 
 Port 1996 is new on purpose: the previous development database (a
 PostgreSQL installed on Windows, port 1997) is not touched. You switch
@@ -11,7 +18,7 @@ when you are ready, and you can switch back by changing two settings.
 | Database | Where | Port | Data |
 |---|---|---|---|
 | Development | Docker, `eka-dev-pg` | 1996 | volume `eka_dev_pgdata`, kept |
-| Previous development | PostgreSQL on Windows | 1997 | unchanged |
+| Previous development | PostgreSQL on Windows | 1997 | unchanged, kept as a backup; no pgvector |
 | Integration tests | Docker, `eka-test-pg` | 1999 | in memory, empty at every start |
 
 ## First start
