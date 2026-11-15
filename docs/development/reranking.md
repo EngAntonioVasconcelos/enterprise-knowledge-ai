@@ -78,3 +78,37 @@ measuring:
   1.00, leaks 0, and its time fits the place: for the answer step (AJ),
   where the language model itself takes seconds, up to 1.5 s is
   acceptable; the search box stays without it (it must feel instant).
+
+## Measured (15 November 2026, e5 + m3 INT8, 60 questions, 38 passages)
+
+Recall@5 (MRR): words 0.56 (0.51), meaning 0.85 (0.77), hybrid weighted
+0.87 (0.78), hybrid rrf 0.78 (0.68), hybrid + reranker 1.00 (1.00); leaks
+0 everywhere. Time per search: 15 ms hybrid, 1650 ms with the reranker
+reading 20 whole passages; 5.2 s for 20 passages of 1200 characters.
+
+- Weighted fusion: kept as the default (MRR +0.10 over rrf, English
+  questions on Portuguese documents 0.50 to 0.90, no group lost).
+- Reranker: passes on quality, fails on time (1.65 s > 1.5 s). 1.00 is
+  also optimistic: it read 20 of only 38 passages.
+
+## AI-2b: a faster reranker, a harder test
+
+Two settings control its cost: `RERANK_CANDIDATES` (how many of the first
+results it reads, default 10) and `RERANK_MAX_CHARS` (how many characters
+of each, default 800; 0 = whole passage). It also reads the document title
+and section heading before the text, which tells it what the passage is
+about even when cut.
+
+The evaluation now runs on a large library by default: the 17 documents
+plus 400 distractors (`tests/integration/retrieval_distractors.py`) that
+reuse the questions' words without answering them ("ferias" in a summer
+camp for employees' children, "forklift" in a maintenance contract):
+about 880 passages instead of 38. It compares rerank-20, rerank-10 (whole
+passages) and rerank-20-short, rerank-10-short (first 600 characters),
+with the average and the 95th percentile time.
+
+Rule fixed before measuring: on the large library, choose the cheapest
+setting whose MRR is within 0.02 of the best reranker setting, with leaks
+0, codes 1.00, average up to 1.5 s and 95th percentile up to 2.5 s. If no
+setting fits the time, the reranker stays off and the answer step relies
+on the weighted hybrid plus the question translation (AJ-2).

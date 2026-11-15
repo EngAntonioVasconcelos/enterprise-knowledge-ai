@@ -45,7 +45,8 @@ from app.services.embeddings import (
     get_embedder,
     vector_literal,
 )
-from app.services.reranking import RERANK_CANDIDATES, RerankUnavailableError, get_reranker
+from app.core.config import settings
+from app.services.reranking import RerankUnavailableError, get_reranker
 
 
 logger = logging.getLogger("eka.search")
@@ -310,6 +311,8 @@ def search(
     mode: str = "hybrid",
     rerank: bool = False,
     fusion: str = "weighted",
+    rerank_candidates: int | None = None,
+    rerank_max_chars: int | None = None,
 ) -> SearchResult:
     if mode not in MODES:
         raise InvalidInputError(f"mode must be one of: {', '.join(MODES)}")
@@ -319,10 +322,12 @@ def search(
     if not rerank:
         return _search(db, organization_id, query, limit, mode, fusion)
 
+    candidates = rerank_candidates or settings.RERANK_CANDIDATES
+    max_chars = settings.RERANK_MAX_CHARS if rerank_max_chars is None else rerank_max_chars
     # The reranker reorders the first candidates; ask for at least that many.
-    result = _search(db, organization_id, query, max(limit, RERANK_CANDIDATES), mode, fusion)
+    result = _search(db, organization_id, query, max(limit, candidates), mode, fusion)
     try:
-        hits = rerank_hits(query, result.hits)
+        hits = rerank_hits(query, result.hits, candidates=candidates, max_chars=max_chars)
     except RerankUnavailableError as exc:
         logger.warning("reranking unavailable: %s", exc)
         note = "Reranking is unavailable; results are in search order."
@@ -334,13 +339,25 @@ def search(
     return replace(result, hits=hits[:limit], reranked=True)
 
 
-def rerank_hits(query: str, hits: list[SearchHit]) -> list[SearchHit]:
+def rerank_text(hit: SearchHit, max_chars: int) -> str:
+    """What the reranker reads: where the passage is, then its start."""
+    content = " ".join((hit.content or hit.snippet).split())
+    if max_chars and len(content) > max_chars:
+        cut = content.rfind(" ", 0, max_chars)
+        content = content[: cut if cut > 0 else max_chars]
+    place = " - ".join(part for part in (hit.title, hit.heading) if part)
+    return f"{place}\n{content}" if place else content
+
+
+def rerank_hits(
+    query: str, hits: list[SearchHit], *, candidates: int = 10, max_chars: int = 0
+) -> list[SearchHit]:
     """The first candidates in the reranker's order; the rest keep theirs."""
-    head, tail = hits[:RERANK_CANDIDATES], hits[RERANK_CANDIDATES:]
+    head, tail = hits[:candidates], hits[candidates:]
     if not head:
         return hits
     reranker = get_reranker()
-    scores = reranker.score(query, [hit.content or hit.snippet for hit in head])
+    scores = reranker.score(query, [rerank_text(hit, max_chars) for hit in head])
     scored = [replace(hit, rerank_score=round(float(s), 6)) for hit, s in zip(head, scores)]
     # Stable: equal reranker scores keep the search order.
     ordered = sorted(range(len(scored)), key=lambda i: (-scored[i].rerank_score, i))

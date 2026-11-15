@@ -54,6 +54,18 @@ VARIANTS = {
     "hybrid-rrf": {"mode": "hybrid", "fusion": "rrf"},
     "hybrid+rerank": {"mode": "hybrid", "rerank": True},
 }
+# The reranker settings compared in AI-2b: candidates read, characters of
+# each (0 = whole passage).
+RERANK_VARIANTS = {
+    f"rerank-{n}{'-short' if chars else ''}": {
+        "mode": "hybrid",
+        "rerank": True,
+        "rerank_candidates": n,
+        "rerank_max_chars": chars,
+    }
+    for n, chars in ((20, 0), (10, 0), (20, 600), (10, 600))
+}
+VARIANTS.update(RERANK_VARIANTS)
 MODES = ("keyword", "semantic", "hybrid")
 TOP_K = 10
 
@@ -152,7 +164,7 @@ def evaluate(db, world, dataset: dict, modes=MODES) -> dict:
     for mode in modes:
         options = VARIANTS[mode]
         per_group = defaultdict(lambda: {"n": 0, "r1": 0.0, "r5": 0.0, "mrr": 0.0})
-        leaks, misses, elapsed, available = 0, [], 0.0, True
+        leaks, misses, times, available = 0, [], [], True
         for question in dataset["questions"]:
             started = time.perf_counter()
             try:
@@ -166,7 +178,7 @@ def evaluate(db, world, dataset: dict, modes=MODES) -> dict:
             except InvalidInputError:
                 available = False
                 break
-            elapsed += time.perf_counter() - started
+            times.append(time.perf_counter() - started)
             if result.mode != options["mode"] or result.reranked != options.get("rerank", False):
                 available = False
                 break
@@ -202,7 +214,8 @@ def evaluate(db, world, dataset: dict, modes=MODES) -> dict:
         results[mode] = {
             "available": True,
             "leaks": leaks,
-            "latency_ms": round(1000 * elapsed / len(dataset["questions"]), 1),
+            "latency_ms": round(1000 * sum(times) / len(times), 1),
+            "p95_ms": round(1000 * sorted(times)[int(0.95 * (len(times) - 1))], 1),
             "groups": {
                 group: {
                     "n": s["n"],
@@ -223,20 +236,22 @@ def format_report(results: dict) -> str:
         key=lambda g: (g != "all", g),
     )
     lines = ["Recall@5 (MRR@10) by question group; leaks must be 0", ""]
-    header = f"{'group':<12}" + "".join(f"{mode:>20}" for mode in results)
+    header = f"{'group':<12}" + "".join(f"{mode:>16}" for mode in results)
     lines += [header, "-" * len(header)]
     for group in groups:
         row = f"{group:<12}"
         for mode, r in results.items():
             if not r.get("available"):
-                row += f"{'unavailable':>20}"
+                row += f"{'unavailable':>16}"
                 continue
             g = r["groups"].get(group)
-            row += f"{g['recall_at_5']:>12.2f} ({g['mrr_at_10']:.2f})" if g else f"{'-':>20}"
+            row += f"{g['recall_at_5']:>9.2f} ({g['mrr_at_10']:.2f})" if g else f"{'-':>16}"
         lines.append(row)
     lines.append("-" * len(header))
     lines.append(f"{'leaks':<12}" + "".join(
-        f"{(r['leaks'] if r.get('available') else '-'):>20}" for r in results.values()))
+        f"{(r['leaks'] if r.get('available') else '-'):>16}" for r in results.values()))
     lines.append(f"{'ms/search':<12}" + "".join(
-        f"{(r['latency_ms'] if r.get('available') else '-'):>20}" for r in results.values()))
+        f"{(r['latency_ms'] if r.get('available') else '-'):>16}" for r in results.values()))
+    lines.append(f"{'p95 ms':<12}" + "".join(
+        f"{(r['p95_ms'] if r.get('available') else '-'):>16}" for r in results.values()))
     return "\n".join(lines)

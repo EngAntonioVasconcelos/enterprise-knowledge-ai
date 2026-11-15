@@ -5,7 +5,9 @@ question and a passage together: words compare lists of terms, meaning
 compares two vectors made separately. A cross-encoder (reranker) reads the
 question next to each passage in one pass and scores how well that passage
 answers it. That is too slow for the whole library, so it reorders only the
-first RERANK_CANDIDATES results of the fast search.
+first results of the fast search (RERANK_CANDIDATES), and reads only the
+start of each passage (RERANK_MAX_CHARS): its time on a CPU grows with
+both (AI-2 measured 1.65 s for 20 whole passages).
 
 It never sees passages the person may not read: it only reorders results
 that row-level security already filtered.
@@ -29,9 +31,6 @@ from app.core.config import settings
 
 RERANK_MODEL = "BAAI/bge-reranker-v2-m3-int8"
 OVERLAP_MODEL = "test/overlap"
-# How many of the first results the reranker reads. More finds more, but
-# every extra passage adds time on the CPU (measured in AI-2).
-RERANK_CANDIDATES = 20
 
 
 class RerankUnavailableError(RuntimeError):

@@ -1,19 +1,27 @@
-"""Measure search quality with the configured models (AI-1, AI-2).
+"""Measure search quality with the configured models (AI-1, AI-2, AI-2b).
 
 Runs the Atlantico Logistica dataset (tests/evaluation) through the real
 pipeline in the disposable test database (eka_test), inside a transaction
-that is rolled back: nothing is kept. Compares words, meaning, hybrid
-(weighted fusion, the default), hybrid-rrf (the first fusion) and
-hybrid+rerank. Prints Recall@5 and MRR@10 per variant and question group, the leaks (must be 0), the time per search, and
-the questions each mode missed. A copy of the numbers is saved in
-var/eval/ (ignored by Git) to compare future changes.
+that is rolled back: nothing is kept.
+
+By default the library is the large one: the 17 documents plus 400
+distractors that share words with the questions without answering them
+(tests/integration/retrieval_distractors.py), so the numbers are closer to
+a real company. --library small uses only the 17 documents.
+
+Compares words, meaning, hybrid (weighted fusion) and the reranker read
+with 20 or 10 candidates, whole passages or their first 600 characters.
+Prints Recall@5 and MRR@10 per variant and question group, leaks (must be
+0), the average and 95th percentile time per search, and the questions
+each variant missed. The numbers are saved in var/eval/ (ignored by Git).
 
 Run from the backend folder, with the test database running and the
 models downloaded (python -m scripts.try_embeddings and
-python -m scripts.try_reranker):
+python -m scripts.try_reranker). It takes a few minutes on a CPU:
     python -m scripts.evaluate_retrieval
 """
 
+import argparse
 import json
 import sys
 import tempfile
@@ -30,8 +38,9 @@ from app.services.embeddings import EmbeddingUnavailableError, get_embedder
 from app.services.reranking import RerankUnavailableError, get_reranker
 from scripts.prepare_test_database import TEST_ADMIN_URL
 from tests.integration import test_document_permissions as permissions
+from tests.integration.retrieval_distractors import with_distractors
 from tests.integration.retrieval_harness import (
-    VARIANTS,
+    RERANK_VARIANTS,
     evaluate,
     format_report,
     ingest,
@@ -40,6 +49,9 @@ from tests.integration.retrieval_harness import (
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Measure search quality.")
+    parser.add_argument("--library", choices=("large", "small"), default="large")
+    args = parser.parse_args()
     if make_url(TEST_ADMIN_URL).database != "eka_test":
         print("PAROU: this evaluation runs only on the test database eka_test.")
         return 1
@@ -52,13 +64,18 @@ def main() -> int:
     print(f"Embedding provider: {settings.EMBEDDING_PROVIDER} ({model})")
     try:
         started = time.perf_counter()
-        reranker = get_reranker().model
+        loaded = get_reranker()
+        loaded.score("warm up", ["so the first question is not timed loading"])
+        reranker = loaded.model
         print(f"Reranker: {reranker}, loaded in {time.perf_counter() - started:.1f} s")
     except RerankUnavailableError as exc:
         reranker = "none"
-        print(f"Reranker unavailable ({exc}); hybrid+rerank is not measured.")
+        print(f"Reranker unavailable ({exc}); the rerank variants are not measured.")
 
     dataset = load_dataset()
+    if args.library == "large":
+        dataset = with_distractors(dataset)
+    variants = ("keyword", "semantic", "hybrid", *RERANK_VARIANTS)
     engine = create_engine(TEST_ADMIN_URL)
     connection = engine.connect()
     transaction = connection.begin()
@@ -75,7 +92,8 @@ def main() -> int:
                 f"Ingested {len(dataset['documents'])} documents, {embedded} passages "
                 f"with vectors, in {time.perf_counter() - started:.1f} s"
             )
-            results = evaluate(db, world, dataset, modes=tuple(VARIANTS))
+            print(f"Asking {len(dataset['questions'])} questions x {len(variants)} variants...")
+            results = evaluate(db, world, dataset, modes=variants)
     finally:
         db.close()
         transaction.rollback()
@@ -85,6 +103,8 @@ def main() -> int:
     print()
     print(format_report(results))
     for mode, result in results.items():
+        if mode in ("keyword", "semantic"):
+            continue
         if result.get("available") and result["misses"]:
             print(f"\nMissed by {mode} (not in the first 5):")
             for miss in result["misses"]:
@@ -93,9 +113,18 @@ def main() -> int:
     out = Path("var/eval")
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    path = out / f"retrieval-{model.replace('/', '_')}-{stamp}.json"
+    path = out / f"retrieval-{args.library}-{model.replace('/', '_')}-{stamp}.json"
     path.write_text(
-        json.dumps({"model": model, "reranker": reranker, "results": results}, indent=1),
+        json.dumps(
+            {
+                "library": args.library,
+                "documents": len(dataset["documents"]),
+                "model": model,
+                "reranker": reranker,
+                "results": results,
+            },
+            indent=1,
+        ),
         encoding="utf-8",
     )
     print(f"\nSaved: {path}")

@@ -3,7 +3,8 @@
 Downloads BAAI/bge-reranker-v2-m3 in its INT8 ONNX form (about 570 MB)
 into EMBEDDING_CACHE_DIR (default backend/var/models, ignored by Git),
 then asks it to order a few passages for a Portuguese question whose
-answer is written in English, and shows how long it takes on this CPU.
+answer is written in English, and times 20 or 10 passages, whole or cut
+to 600 characters, on this CPU.
 
 Run from the backend folder (needs internet the first time):
     python -m scripts.try_reranker
@@ -14,7 +15,7 @@ import time
 from pathlib import Path
 
 from app.core.config import settings
-from app.services.reranking import RERANK_CANDIDATES, FastEmbedReranker
+from app.services.reranking import FastEmbedReranker
 
 
 QUERY = "quem pode conduzir empilhadores?"
@@ -40,14 +41,19 @@ def main() -> int:
     for score, passage in sorted(zip(scores, PASSAGES), reverse=True):
         print(f"  {score:7.3f}  {passage}")
 
-    # A realistic load: the reranker reads the first RERANK_CANDIDATES
-    # passages of about 1200 characters each.
-    long_passages = [(p + " ") * 15 for p in PASSAGES] * (RERANK_CANDIDATES // len(PASSAGES))
-    started = time.perf_counter()
-    model.score(QUERY, long_passages)
+    # Realistic loads: passages of about 1200 characters, read whole or cut
+    # to their first 600 (RERANK_MAX_CHARS), 20 or 10 of them
+    # (RERANK_CANDIDATES).
+    print("\nTime on this computer for realistic loads:")
+    for count in (20, 10):
+        for chars in (1200, 600):
+            passages = [((p + " ") * 15)[:chars] for p in PASSAGES] * (count // len(PASSAGES) + 1)
+            started = time.perf_counter()
+            model.score(QUERY, passages[:count])
+            print(f"  {count} passages of {chars} characters: {time.perf_counter() - started:.2f} s")
     print(
-        f"\n{len(long_passages)} passages of about 1200 characters: "
-        f"{time.perf_counter() - started:.2f} s on this computer"
+        f"Settings now: RERANK_CANDIDATES={settings.RERANK_CANDIDATES}, "
+        f"RERANK_MAX_CHARS={settings.RERANK_MAX_CHARS}"
     )
     return 0
 

@@ -9,7 +9,13 @@ from app.services.reranking import (
     RerankUnavailableError,
     get_reranker,
 )
-from app.services.search_service import SearchHit, SearchResult, fuse, rerank_hits
+from app.services.search_service import (
+    SearchHit,
+    SearchResult,
+    fuse,
+    rerank_hits,
+    rerank_text,
+)
 
 
 def _hit(name, content="", **fields):
@@ -61,9 +67,8 @@ def test_a_missing_model_is_reported_not_downloaded(provider, tmp_path, monkeypa
     assert not any(tmp_path.iterdir())
 
 
-def test_reranking_reorders_only_the_first_candidates(provider, monkeypatch):
+def test_reranking_reorders_only_the_first_candidates(provider):
     provider("overlap")
-    monkeypatch.setattr(search_service, "RERANK_CANDIDATES", 3)
     hits = [
         _hit("a", "nothing here"),
         _hit("b", "dias de ferias"),
@@ -71,7 +76,7 @@ def test_reranking_reorders_only_the_first_candidates(provider, monkeypatch):
         _hit("d", "dias de ferias tambem"),
     ]
 
-    ranked = rerank_hits("dias de ferias", hits)
+    ranked = rerank_hits("dias de ferias", hits, candidates=3)
 
     assert [h.title for h in ranked] == ["b", "c", "a", "d"]
     assert ranked[0].rerank_score == 1.0
@@ -130,3 +135,36 @@ def test_an_unknown_fusion_is_refused():
 def test_hits_built_without_measures_vote_fully():
     plain = replace(_hit("a"), coverage=None)
     assert fuse([plain], [], 10, "weighted")[0].title == "a"
+
+
+def test_the_reranker_reads_where_the_passage_is_and_its_start():
+    hit = replace(_hit("Manual", "um dois tres quatro"), heading="1. Ferias")
+
+    assert rerank_text(hit, 0) == "Manual - 1. Ferias\num dois tres quatro"
+    assert rerank_text(hit, 10) == "Manual - 1. Ferias\num dois"
+    assert rerank_text(replace(hit, title="", heading=None), 3) == "um"
+
+
+def test_search_asks_for_enough_candidates_and_uses_the_settings(provider, monkeypatch):
+    provider("overlap")
+    asked = {}
+
+    def fake_search(db, organization_id, query, limit, mode, fusion):
+        asked["limit"] = limit
+        return SearchResult("hybrid", [_hit(f"h{i}", "q" if i == 4 else "x") for i in range(limit)])
+
+    monkeypatch.setattr(search_service, "_search", fake_search)
+    monkeypatch.setattr(search_service.settings, "RERANK_CANDIDATES", 5)
+
+    result = search_service.search(
+        None, organization_id=uuid.uuid4(), query="q", limit=2, rerank=True
+    )
+
+    assert asked["limit"] == 5
+    assert result.reranked and [h.title for h in result.hits] == ["h4", "h0"]
+
+    search_service.search(
+        None, organization_id=uuid.uuid4(), query="q", limit=2, rerank=True,
+        rerank_candidates=8,
+    )
+    assert asked["limit"] == 8

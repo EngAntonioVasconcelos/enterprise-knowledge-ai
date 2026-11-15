@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     # BAAI/bge-reranker-v2-m3 (INT8) locally, in EMBEDDING_CACHE_DIR;
     # overlap is for tests; none turns it off.
     RERANK_PROVIDER: str = "fastembed"
+    # How many of the first results it reads, and how many characters of
+    # each (0 = the whole passage). Chosen by measurement (AI-2b).
+    RERANK_CANDIDATES: int = 10
+    RERANK_MAX_CHARS: int = 800
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

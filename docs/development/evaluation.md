@@ -32,6 +32,13 @@ Questions are grouped, because an average hides where search fails:
 | exact-code | codes and numbers ("RH-12", "2.5") |
 | permission | the answer exists but the user may not see it |
 
+## Small and large library
+
+`python -m scripts.evaluate_retrieval` uses the large library by default:
+the 17 documents plus 400 generated distractors (about 880 passages), so
+the numbers are closer to a real company. `--library small` uses only the
+17 documents (38 passages), as in AI-1 and AI-2. CI uses the small one.
+
 ## The metrics
 
 - **Recall@5**: in how many questions the right passage is in the first
@@ -41,7 +48,8 @@ Questions are grouped, because an average hides where search fails:
   first. First place counts 1, second 0.5, third 0.33, ..., missing 0.
 - **Leaks**: results the asking user may not see. Must always be 0; any
   leak fails the run.
-- **ms/search**: time per search in the database.
+- **ms/search** and **p95 ms**: average time per search, and the time
+  that 95% of the searches stay under (the slow ones users notice).
 
 ## Two ways to run it
 

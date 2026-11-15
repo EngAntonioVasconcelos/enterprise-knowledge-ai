@@ -30,6 +30,7 @@ FLOORS = {
     ("hybrid", "exact-code"): 1.0,
     ("hybrid-rrf", "all"): 0.55,
     ("hybrid+rerank", "exact-code"): 1.0,
+    ("rerank-10-short", "exact-code"): 1.0,
 }
 
 
