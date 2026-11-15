@@ -49,3 +49,6 @@ Thumbs.db
 
 # Files exported by the Claude app
 Claude outputs/
+
+# Local object storage (development)
+backend/var/

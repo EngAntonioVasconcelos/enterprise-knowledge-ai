@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     CREDENTIALS_MASTER_PUBLIC_KEY: str | None = None
     CREDENTIALS_MASTER_PRIVATE_KEY: str | None = None
 
+    # Object storage for document snapshots (ADR-004, docs/development/
+    # sync.md). "local" is for development; S3 comes with hosting.
+    STORAGE_BACKEND: str = "local"
+    LOCAL_STORAGE_PATH: str = "var/storage"
+
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",

@@ -12,6 +12,7 @@ from app.schemas.connection import (
     ConnectionCreate,
     ConnectionResponse,
     ConnectionUpdate,
+    SyncRequested,
 )
 from app.services.connection_service import (
     create_connection,
@@ -20,6 +21,7 @@ from app.services.connection_service import (
     list_connections,
     update_connection,
 )
+from app.services.sync_service import request_sync
 from app.services.credential_service import (
     credentials_status,
     store_credentials,
@@ -182,4 +184,32 @@ def get_credentials_status(
     return credentials_status(
         db, organization_id=organization_id, connection_id=connection_id
     )
+
+
+
+@router.post(
+    "/{connection_id}/sync",
+    response_model=SyncRequested,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def sync(
+    organization_id: uuid.UUID,
+    connection_id: uuid.UUID,
+    manager: OrganizationMembership = Depends(MANAGERS),
+    db: Session = Depends(get_db),
+):
+    """Queue a synchronization; the worker runs it."""
+    try:
+        connection = get_connection(
+            db, organization_id=organization_id, connection_id=connection_id
+        )
+        job = request_sync(
+            db, connection=connection, actor_user_id=manager.user_id
+        )
+        db.commit()
+    except DomainError:
+        db.rollback()
+        raise
+
+    return SyncRequested(job_id=job.id, status=job.status)
 

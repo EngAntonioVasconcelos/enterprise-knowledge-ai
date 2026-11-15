@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     String,
+    Text,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -98,6 +99,13 @@ class DataConnection(Base):
 
     last_error: Mapped[str | None] = mapped_column(
         String(500),
+        nullable=True,
+    )
+
+    # The connector's position in the source's change feed; only the
+    # worker moves it (migration c9f4b2a8e6d1).
+    sync_cursor: Mapped[str | None] = mapped_column(
+        Text,
         nullable=True,
     )
 

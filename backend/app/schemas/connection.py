@@ -116,3 +116,12 @@ class ConnectionResponse(BaseModel):
     disconnected_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+
+
+class SyncRequested(BaseModel):
+    job_id: uuid.UUID
+    status: str
+
+    model_config = ConfigDict(extra="forbid")
+
