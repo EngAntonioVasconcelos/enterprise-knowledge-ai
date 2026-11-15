@@ -5,6 +5,7 @@ from app.models.credential import ConnectionCredential, OrganizationKey
 from app.models.data_connection import DataConnection
 from app.models.document import Document, DocumentVersion
 from app.models.document_access import DocumentAccess, DocumentPermission
+from app.models.document_chunk import DocumentChunk
 from app.models.file_upload import FileUpload
 from app.models.email_outbox import EmailOutbox
 from app.models.invitation import OrganizationInvitation
@@ -33,4 +34,5 @@ __all__ = [
     "DocumentPermission",
     "DocumentAccess",
     "FileUpload",
+    "DocumentChunk",
 ]

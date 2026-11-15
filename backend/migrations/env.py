@@ -20,6 +20,17 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+# Database-only objects that the models leave out on purpose: the
+# full-text column PostgreSQL generates for each chunk, and its index.
+DATABASE_ONLY = {
+    ("column", "content_tsv"),
+    ("index", "ix_document_chunks_content_tsv"),
+}
+
+
+def include_object(object_, name, type_, reflected, compare_to):
+    return (type_, name) not in DATABASE_ONLY
+
 
 def get_migration_database_url() -> str:
     url = settings.MIGRATION_DATABASE_URL
@@ -67,6 +78,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
