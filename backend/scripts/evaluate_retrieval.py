@@ -37,7 +37,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
-from app.services.embeddings import EmbeddingUnavailableError, get_embedder
+from app.services.embeddings import E5_MODELS, EmbeddingUnavailableError, get_embedder
 from app.services.reranking import RerankUnavailableError, get_reranker
 from scripts.prepare_test_database import TEST_ADMIN_URL
 from tests.integration import test_document_permissions as permissions
@@ -57,7 +57,14 @@ def main() -> int:
     parser.add_argument(
         "--compare-rerank", action="store_true", help="also the four reranker settings (slow)"
     )
+    parser.add_argument(
+        "--embedding-model",
+        choices=sorted(E5_MODELS),
+        help="measure another embedding model (download it first with try_embeddings --model)",
+    )
     args = parser.parse_args()
+    if args.embedding_model:
+        settings.EMBEDDING_MODEL = args.embedding_model
     if make_url(TEST_ADMIN_URL).database != "eka_test":
         print("PAROU: this evaluation runs only on the test database eka_test.")
         return 1

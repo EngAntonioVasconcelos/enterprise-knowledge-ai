@@ -62,3 +62,36 @@ iterative scans keep reading the index until enough visible rows exist.
   new version.
 - The vector table is used through SQL only; `migrations/env.py` tells
   `alembic check` to ignore it.
+
+## AJ-2: measuring larger models for cross-language questions
+
+After prompt v3 (50 of 54 correct, 0 wrong), every remaining miss is a
+Portuguese question whose answer is in an English document: search does
+not bring the passage. Translating each question with the language model
+would add 5 to 10 s to every answer on a laptop CPU, so the cheaper option
+is measured first: larger models of the same multilingual e5 family (MIT),
+whose vectors may place a Portuguese question closer to an English passage.
+
+| Model | Numbers per text | Download |
+|---|---|---|
+| intfloat/multilingual-e5-small (now) | 384 | about 470 MB |
+| intfloat/multilingual-e5-base | 768 | about 1.1 GB |
+| intfloat/multilingual-e5-large | 1024 | about 2.2 GB |
+
+`EMBEDDING_MODEL` chooses the model (default small). To measure one:
+
+    python -m scripts.try_embeddings --model intfloat/multilingual-e5-base
+    python -m scripts.evaluate_retrieval --embedding-model intfloat/multilingual-e5-base
+
+The evaluation computes the vectors of the large library with that model
+inside its rolled-back transaction, so nothing is kept. Only the small model
+has an HNSW index today; the others are searched without one in the
+evaluation, which is fine for about 880 passages. Adopting another model
+means a migration for its index and computing new vectors for every
+document, side by side with the old ones (each vector records its model).
+
+Rule fixed before measuring, on the large library against the small model:
+the pt-to-en group rises, no other group loses more than one question in
+Recall@5, codes stay at 1.00, leaks 0, and hybrid search stays under 150 ms
+on average. If none passes, the answer step gets question translation
+instead (AJ-2b).

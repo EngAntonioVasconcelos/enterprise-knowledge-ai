@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     # none turns search by meaning off.
     EMBEDDING_PROVIDER: str = "fastembed"
     EMBEDDING_CACHE_DIR: str = "var/models"
+    # One of the multilingual e5 models (embeddings.E5_MODELS). Changing it
+    # means computing new vectors; AJ-2 measures the options first.
+    EMBEDDING_MODEL: str = "intfloat/multilingual-e5-small"
 
     # Reranking (docs/development/reranking.md): fastembed runs
     # BAAI/bge-reranker-v2-m3 (INT8) locally, in EMBEDDING_CACHE_DIR;

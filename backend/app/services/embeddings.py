@@ -32,6 +32,14 @@ from app.core.config import settings
 
 E5_MODEL = "intfloat/multilingual-e5-small"
 E5_DIMS = 384
+# The multilingual e5 family (MIT): same prefixes, same pooling, more
+# numbers and more time per text as they grow. Which one is used is the
+# setting EMBEDDING_MODEL; AJ-2 measures them on cross-language questions.
+E5_MODELS = {
+    "intfloat/multilingual-e5-small": 384,
+    "intfloat/multilingual-e5-base": 768,
+    "intfloat/multilingual-e5-large": 1024,
+}
 HASHING_MODEL = "test/hashing-384"
 
 
@@ -78,28 +86,31 @@ class HashingEmbedder:
 class FastEmbedE5:
     """multilingual-e5-small through fastembed (ONNX Runtime, CPU)."""
 
-    model = E5_MODEL
-    dims = E5_DIMS
-
-    def __init__(self, cache_dir: str, *, allow_download: bool = False):
+    def __init__(
+        self, cache_dir: str, *, model: str = E5_MODEL, allow_download: bool = False
+    ):
+        if model not in E5_MODELS:
+            raise EmbeddingUnavailableError(f"unknown embedding model {model}")
+        self.model = model
+        self.dims = E5_MODELS[model]
         try:
             from fastembed import TextEmbedding
             from fastembed.common.model_description import ModelSource, PoolingType
         except ImportError as exc:
             raise EmbeddingUnavailableError("fastembed is not installed") from exc
 
-        if E5_MODEL not in {m["model"] for m in TextEmbedding.list_supported_models()}:
+        if model not in {m["model"] for m in TextEmbedding.list_supported_models()}:
             TextEmbedding.add_custom_model(
-                model=E5_MODEL,
+                model=model,
                 pooling=PoolingType.MEAN,
                 normalization=True,
-                sources=ModelSource(hf=E5_MODEL),
-                dim=E5_DIMS,
+                sources=ModelSource(hf=model),
+                dim=self.dims,
                 model_file="onnx/model.onnx",
             )
         try:
             self._model = TextEmbedding(
-                model_name=E5_MODEL,
+                model_name=model,
                 cache_dir=cache_dir,
                 local_files_only=not allow_download,
             )
@@ -122,9 +133,9 @@ class FastEmbedE5:
 
 
 @lru_cache(maxsize=1)
-def _cached(provider: str, cache_dir: str) -> Embedder:
+def _cached(provider: str, cache_dir: str, model: str = E5_MODEL) -> Embedder:
     if provider == "fastembed":
-        return FastEmbedE5(cache_dir)
+        return FastEmbedE5(cache_dir, model=model)
     if provider == "hashing":
         return HashingEmbedder()
     raise EmbeddingUnavailableError(f"embeddings are disabled (provider {provider})")
@@ -133,7 +144,7 @@ def _cached(provider: str, cache_dir: str) -> Embedder:
 def get_embedder() -> Embedder:
     """The configured embedder, loaded once per process."""
     cache_dir = str(Path(settings.EMBEDDING_CACHE_DIR).resolve())
-    return _cached(settings.EMBEDDING_PROVIDER, cache_dir)
+    return _cached(settings.EMBEDDING_PROVIDER, cache_dir, settings.EMBEDDING_MODEL)
 
 
 def embeddings_enabled() -> bool:

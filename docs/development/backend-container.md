@@ -43,3 +43,16 @@ and prepared (`... run --rm backend python scripts/prepare_test_database.py`).
 
 Git stays on Windows. Files are shared through the mount, which is slower
 than a native disk: the tests take a little longer than on the host.
+
+## How blocks check their work (since AJ-2a)
+
+Blocks run every check inside the container with one command:
+
+    docker compose -f infrastructure/dev/docker-compose.yml run --rm backend python -m scripts.block_checks
+
+`scripts/block_checks.py` runs ruff, prepares the test database and runs the
+tests, then makes sure the runtime role exists on the development database
+(port 1996 only), applies the migrations and runs `alembic check`. It stops
+at the first failure, and the block commits only if it returns 0. The
+Windows Python is used only to write the block's files (standard library
+only), and Git stays on Windows.
