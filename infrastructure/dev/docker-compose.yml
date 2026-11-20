@@ -40,6 +40,59 @@ services:
       # The disposable test database on the host (throwaway credentials).
       EKA_TEST_ADMIN_DATABASE_URL: postgresql+psycopg://eka_test_admin:local-test-admin-only@host.docker.internal:1999/eka_test
 
+  # The backend API for the web app (profile app). Same image as the
+  # tools. No automatic reload: with the API and the worker each holding
+  # the embedding model, the file watcher ran the Docker VM out of memory.
+  # After a change to the backend, stop and start "up" again.
+  api:
+    profiles: ["app"]
+    image: eka-backend:dev
+    build:
+      context: ../../backend
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    volumes:
+      - ../../backend:/app/backend
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  # The background worker (profile app): reads uploaded and synced files,
+  # cuts them into passages and computes their vectors. Same image and
+  # folder as the API, so both see the same local storage (var/storage) and
+  # models (var/models). Connects with WORKER_DATABASE_URL and switches to
+  # the eka_worker role in every transaction. See
+  # docs/development/background-jobs.md.
+  worker:
+    profiles: ["app"]
+    image: eka-backend:dev
+    build:
+      context: ../../backend
+    command: ["python", "-m", "scripts.run_worker", "--watch"]
+    volumes:
+      - ../../backend:/app/backend
+    restart: unless-stopped
+
+  # The web app (profile app). Auth0 settings come from frontend/.env.local
+  # (never committed). See docs/development/frontend.md.
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ../../frontend
+      target: dev
+    image: eka-frontend:dev
+    env_file:
+      - path: ../../frontend/.env.local
+        required: false
+    environment:
+      EKA_API_URL: http://api:8000
+    volumes:
+      - ../../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - api
+
 volumes:
   eka_dev_pgdata:
     name: eka_dev_pgdata

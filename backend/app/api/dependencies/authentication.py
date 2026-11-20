@@ -1,4 +1,6 @@
-﻿from fastapi import Depends, HTTPException, status
+﻿import logging
+
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import InvalidTokenError, PyJWKClientError
 from jwt.exceptions import PyJWKClientConnectionError
@@ -20,6 +22,10 @@ from app.services.authentication_service import (
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+# Why a sign-in was refused, for whoever runs the service: the reason
+# only, never the token, the e-mail or other claims.
+logger = logging.getLogger("eka.auth")
 
 FULL_NAME_MAX_LENGTH = 150
 
@@ -43,11 +49,16 @@ def _provision_on_first_login(
     name = _profile_claim(payload, "name")
 
     if not isinstance(email, str) or "@" not in email:
+        logger.warning(
+            "Access token refused: no e-mail claim (does the post-login "
+            "Action add it under OIDC_CLAIMS_NAMESPACE?)"
+        )
         raise unauthorized_exception
 
     # Only an e-mail the identity provider verified may create an account
     # or link to an existing one; anything else would allow account takeover.
     if email_verified is not True:
+        logger.warning("Sign-in refused: the e-mail address is not verified")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="A verified email address is required.",
@@ -69,6 +80,7 @@ def _provision_on_first_login(
 
     except AccountUnavailableError:
         db.rollback()
+        logger.warning("Sign-in refused: the account or identity is disabled")
         raise unauthorized_exception from None
 
     return user
@@ -90,19 +102,24 @@ def get_current_user(
     try:
         payload = verify_access_token(credentials.credentials)
 
-    except RuntimeError:
+    except RuntimeError as error:
+        logger.error("Authentication is not configured: %s", error)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service is not properly configured",
         ) from None
 
     except PyJWKClientConnectionError:
+        logger.error("Access token not checked: the JWKS URL cannot be reached")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service is temporarily unavailable",
         ) from None
 
-    except (InvalidTokenError, PyJWKClientError):
+    except (InvalidTokenError, PyJWKClientError) as error:
+        # The class names the check that failed (InvalidAudienceError,
+        # InvalidIssuerError, ExpiredSignatureError, ...).
+        logger.warning("Access token refused: %s", type(error).__name__)
         raise unauthorized_exception from None
 
     issuer = payload.get("iss")
@@ -114,6 +131,7 @@ def get_current_user(
         or not isinstance(subject, str)
         or not subject.strip()
     ):
+        logger.warning("Access token refused: no issuer or subject")
         raise unauthorized_exception
 
     set_authentication_context(
