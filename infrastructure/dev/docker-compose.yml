@@ -47,7 +47,10 @@ services:
     image: eka-backend:dev
     build:
       context: ../../backend
-    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    # Watch only the application code: the mounted folder also holds the
+    # Windows .venv and local storage, and polling all of it runs the
+    # Docker VM out of memory.
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]
     environment:
       WATCHFILES_FORCE_POLLING: "true"
     volumes:
