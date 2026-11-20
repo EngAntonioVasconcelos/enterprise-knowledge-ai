@@ -30,3 +30,20 @@ export function paragraphs(answer: string): string[] {
     .map((part) => part.trim())
     .filter(Boolean);
 }
+
+/**
+ * A passage as the margin shows it. Passages begin with their section's
+ * heading, which the margin already shows above them: say it once.
+ */
+export function passageText(snippet: string, heading: string | null): string {
+  const text = snippet.trim();
+  if (!heading) return text;
+  const title = heading.trim();
+  return text.startsWith(title) ? text.slice(title.length).trimStart() || text : text;
+}
+
+/** The first words of a passage, for a source listed without its text. */
+export function excerpt(text: string, words = 12): string {
+  const parts = text.trim().split(/\s+/);
+  return parts.length > words ? `${parts.slice(0, words).join(" ")}\u2026` : parts.join(" ");
+}

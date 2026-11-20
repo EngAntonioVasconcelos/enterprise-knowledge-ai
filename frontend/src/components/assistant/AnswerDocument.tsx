@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { useI18n } from "@/i18n/client";
 import type { Answer, AnswerSource } from "@/lib/api-types";
-import { paragraphs, splitAnswer } from "@/lib/citations";
+import { excerpt, paragraphs, passageText, splitAnswer } from "@/lib/citations";
 
 
 // The answer reads like an annotated page: the text on the left, the
@@ -100,7 +100,7 @@ function CitationMark({
       onFocus={() => onActive(number)}
       onBlur={() => onActive(null)}
       className={
-        "mx-0.5 inline-flex min-w-[1.35em] -translate-y-[0.45em] items-center justify-center rounded-[4px] px-1 align-baseline font-sans text-[0.7rem] leading-[1.5] font-semibold no-underline transition-colors " +
+        "ml-[0.15em] inline-flex min-w-[1.35em] -translate-y-[0.45em] items-center justify-center rounded-[4px] px-1 align-baseline font-sans text-[0.7rem] leading-[1.5] font-semibold no-underline transition-colors " +
         (active ? "bg-cobalt text-white" : "bg-cobalt-wash text-cobalt-deep hover:bg-cobalt hover:text-white")
       }
     >
@@ -151,10 +151,13 @@ function SourceList({
               </p>
               {source.heading ? (
                 <p className="mt-0.5 pl-5 text-meta text-ink-faint">{source.heading}</p>
+              ) : quiet ? (
+                // Without a section, a few words tell passages of one document apart.
+                <p className="mt-0.5 pl-5 text-meta text-ink-faint">{excerpt(source.snippet)}</p>
               ) : null}
               {!quiet ? (
                 <blockquote className="mt-2 pl-5 font-reading text-[0.9375rem] leading-relaxed text-ink-soft">
-                  {source.snippet}
+                  {passageText(source.snippet, source.heading)}
                 </blockquote>
               ) : null}
             </li>

@@ -1,4 +1,4 @@
-import { paragraphs, splitAnswer } from "@/lib/citations";
+import { excerpt, paragraphs, passageText, splitAnswer } from "@/lib/citations";
 
 describe("splitAnswer", () => {
   it("cuts text and citations in order", () => {
@@ -24,5 +24,20 @@ describe("splitAnswer", () => {
 describe("paragraphs", () => {
   it("splits at blank lines only", () => {
     expect(paragraphs("Um.\nDois.\n\n  Tres.  ")).toEqual(["Um.\nDois.", "Tres."]);
+  });
+});
+
+describe("passageText", () => {
+  it("does not repeat the section heading the margin already shows", () => {
+    expect(passageText("1. F\u00e9rias Cada colaborador tem 25 dias.", "1. F\u00e9rias")).toBe("Cada colaborador tem 25 dias.");
+    expect(passageText("Cada colaborador tem 25 dias.", "1. F\u00e9rias")).toBe("Cada colaborador tem 25 dias.");
+    expect(passageText("Texto.", null)).toBe("Texto.");
+  });
+});
+
+describe("excerpt", () => {
+  it("keeps the first words", () => {
+    expect(excerpt("um dois tres quatro", 2)).toBe("um dois\u2026");
+    expect(excerpt("curto", 2)).toBe("curto");
   });
 });

@@ -41,18 +41,15 @@ services:
       EKA_TEST_ADMIN_DATABASE_URL: postgresql+psycopg://eka_test_admin:local-test-admin-only@host.docker.internal:1999/eka_test
 
   # The backend API for the web app (profile app). Same image as the
-  # tools; reloads when the code changes.
+  # tools. No automatic reload: with the API and the worker each holding
+  # the embedding model, the file watcher ran the Docker VM out of memory.
+  # After a change to the backend, stop and start "up" again.
   api:
     profiles: ["app"]
     image: eka-backend:dev
     build:
       context: ../../backend
-    # Watch only the application code: the mounted folder also holds the
-    # Windows .venv and local storage, and polling all of it runs the
-    # Docker VM out of memory.
-    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]
-    environment:
-      WATCHFILES_FORCE_POLLING: "true"
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     volumes:
       - ../../backend:/app/backend
     ports:
