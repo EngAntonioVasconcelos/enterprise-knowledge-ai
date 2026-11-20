@@ -55,6 +55,23 @@ export const ptPT = {
     },
     tryAgain: "Tentar de novo",
   },
+  access: {
+    signedOut: {
+      title: "N\u00e3o foi poss\u00edvel confirmar a tua sess\u00e3o",
+      body: "O servidor n\u00e3o aceitou a tua sess\u00e3o. Entra de novo para continuar.",
+      action: "Entrar de novo",
+    },
+    unverified: {
+      title: "Confirma o teu e-mail",
+      body: "S\u00f3 entram contas com o e-mail confirmado. Abre a mensagem de confirma\u00e7\u00e3o que recebeste e entra de novo.",
+      action: "Entrar de novo",
+    },
+    unavailable: {
+      title: "O servi\u00e7o n\u00e3o est\u00e1 dispon\u00edvel",
+      body: "N\u00e3o foi poss\u00edvel carregar as tuas organiza\u00e7\u00f5es. Tenta de novo daqui a pouco.",
+      action: "Tentar de novo",
+    },
+  },
   noOrganization: {
     title: "Ainda n\u00e3o pertences a nenhuma organiza\u00e7\u00e3o",
     body: "Pede a um administrador da tua empresa que te convide. Quando aceitares o convite, o assistente fica dispon\u00edvel aqui.",

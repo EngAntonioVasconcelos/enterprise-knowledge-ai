@@ -55,6 +55,23 @@ export const en: Messages = {
     },
     tryAgain: "Try again",
   },
+  access: {
+    signedOut: {
+      title: "Your session could not be confirmed",
+      body: "The server did not accept your session. Sign in again to continue.",
+      action: "Sign in again",
+    },
+    unverified: {
+      title: "Confirm your e-mail address",
+      body: "Only accounts with a confirmed e-mail address can sign in. Open the confirmation message you received, then sign in again.",
+      action: "Sign in again",
+    },
+    unavailable: {
+      title: "The service is not available",
+      body: "Your organizations could not be loaded. Try again in a moment.",
+      action: "Try again",
+    },
+  },
   noOrganization: {
     title: "You are not in an organization yet",
     body: "Ask an administrator at your company to invite you. Once you accept the invitation, the assistant is available here.",

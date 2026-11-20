@@ -1,9 +1,11 @@
 
+import logging
+
 import pytest
 
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
-from jwt import InvalidTokenError
+from jwt import InvalidAudienceError, InvalidTokenError
 from jwt.exceptions import PyJWKClientConnectionError
 
 from app.api.dependencies import authentication
@@ -330,3 +332,38 @@ def test_first_login_of_a_disabled_account_returns_401(
         )
 
     assert exc_info.value.status_code == 401
+
+
+def test_a_refused_token_logs_which_check_failed(
+    db_session,
+    monkeypatch,
+    caplog,
+):
+    def wrong_audience(token):
+        raise InvalidAudienceError("Audience doesn't match")
+
+    monkeypatch.setattr(authentication, "verify_access_token", wrong_audience)
+
+    with caplog.at_level(logging.WARNING, logger="eka.auth"):
+        with pytest.raises(HTTPException):
+            authentication.get_current_user(
+                credentials=create_credentials(),
+                db=db_session,
+            )
+
+    assert "InvalidAudienceError" in caplog.text
+    assert "test-token" not in caplog.text
+
+
+def test_a_token_without_e_mail_logs_a_hint(db_session, monkeypatch, caplog):
+    _first_login(monkeypatch, {"name": "No Email"})
+
+    with caplog.at_level(logging.WARNING, logger="eka.auth"):
+        with pytest.raises(HTTPException) as exc_info:
+            authentication.get_current_user(
+                credentials=create_credentials(),
+                db=db_session,
+            )
+
+    assert exc_info.value.status_code == 401
+    assert "no e-mail claim" in caplog.text

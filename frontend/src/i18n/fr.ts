@@ -56,6 +56,23 @@ export const fr: Messages = {
     },
     tryAgain: "R\u00e9essayer",
   },
+  access: {
+    signedOut: {
+      title: "Votre session n\u2019a pas pu \u00eatre confirm\u00e9e",
+      body: "Le serveur n\u2019a pas accept\u00e9 votre session. Reconnectez-vous pour continuer.",
+      action: "Se reconnecter",
+    },
+    unverified: {
+      title: "Confirmez votre adresse e-mail",
+      body: "Seuls les comptes dont l\u2019adresse e-mail est confirm\u00e9e peuvent se connecter. Ouvrez le message de confirmation re\u00e7u, puis reconnectez-vous.",
+      action: "Se reconnecter",
+    },
+    unavailable: {
+      title: "Le service n\u2019est pas disponible",
+      body: "Impossible de charger vos organisations. R\u00e9essayez dans un instant.",
+      action: "R\u00e9essayer",
+    },
+  },
   noOrganization: {
     title: "Vous ne faites encore partie d\u2019aucune organisation",
     body: "Demandez \u00e0 un administrateur de votre entreprise de vous inviter. Une fois l\u2019invitation accept\u00e9e, l\u2019assistant sera disponible ici.",
