@@ -150,6 +150,8 @@ def test_an_answer_that_fails_the_checks_is_not_shown(world):
     world["model"] = FakeModel("Tens 30 dias [1].")
     result = _ask()
     assert result.abstained and not result.verified
+    # The refused text is kept for the evaluation, not shown.
+    assert result.draft == "Tens 30 dias [1]." and "30" not in result.answer
     assert result.answer == NO_ANSWER["pt"] and "30" not in result.answer
     assert result.issues and result.sources
 
@@ -199,7 +201,7 @@ def test_the_answers_route(client, world, monkeypatch):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["answer"] == "Tens 25 dias uteis [1]." and body["verified"]
-    assert body["language"] == "pt"
+    assert body["language"] == "pt" and "draft" not in body
     refused = client.post(
         f"/api/v1/organizations/{organization['id']}/answers/",
         json={"question": "x", "interface_language": "de"},
@@ -270,3 +272,15 @@ def test_the_interface_language_decides_a_question_without_small_words(world):
         None, organization_id=uuid.uuid4(), question="EXP-22", interface_language="en"
     )
     assert result.language == "en" and result.answer == NO_ANSWER["en"]
+
+
+def test_prompt_v5_keeps_the_qualifiers_of_numbers(world):
+    world["model"] = RecordingModel("You have 25 working days [1].")
+    result = answer_question(
+        None,
+        organization_id=uuid.uuid4(),
+        question="how many vacation days do I get?",
+        prompt_version="v5",
+    )
+    assert result.prompt_id.startswith("answer-v5-") and result.language == "en"
+    assert world["model"].user.rstrip().endswith("Answer in: English")

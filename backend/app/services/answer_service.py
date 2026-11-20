@@ -37,7 +37,7 @@ from app.services.search_service import SearchHit, search
 logger = logging.getLogger("eka.answers")
 
 PROMPT_NAME = "answer"
-PROMPT_VERSIONS = ("v1", "v2", "v3", "v4")
+PROMPT_VERSIONS = ("v1", "v2", "v3", "v4", "v5")
 LANGUAGES = ("pt", "en", "fr")
 # How prompt v4 names the language of the answer, decided here and not by
 # the model: small models drift into the language of the sources.
@@ -104,6 +104,9 @@ class AnswerResult:
     timings_ms: dict[str, float] = field(default_factory=dict)
     # The language the answer is written in: pt, en or fr.
     language: str = "pt"
+    # The model's text when the checks refused it. Kept for the evaluation
+    # report only: never sent to the person, never logged.
+    draft: str | None = None
 
 
 def question_language(question: str, fallback: str | None = None) -> str:
@@ -239,7 +242,7 @@ def answer_question(
     timings["search"] = round(1000 * (time.perf_counter() - started), 1)
     sources = select_sources(found.hits)
 
-    def no_answer(issues: list[str], model: str | None) -> AnswerResult:
+    def no_answer(issues: list[str], model: str | None, draft: str | None = None) -> AnswerResult:
         return AnswerResult(
             answer=NO_ANSWER[language],
             abstained=True,
@@ -252,6 +255,7 @@ def answer_question(
             note=found.note,
             timings_ms=timings,
             language=language,
+            draft=draft,
         )
 
     if not sources:
@@ -286,7 +290,7 @@ def answer_question(
     else:
         cited, issues = verify(text, sources, question)
         if issues:
-            result = no_answer(issues, completion.model)
+            result = no_answer(issues, completion.model, draft=text)
         else:
             result = AnswerResult(
                 answer=text,

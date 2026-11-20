@@ -204,3 +204,37 @@ language" at most 2 of 64, each read by hand; at least 61 of 64 correct
 (v3: 62, one of margin); 0 wrong; at most 1 refused by the checks; 0
 NAO_SEI mixed; 0 leaks. If it passes, v4 becomes the default in a separate
 change.
+
+### AJ-4 measured (20 November 2026, small library, seed 0)
+
+| | v3 | v4 |
+|---|---|---|
+| correct (of 64) | 62 | 61 |
+| wrong | 0 | 0 |
+| no-answer | 2 | 1 |
+| refused by the checks | 0 | 2 |
+| other language | 32 | 0 |
+| average per answer | 19.0 s | 13.9 s |
+
+v4 fixes the language and fails one condition: two refused answers, both
+the hotel limit (Portuguese and French): the model wrote 120, the right
+number, but cited a source without it, so the answer was not shown. v3
+stays the default. Read by hand, the translations also lose qualifiers
+("25 days of paid vacation" for 25 dias uteis, "jours de conges payes"
+without "ouvres") and leave terms untranslated ("the director financeiro").
+
+## AJ-4b: prompt v5, and the refused drafts in the report
+
+- v5 is v4 plus: cite the source where each number is written; translate
+  job titles and common terms; keep every qualifier of a number ("dias
+  uteis" are working days, not days or paid days).
+- When the checks refuse an answer, the model's text is kept in the
+  evaluation report ("refused draft"), to see which source it cited. It is
+  never sent to the person and never logged.
+
+Rule, fixed before measuring v4 and v5 together (small library, seed 0):
+the AJ-4 rule (other language at most 2; at least 61 of 64 correct; 0
+wrong; at most 1 refused; 0 NAO_SEI mixed; 0 leaks), plus: the English and
+French vacation questions say "working days" or "jours ouvres". The best
+version that passes becomes the default in a separate change; if none
+does, v3 stays.

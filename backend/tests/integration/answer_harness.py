@@ -87,6 +87,7 @@ def evaluate_answers(
                     "outcome": outcome,
                     "answer": result.answer,
                     "issues": result.issues,
+                    "draft": result.draft,
                 }
             )
     # To read: the answers that were not correct first, then a few correct.
