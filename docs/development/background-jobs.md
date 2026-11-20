@@ -44,7 +44,9 @@ Setting (name only; the value stays in your `.env`): `WORKER_DATABASE_URL`,
 a login that holds `eka_worker`. In development the migration login can be
 used, since a superuser is a member of every role.
 
-From the backend folder:
+With the web app (`docker compose -f infrastructure/dev/docker-compose.yml
+--profile app up`), the `worker` service runs `--watch` next to the API.
+Without Docker, from the backend folder:
 
 ```
 python -m scripts.run_worker            # one pass

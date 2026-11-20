@@ -58,6 +58,22 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
 
+  # The background worker (profile app): reads uploaded and synced files,
+  # cuts them into passages and computes their vectors. Same image and
+  # folder as the API, so both see the same local storage (var/storage) and
+  # models (var/models). Connects with WORKER_DATABASE_URL and switches to
+  # the eka_worker role in every transaction. See
+  # docs/development/background-jobs.md.
+  worker:
+    profiles: ["app"]
+    image: eka-backend:dev
+    build:
+      context: ../../backend
+    command: ["python", "-m", "scripts.run_worker", "--watch"]
+    volumes:
+      - ../../backend:/app/backend
+    restart: unless-stopped
+
   # The web app (profile app). Auth0 settings come from frontend/.env.local
   # (never committed). See docs/development/frontend.md.
   frontend:
