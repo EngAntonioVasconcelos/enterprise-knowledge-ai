@@ -95,3 +95,38 @@ the pt-to-en group rises, no other group loses more than one question in
 Recall@5, codes stay at 1.00, leaks 0, and hybrid search stays under 150 ms
 on average. If none passes, the answer step gets question translation
 instead (AJ-2b).
+
+## AJ-2a measured (20 November 2026, large library, in the container)
+
+| | e5-small | e5-base | e5-large |
+|---|---|---|---|
+| hybrid Recall@5 (MRR), all | 0.76 (0.70) | 0.81 (0.76) | 0.91 (0.83) |
+| hybrid pt-to-en | 0.25 | 0.42 | 0.58 |
+| hybrid en-to-pt | 0.70 | 0.80 | 1.00 |
+| hybrid + reranker, all | 0.80 | 0.91 | 0.96 |
+| hybrid + reranker, pt-to-en | 0.25 | 0.58 | 0.83 |
+| exact codes (hybrid) | 1.00 | 1.00 | 1.00 |
+| leaks | 0 | 0 | 0 |
+| hybrid ms (average / p95) | 80 / 113 | 100 / 132 | 156 / 192 |
+| indexing the library | 53 s | 112 s | 271 s |
+
+Decision by the rule: e5-base becomes the default. It passes every
+condition; e5-large is clearly better (pt-to-en with the reranker 0.83) but
+fails the time condition (156 ms average > 150 ms), indexes five times
+slower than small and needs about 2.2 GB of memory in every process that
+loads it. The rule is not changed after measuring: e5-large is measured
+again on the production machines (Phase 10), where it may fit.
+
+Note: "Local file sizes do not match the metadata" in the evaluation is a
+fastembed warning about model files first downloaded on Windows, where the
+download cache cannot use links; the files are complete and work.
+
+## AJ-2b: switching to e5-base
+
+- `EMBEDDING_MODEL` defaults to `intfloat/multilingual-e5-base`.
+- Migration `d2f7a3c9e5b1` adds its partial HNSW index (768 numbers). The
+  e5-small vectors and index stay; nothing is deleted.
+- Documents synced before the switch have no e5-base vectors: search by
+  meaning skips them (search by words still finds them) until
+  `python -m scripts.reembed_dev_documents` computes them in development.
+  In production, a worker job for this comes with Phase 10.

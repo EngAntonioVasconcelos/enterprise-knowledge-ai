@@ -35,6 +35,7 @@ DATABASE_ONLY = {
     ("table", "chunk_embeddings"),
     ("index", "ix_chunk_embeddings_document_id"),
     ("index", "ix_chunk_embeddings_e5_small_hnsw"),
+    ("index", "ix_chunk_embeddings_e5_base_hnsw"),
 }
 
 
