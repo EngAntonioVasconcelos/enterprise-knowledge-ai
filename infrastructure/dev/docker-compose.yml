@@ -26,6 +26,20 @@ services:
       retries: 12
       start_period: 10s
 
+  # The backend tools (tests, migrations, evaluations) in Linux, so the
+  # Windows Python and its app controls are not involved. Profile tools:
+  # not started by "up". See docs/development/backend-container.md.
+  backend:
+    profiles: ["tools"]
+    build:
+      context: ../../backend
+    image: eka-backend:dev
+    volumes:
+      - ../../backend:/app/backend
+    environment:
+      # The disposable test database on the host (throwaway credentials).
+      EKA_TEST_ADMIN_DATABASE_URL: postgresql+psycopg://eka_test_admin:local-test-admin-only@host.docker.internal:1999/eka_test
+
 volumes:
   eka_dev_pgdata:
     name: eka_dev_pgdata
