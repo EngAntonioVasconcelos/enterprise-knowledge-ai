@@ -75,6 +75,11 @@ def test_the_language_of_the_question():
     assert question_language("combien de jours de cong\u00e9s ai-je par an ?") == "fr"
     assert question_language("qui approuve les achats de plus de 20000 euros ?") == "fr"
     assert question_language("o que \u00e9 preciso para pedir f\u00e9rias?") == "pt"
+    # No small words: the language of the interface decides.
+    assert question_language("minimum password length", fallback="en") == "en"
+    assert question_language("EXP-22", fallback="fr") == "fr"
+    assert question_language("EXP-22", fallback="de") == "pt"
+    assert question_language("how many days?", fallback="fr") == "en"
 
 
 def test_a_french_question_gets_the_french_no_answer(world):
@@ -181,19 +186,25 @@ def test_the_answers_route(client, world, monkeypatch):
     monkeypatch.setattr(
         answers,
         "answer_question",
-        lambda db, organization_id, question: replace(
+        lambda db, organization_id, question, interface_language: replace(
             _ask(question), timings_ms={"search": 1.0, "model": 2.0}
         ),
     )
 
     response = client.post(
         f"/api/v1/organizations/{organization['id']}/answers/",
-        json={"question": "quantos dias de ferias tenho?"},
+        json={"question": "quantos dias de ferias tenho?", "interface_language": "pt"},
     )
 
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["answer"] == "Tens 25 dias uteis [1]." and body["verified"]
+    assert body["language"] == "pt"
+    refused = client.post(
+        f"/api/v1/organizations/{organization['id']}/answers/",
+        json={"question": "x", "interface_language": "de"},
+    )
+    assert refused.status_code == 422
     assert [(s["number"], s["cited"]) for s in body["sources"]] == [(1, True), (2, False)]
     assert "content" not in body["sources"][0]
 
@@ -233,3 +244,29 @@ def test_the_prompt_version_is_chosen_by_setting_or_argument(world, monkeypatch)
     assert result.prompt_id.startswith("answer-v2-")
     with pytest.raises(Exception, match="prompt version"):
         answer_question(None, organization_id=uuid.uuid4(), question="q", prompt_version="v9")
+
+
+class RecordingModel(FakeModel):
+    def complete(self, system, user, *, max_tokens):
+        self.user = user
+        return super().complete(system, user, max_tokens=max_tokens)
+
+
+def test_prompt_v4_names_the_language_of_the_answer(world):
+    world["model"] = RecordingModel("Vous avez droit \u00e0 25 jours [1].")
+    result = answer_question(
+        None,
+        organization_id=uuid.uuid4(),
+        question="combien de jours de cong\u00e9s ai-je ?",
+        prompt_version="v4",
+    )
+    assert result.language == "fr" and result.prompt_id.startswith("answer-v4-")
+    assert world["model"].user.rstrip().endswith("Answer in: French, addressing the person as \"vous\"")
+
+
+def test_the_interface_language_decides_a_question_without_small_words(world):
+    world["model"] = FakeModel("NAO_SEI")
+    result = answer_question(
+        None, organization_id=uuid.uuid4(), question="EXP-22", interface_language="en"
+    )
+    assert result.language == "en" and result.answer == NO_ANSWER["en"]

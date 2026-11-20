@@ -31,6 +31,8 @@ export type Answer = {
   model: string | null;
   note: string | null;
   timings_ms: Record<string, number>;
+  /** pt, en or fr: the language the answer is written in. */
+  language?: string;
 };
 
 export type AnswerErrorKind =

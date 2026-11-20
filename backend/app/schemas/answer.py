@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -7,6 +8,9 @@ from app.services.answer_service import MAX_QUESTION_CHARS
 
 class AnswerRequest(BaseModel):
     question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+    # The language of the interface: used only when the question itself
+    # does not show its language ("minimum password length").
+    interface_language: Literal["pt", "en", "fr"] | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -36,6 +40,8 @@ class AnswerResponse(BaseModel):
     sources: list[AnswerSourceResponse]
     prompt_id: str
     model: str | None = None
+    # pt, en or fr: the language the answer is written in.
+    language: str
     note: str | None = None
     timings_ms: dict[str, float]
 

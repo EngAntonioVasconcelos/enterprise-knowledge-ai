@@ -171,3 +171,36 @@ large library with seed 0: French at least 8 of 10 correct and 0 wrong;
 hand (the small-word test can misjudge a short answer that quotes a
 Portuguese phrase); the other 54 questions at least 52 correct (53 before,
 one of margin for the model), 0 wrong; leaks 0.
+
+### AJ-3 measured (20 November 2026, seed 0, prompt v3)
+
+Small library (the library of every earlier measurement): 62 of 64 correct,
+0 wrong, 2 no-answers (the usual forklift question, one French question),
+0 leaks, French 9 of 10. But 32 answers were not in the language of the
+question: reading them, gemma3:4b answers in Portuguese almost always,
+English documents included ("Tens 80 percent of dental treatment
+coverage"). Rule 6 of v3 asks for the language of the question; the small
+model does not follow a general rule placed far from the question. (The
+large library, measured first by mistake, gave 51 correct and 3 wrong: its
+400 distractors bring the wrong passage for Portuguese questions on English
+documents, as measured in AJ-2a; it is not comparable with the reference.)
+
+## AJ-4: prompt v4, the language decided by the code
+
+- The service decides the language of the answer: from the small words of
+  the question, or, when it has none ("minimum password length",
+  "EXP-22"), from the language of the interface, which the web app sends
+  (`interface_language`); then Portuguese.
+- Prompt v4 ends the request with "Answer in: <language>" and its rule 6
+  says to write the whole answer in it, translating the sources. The
+  "tu"/"vous" form goes with the language name.
+- The response says which language the answer is in (`language`), so the
+  page can mark it for screen readers.
+- The evaluation asks each question as if from an interface in the
+  question's language.
+
+Rule, fixed before measuring v4 on the small library with seed 0: "other
+language" at most 2 of 64, each read by hand; at least 61 of 64 correct
+(v3: 62, one of margin); 0 wrong; at most 1 refused by the checks; 0
+NAO_SEI mixed; 0 leaks. If it passes, v4 becomes the default in a separate
+change.

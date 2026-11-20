@@ -27,13 +27,19 @@ def answer(
 ):
     """An answer with citations from the documents the caller may open, or
     an honest "I could not find a reliable answer" with the sources."""
-    result = answer_question(db, organization_id=organization_id, question=body.question)
+    result = answer_question(
+        db,
+        organization_id=organization_id,
+        question=body.question,
+        interface_language=body.interface_language,
+    )
     cited = set(result.cited)
     return AnswerResponse(
         question=body.question,
         answer=result.answer,
         abstained=result.abstained,
         verified=result.verified,
+        language=result.language,
         sources=[
             AnswerSourceResponse(
                 number=source.number,

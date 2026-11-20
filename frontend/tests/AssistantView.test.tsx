@@ -37,7 +37,7 @@ describe("AssistantView", () => {
       "/api/answers",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ organizationId: ORG, question: "Quantos dias?" }),
+        body: JSON.stringify({ organizationId: ORG, question: "Quantos dias?", language: "pt" }),
       }),
     );
     expect(screen.getByRole("link", { name: "Fonte 1" })).toBeInTheDocument();

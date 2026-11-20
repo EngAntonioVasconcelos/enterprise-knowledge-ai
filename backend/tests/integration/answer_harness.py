@@ -49,6 +49,8 @@ def evaluate_answers(
             organization_id=world.organization,
             question=question["query"],
             prompt_version=prompt_version,
+            # As if asked in an interface in the language of the question.
+            interface_language=question["lang"],
         )
         mixed += result.mixed_abstain
         times.append(time.perf_counter() - started)

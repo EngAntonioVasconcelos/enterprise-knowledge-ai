@@ -35,9 +35,11 @@ added only when they exist, never as empty menu entries.
   - The switch (rail and entry page) names each language in itself
     (Portugu\u00eas, English, Fran\u00e7ais) and has no flags: flags are
     countries, not languages.
-  - The answers follow the language of the question, not the interface:
-    a question written in English gets an English answer in any interface
-    language (prompt v3, rule 6; French measured in AJ-3).
+  - The answers follow the language of the question; the interface
+    language is sent with each question (`language`, forwarded as
+    `interface_language`) and decides only when the question does not
+    show its own ("minimum password length"). The answer text is marked
+    with its language (`lang`) for screen readers. See answers.md (AJ-4).
 - **Security headers** on every page (no framing, no sniffing, strict
   referrer, no camera or microphone).
 - **Tests**: Vitest and Testing Library (components, the citation parser,

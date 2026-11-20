@@ -37,7 +37,16 @@ from app.services.search_service import SearchHit, search
 logger = logging.getLogger("eka.answers")
 
 PROMPT_NAME = "answer"
-PROMPT_VERSIONS = ("v1", "v2", "v3")
+PROMPT_VERSIONS = ("v1", "v2", "v3", "v4")
+LANGUAGES = ("pt", "en", "fr")
+# How prompt v4 names the language of the answer, decided here and not by
+# the model: small models drift into the language of the sources.
+LANGUAGE_NAMES = {
+    "pt": 'European Portuguese (Portugal), addressing the person as "tu" '
+    '(for example "tens", "podes"), never "voce"',
+    "en": "English",
+    "fr": 'French, addressing the person as "vous"',
+}
 MAX_QUESTION_CHARS = 500
 MAX_SOURCES = 5
 MAX_CONTEXT_CHARS = 8000
@@ -93,10 +102,16 @@ class AnswerResult:
     mixed_abstain: bool = False
     note: str | None = None
     timings_ms: dict[str, float] = field(default_factory=dict)
+    # The language the answer is written in: pt, en or fr.
+    language: str = "pt"
 
 
-def question_language(question: str) -> str:
-    """pt, en or fr, from the small words of the text (default pt)."""
+def question_language(question: str, fallback: str | None = None) -> str:
+    """pt, en or fr, from the small words of the text.
+
+    A text with none of them ("minimum password length", "EXP-22") takes
+    the fallback, the language of the interface, then Portuguese.
+    """
     plain = unicodedata.normalize("NFD", question.lower())
     plain = "".join(c for c in plain if not unicodedata.combining(c))
     words = re.findall(r"[a-z]+", plain)
@@ -109,7 +124,9 @@ def question_language(question: str) -> str:
         )
     }
     best = max(scores.values())
-    if best == 0 or scores["pt"] == best:
+    if best == 0:
+        return fallback if fallback in LANGUAGES else "pt"
+    if scores["pt"] == best:
         return "pt"
     return "en" if scores["en"] == best else "fr"
 
@@ -196,6 +213,7 @@ def answer_question(
     organization_id: uuid.UUID,
     question: str,
     prompt_version: str | None = None,
+    interface_language: str | None = None,
 ) -> AnswerResult:
     question = " ".join(question.split())
     if not question:
@@ -207,7 +225,7 @@ def answer_question(
     if version not in PROMPT_VERSIONS:
         raise InvalidInputError(f"prompt version must be one of: {', '.join(PROMPT_VERSIONS)}")
     prompt = load_prompt(PROMPT_NAME, version)
-    language = question_language(question)
+    language = question_language(question, fallback=interface_language)
     timings: dict[str, float] = {}
 
     started = time.perf_counter()
@@ -233,6 +251,7 @@ def answer_question(
             issues=issues,
             note=found.note,
             timings_ms=timings,
+            language=language,
         )
 
     if not sources:
@@ -250,7 +269,11 @@ def answer_question(
     try:
         completion = model.complete(
             prompt.system,
-            prompt.render(sources=render_sources(sources), question=question),
+            prompt.render(
+                sources=render_sources(sources),
+                question=question,
+                language=LANGUAGE_NAMES[language],
+            ),
             max_tokens=MAX_OUTPUT_TOKENS,
         )
     except LLMUnavailableError as exc:
@@ -275,6 +298,7 @@ def answer_question(
                 model=completion.model,
                 note=found.note,
                 timings_ms=timings,
+                language=language,
             )
     result.mixed_abstain = mixed
     _log(result)
