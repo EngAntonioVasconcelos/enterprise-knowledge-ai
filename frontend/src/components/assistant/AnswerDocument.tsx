@@ -3,16 +3,16 @@
 import { Check } from "lucide-react";
 import { useState } from "react";
 
-import { messages } from "@/i18n/pt-PT";
+import { useI18n } from "@/i18n/client";
 import type { Answer, AnswerSource } from "@/lib/api-types";
 import { paragraphs, splitAnswer } from "@/lib/citations";
 
-const t = messages.assistant;
 
 // The answer reads like an annotated page: the text on the left, the
 // passages it cites in the margin. Pointing at a citation lights up its
 // passage, and the other way round, so every claim can be checked at once.
 export function AnswerDocument({ answer }: { answer: Answer }) {
+  const t = useI18n().t.assistant;
   const [active, setActive] = useState<number | null>(null);
   const cited = answer.sources.filter((source) => source.cited);
   const consulted = answer.sources.filter((source) => !source.cited);
@@ -90,10 +90,11 @@ function CitationMark({
   active: boolean;
   onActive: (number: number | null) => void;
 }) {
+  const t = useI18n().t.assistant;
   return (
     <a
       href={`#fonte-${number}`}
-      aria-label={`${t.sources} ${number}`}
+      aria-label={t.source(number)}
       onMouseEnter={() => onActive(number)}
       onMouseLeave={() => onActive(null)}
       onFocus={() => onActive(number)}

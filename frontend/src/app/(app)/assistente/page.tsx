@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 
 import { AssistantView } from "@/components/assistant/AssistantView";
 import { OrganizationSwitch } from "@/components/shell/OrganizationSwitch";
-import { messages } from "@/i18n/pt-PT";
+import { getMessages } from "@/i18n/server";
 import type { Organization } from "@/lib/api-types";
 import { backendFetch } from "@/lib/backend";
 
-export const metadata: Metadata = { title: messages.assistant.title };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getMessages();
+  return { title: t.assistant.title };
+}
 
 async function loadOrganizations(): Promise<Organization[]> {
   const response = await backendFetch("/organizations/");
@@ -20,14 +23,18 @@ export default async function AssistantPage({
 }: {
   searchParams: Promise<{ org?: string }>;
 }) {
-  const [{ org }, organizations] = await Promise.all([searchParams, loadOrganizations()]);
+  const [{ org }, organizations, { t }] = await Promise.all([
+    searchParams,
+    loadOrganizations(),
+    getMessages(),
+  ]);
   const active = organizations.find((o) => o.id === org) ?? organizations[0];
 
   if (!active) {
     return (
       <section className="mx-auto max-w-xl px-6 py-24">
-        <h1 className="text-lead font-semibold">{messages.noOrganization.title}</h1>
-        <p className="mt-3 text-ink-soft text-pretty">{messages.noOrganization.body}</p>
+        <h1 className="text-lead font-semibold">{t.noOrganization.title}</h1>
+        <p className="mt-3 text-ink-soft text-pretty">{t.noOrganization.body}</p>
       </section>
     );
   }

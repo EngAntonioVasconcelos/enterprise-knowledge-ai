@@ -40,7 +40,7 @@ describe("AssistantView", () => {
         body: JSON.stringify({ organizationId: ORG, question: "Quantos dias?" }),
       }),
     );
-    expect(screen.getByRole("link", { name: "Fontes 1" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Fonte 1" })).toBeInTheDocument();
   });
 
   it("explains an unavailable model and offers to try again", async () => {

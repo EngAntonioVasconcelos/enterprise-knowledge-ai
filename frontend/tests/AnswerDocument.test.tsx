@@ -36,7 +36,7 @@ describe("AnswerDocument", () => {
     render(<AnswerDocument answer={answer} />);
 
     expect(screen.getByRole("heading", { name: answer.question })).toBeInTheDocument();
-    const citation = screen.getByRole("link", { name: "Fontes 1" });
+    const citation = screen.getByRole("link", { name: "Fonte 1" });
     expect(citation).toHaveAttribute("href", "#fonte-1");
     expect(screen.getByText("Manual do Colaborador")).toBeInTheDocument();
     expect(screen.getByText("Trecho 1")).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe("AnswerDocument", () => {
     expect(passage).toHaveClass("border-line-strong");
 
     await userEvent.tab();
-    expect(screen.getByRole("link", { name: "Fontes 1" })).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Fonte 1" })).toHaveFocus();
     expect(passage).toHaveClass("border-cobalt");
   });
 

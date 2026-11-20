@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Do not write AGENTS.md into the project at every start.
   agentRules: false,
+  // The development badge sits bottom right, clear of the rail's name,
+  // language and sign-out (it never shows in production).
+  devIndicators: { position: "bottom-right" },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

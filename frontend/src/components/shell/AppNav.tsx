@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { messages } from "@/i18n/pt-PT";
-
-// Only screens that exist are listed: no "coming soon" entries.
-const ITEMS = [{ href: "/assistente", label: messages.nav.assistant }] as const;
+import { useI18n } from "@/i18n/client";
 
 export function AppNav() {
   const pathname = usePathname();
+  const { t } = useI18n();
+  // Only screens that exist are listed: no "coming soon" entries.
+  const items = [{ href: "/assistente", label: t.nav.assistant }];
   return (
-    <nav aria-label="Principal" className="lg:mt-10">
+    <nav aria-label={t.nav.main} className="lg:mt-10">
       <ul className="flex gap-1 lg:flex-col">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <li key={item.href}>

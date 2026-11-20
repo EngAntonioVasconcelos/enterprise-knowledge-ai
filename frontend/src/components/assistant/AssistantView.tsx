@@ -4,10 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { AnswerDocument } from "@/components/assistant/AnswerDocument";
 import { Composer } from "@/components/assistant/Composer";
-import { messages } from "@/i18n/pt-PT";
+import { useI18n } from "@/i18n/client";
 import { type Answer, type AnswerErrorKind, errorKindFromStatus } from "@/lib/api-types";
 
-const t = messages.assistant;
 
 type State =
   | { status: "idle" }
@@ -44,6 +43,7 @@ export function AssistantView({
   organizationId: string;
   organizationName: string;
 }) {
+  const t = useI18n().t.assistant;
   const [state, setState] = useState<State>({ status: "idle" });
   const controller = useRef<AbortController | null>(null);
 
@@ -85,6 +85,7 @@ export function AssistantView({
 }
 
 function EmptyState() {
+  const t = useI18n().t.assistant;
   return (
     <section className="max-w-[38rem]">
       <h2 className="text-question font-semibold tracking-[-0.02em]">{t.emptyTitle}</h2>
@@ -94,6 +95,7 @@ function EmptyState() {
 }
 
 function Pending({ question, startedAt }: { question: string; startedAt: number }) {
+  const t = useI18n().t.assistant;
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
@@ -113,13 +115,15 @@ function Pending({ question, startedAt }: { question: string; startedAt: number 
 }
 
 function Failure({ kind, onRetry }: { kind: AnswerErrorKind; onRetry: () => void }) {
+  const { t: all } = useI18n();
+  const t = all.assistant;
   return (
     <section role="alert" className="max-w-[40rem] border-l-2 border-danger pl-5">
       <h2 className="text-lead font-semibold">{t.errorTitle}</h2>
       <p className="mt-2 text-ink-soft">{t.errors[kind]}</p>
       {kind === "signedOut" ? (
         <a href="/auth/login" className="mt-4 inline-block font-medium text-cobalt underline underline-offset-4">
-          {messages.signIn.action}
+          {all.signIn.action}
         </a>
       ) : (
         <button

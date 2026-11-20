@@ -1,6 +1,7 @@
-// Every word the interface shows, in European Portuguese (tu). Kept in one
-// place so wording stays consistent and a second language is a new file.
-export const messages = {
+// Every word the interface shows, in European Portuguese (tu). This file
+// sets the shape: the other languages must have exactly the same keys,
+// which TypeScript checks (see en.ts and fr.ts).
+export const ptPT = {
   product: "Enterprise Knowledge AI",
   productShort: "EKA",
   signIn: {
@@ -9,11 +10,25 @@ export const messages = {
     action: "Entrar",
     note: "Entras com a conta da tua organiza\u00e7\u00e3o.",
   },
+  specimen: {
+    label: "Exemplo de uma resposta com fonte",
+    question: "Quantos dias de f\u00e9rias tenho por ano?",
+    answer: "Tens direito a 25 dias \u00fateis de f\u00e9rias por ano civil",
+    source: "Manual do Colaborador",
+    section: "1. F\u00e9rias",
+    quoted: (text: string) => `\u00ab${text}\u00bb`,
+    passage: "Cada colaborador tem direito a 25 dias \u00fateis de f\u00e9rias por ano civil.",
+  },
   nav: {
+    main: "Principal",
     assistant: "Assistente",
     signOut: "Sair",
     organization: "Organiza\u00e7\u00e3o",
     switchOrganization: "Mudar de organiza\u00e7\u00e3o",
+  },
+  language: {
+    label: "Idioma da interface",
+    saved: "Idioma alterado",
   },
   assistant: {
     title: "Assistente",
@@ -24,11 +39,11 @@ export const messages = {
     emptyTitle: "O que precisas de saber?",
     emptyBody: "As respostas citam a passagem de onde v\u00eam. Se os documentos a que tens acesso n\u00e3o responderem, digo-te que n\u00e3o sei. Nunca invento.",
     sources: "Fontes",
+    source: (number: number) => `Fonte ${number}`,
     sourcesConsulted: "Consultadas, n\u00e3o citadas",
     noAnswerTitle: "Sem resposta segura",
     verified: "Verificada nas fontes",
     elapsed: (seconds: number) => `${seconds} s`,
-    section: "Sec\u00e7\u00e3o",
     errorTitle: "N\u00e3o foi poss\u00edvel responder",
     errors: {
       unavailable: "O modelo de respostas n\u00e3o est\u00e1 dispon\u00edvel. Confirma que est\u00e1 ligado e tenta de novo.",
@@ -44,6 +59,6 @@ export const messages = {
     title: "Ainda n\u00e3o pertences a nenhuma organiza\u00e7\u00e3o",
     body: "Pede a um administrador da tua empresa que te convide. Quando aceitares o convite, o assistente fica dispon\u00edvel aqui.",
   },
-} as const;
+};
 
-export type Messages = typeof messages;
+export type Messages = typeof ptPT;

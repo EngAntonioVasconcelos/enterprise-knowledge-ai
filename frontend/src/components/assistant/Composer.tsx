@@ -2,12 +2,12 @@
 
 import { type FormEvent, type KeyboardEvent, useState } from "react";
 
-import { messages } from "@/i18n/pt-PT";
+import { useI18n } from "@/i18n/client";
 
-const t = messages.assistant;
 const MAX = 500;
 
 export function Composer({ onAsk, busy }: { onAsk: (question: string) => void; busy: boolean }) {
+  const t = useI18n().t.assistant;
   const [question, setQuestion] = useState("");
   const trimmed = question.trim();
 

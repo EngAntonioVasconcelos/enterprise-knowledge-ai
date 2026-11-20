@@ -21,9 +21,23 @@ added only when they exist, never as empty menu entries.
 - **`src/proxy.ts`** (Next.js 16's middleware) runs on every request: Auth0
   handles `/auth/login`, `/auth/callback` and `/auth/logout`, and every page
   but the entry page needs a session.
-- **All wording in `src/i18n/pt-PT.ts`** (European Portuguese, "tu"): one
-  voice, and a second language is one more file. Files are kept ASCII, so
+- **Three interface languages**: European Portuguese with "tu"
+  (`src/i18n/pt-PT.ts`, the reference), English (`en.ts`) and French with
+  "vous" (`fr.ts`). Every word the interface shows lives there; the other
+  files are typed against the Portuguese one, so a missing key fails the
+  build, and a test checks that no word is empty. Files are kept ASCII, so
   accents are written as escapes such as `\u00e9`.
+  - The language is the person's choice, kept in the `eka_locale` cookie
+    (one year, http-only) by a server action; without a choice, the
+    browser's languages decide; otherwise European Portuguese.
+  - No URL prefix (`/en/...`): the signed-in app is not indexed, so the
+    language is a setting, not an address. `<html lang>` follows it.
+  - The switch (rail and entry page) names each language in itself
+    (Portugu\u00eas, English, Fran\u00e7ais) and has no flags: flags are
+    countries, not languages.
+  - The interface language does not yet change the language of the
+    answers: the answer prompt (v3) writes European Portuguese. Answering
+    in the interface language is a prompt change, measured like the others.
 - **Security headers** on every page (no framing, no sniffing, strict
   referrer, no camera or microphone).
 - **Tests**: Vitest and Testing Library (components, the citation parser,
