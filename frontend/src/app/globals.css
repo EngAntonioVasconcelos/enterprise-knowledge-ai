@@ -1,0 +1,85 @@
+@import "tailwindcss";
+@import "@fontsource-variable/schibsted-grotesk";
+@import "@fontsource-variable/literata";
+
+/*
+  Design tokens. Cobalt ink on cool paper: the colours of a well-kept
+  company archive, not of a chat app. One accent (cobalt) carries meaning
+  everywhere: it marks evidence. Green says "checked", amber says "no safe
+  answer". Nothing else is coloured.
+*/
+@theme {
+  --color-paper: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-ink: #172033;
+  --color-ink-soft: #4d5669;
+  --color-ink-faint: #7a8396;
+  --color-line: #dbe0e8;
+  --color-line-strong: #b9c1ce;
+  --color-cobalt: #2348c8;
+  --color-cobalt-deep: #1a3698;
+  --color-cobalt-wash: #e7ecfb;
+  --color-checked: #1f7a55;
+  --color-caution: #9a5a06;
+  --color-caution-wash: #fbf1e3;
+  --color-danger: #b42318;
+
+  --font-sans: "Schibsted Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-reading: "Literata Variable", ui-serif, Georgia, serif;
+
+  /* Type scale (ratio 1.25 around 16 px), set by role, not by size. */
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.35;
+  --text-body: 1rem;
+  --text-body--line-height: 1.55;
+  --text-lead: 1.25rem;
+  --text-lead--line-height: 1.4;
+  --text-question: 1.75rem;
+  --text-question--line-height: 1.2;
+  --text-answer: 1.1875rem;
+  --text-answer--line-height: 1.7;
+
+  --radius-control: 6px;
+  --radius-panel: 10px;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-cobalt-wash);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-cobalt);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* The only motion that runs on its own: the waiting line while an answer
+   is being prepared. It stops for people who ask for less motion. */
+@keyframes eka-pulse {
+  0%, 100% { opacity: 0.35; transform: scaleX(0.6); }
+  50% { opacity: 1; transform: scaleX(1); }
+}
+
+.eka-pulse {
+  transform-origin: left center;
+  animation: eka-pulse 1.6s ease-in-out infinite;
+}
