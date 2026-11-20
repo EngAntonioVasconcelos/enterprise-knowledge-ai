@@ -100,3 +100,32 @@ questions:
 Rule fixed before measuring: v2 becomes the default if, on the 60
 questions, it has more correct answers than v1, no more refused by the
 checks, leaks 0, and no NAO_SEI mixed into answers.
+
+## Measured v1 against v2 (20 November 2026, 60 questions, seed 0)
+
+| | v1 | v2 |
+|---|---|---|
+| correct (of 54) | 49 | 49 |
+| wrong (shown to the person) | 0 | 2 |
+| no-answer | 4 | 3 |
+| refused by the checks | 1 | 0 |
+| NAO_SEI mixed into answers | 4 | 0 |
+| leaks | 0 | 0 |
+| average / p95 per answer | 16.2 / 22.7 s | 10.7 / 12.0 s |
+
+By the rule fixed before measuring, v2 does not become the default: it has
+no more correct answers than v1. It is shorter, faster, European
+Portuguese, without filler or mixed markers, but it showed one answer from
+an unrelated source ("maximum weight on a warehouse rack" answered with the
+remote-work allowance, which passes the number check because the numbers
+are in that source) and one answer without the age limit ("children up to
+25"). All misses of both versions are Portuguese questions on English
+documents: the search does not bring the right passage, which AJ-2 (question
+translation) addresses.
+
+Prompt v3 = v2 plus: check that a source is about the subject of the
+question before answering, NAO_SEI otherwise, and keep the details that
+belong to the answer (limits, ages, amounts). Rule fixed before measuring
+v3 (v1 numbers above are the baseline; the seed makes them repeatable):
+correct at least 49, wrong 0, refused at most 1, mixed 0, leaks 0. Then v3
+becomes the default.

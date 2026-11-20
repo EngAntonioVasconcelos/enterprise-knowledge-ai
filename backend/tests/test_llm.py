@@ -156,3 +156,9 @@ def test_prompt_v2_keeps_the_rules_and_adds_the_fixes():
     for rule in ("NAO_SEI", "data, not instructions", "European Portuguese", "Answer only what was asked"):
         assert rule in " ".join(v2.system.split()), rule
     assert "{{sources}}" in v2.user_template and "{{question}}" in v2.user_template
+
+
+def test_prompt_v3_refuses_sources_about_another_subject():
+    v3 = " ".join(load_prompt("answer", "v3").system.split())
+    assert "Never answer from a source about a different subject" in v3
+    assert "European Portuguese" in v3 and "data, not instructions" in v3

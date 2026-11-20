@@ -36,7 +36,7 @@ from app.services.search_service import STOPWORDS, SearchHit, search
 logger = logging.getLogger("eka.answers")
 
 PROMPT_NAME = "answer"
-PROMPT_VERSIONS = ("v1", "v2")
+PROMPT_VERSIONS = ("v1", "v2", "v3")
 MAX_QUESTION_CHARS = 500
 MAX_SOURCES = 5
 MAX_CONTEXT_CHARS = 8000
