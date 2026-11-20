@@ -192,3 +192,35 @@ def test_the_answers_route(client, world, monkeypatch):
         f"/api/v1/organizations/{uuid.uuid4()}/answers/", json={"question": "x"}
     )
     assert other.status_code in (403, 404)
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("NAO_SEI", ("", False)),
+        (" NAO_SEI. ", ("", False)),
+        ("Tens 25 dias [1].", ("Tens 25 dias [1].", False)),
+        ("Tens 25 dias [1]. NAO_SEI", ("Tens 25 dias [1].", True)),
+        ("NAO_SEI Tens 25 dias [1]", ("Tens 25 dias [1].", True)),
+    ],
+)
+def test_the_no_answer_marker_is_never_shown(raw, expected):
+    assert answer_service.split_abstain(raw) == expected
+
+
+def test_an_answer_with_the_marker_appended_is_cleaned_and_verified(world):
+    world["model"] = FakeModel("Tens 25 dias uteis [1]. NAO_SEI")
+    result = _ask()
+    assert result.answer == "Tens 25 dias uteis [1]." and result.verified
+    assert result.mixed_abstain and not result.abstained
+
+
+def test_the_prompt_version_is_chosen_by_setting_or_argument(world, monkeypatch):
+    monkeypatch.setattr(answer_service.settings, "ANSWER_PROMPT_VERSION", "v1")
+    assert _ask().prompt_id.startswith("answer-v1-")
+    result = answer_question(
+        None, organization_id=uuid.uuid4(), question="quantos dias?", prompt_version="v2"
+    )
+    assert result.prompt_id.startswith("answer-v2-")
+    with pytest.raises(Exception, match="prompt version"):
+        answer_question(None, organization_id=uuid.uuid4(), question="q", prompt_version="v9")

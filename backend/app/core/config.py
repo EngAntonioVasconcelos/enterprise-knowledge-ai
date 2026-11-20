@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SECONDS: float = 120.0
     # The answer step reorders the first results with the reranker (AI-2c).
     ANSWER_RERANK: bool = True
+    # Fixed seed sent to the model, so the same question gives the same
+    # answer on a CPU (empty = do not send one).
+    LLM_SEED: int | None = 0
+    # The answer prompt in use (app/prompts/answer_<version>.txt); a new
+    # version becomes the default only after it wins the evaluation.
+    ANSWER_PROMPT_VERSION: str = "v1"
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

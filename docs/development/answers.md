@@ -71,3 +71,32 @@ checks refuse.
 - Translating the question (AJ-2), conversation history, storing answers
   and feedback.
 - Streaming the answer as it is written: with the Assistant screen (AK).
+
+## AJ-1b: first real measurement and prompt v2 (20 November 2026)
+
+gemma3:4b on the laptop CPU, first 10 questions (shared words and
+paraphrases, small library): run 1 had 7 correct and 3 no-answers, run 2
+had 9 correct and 1 refused by the checks (a "31" not written in the cited
+source); leaks 0; 12.6 to 19.7 s per answer.
+
+What it showed and what changed:
+- Two runs of the same questions disagreed although temperature is 0: on a
+  CPU the model also needs a fixed seed. `LLM_SEED` (default 0) is sent with
+  every request.
+- The model sometimes appended NAO_SEI to a real answer. The marker is now
+  removed before checking and showing (`mixed_abstain` is counted); only
+  NAO_SEI alone means no answer.
+- Filler sentences ("There is no information about...") with a citation,
+  extra facts nobody asked for, and Brazilian "voce". Prompt
+  `answer_v2.txt`: answer only what was asked in one to three sentences,
+  never write about what the sources lack, NAO_SEI only as the whole reply,
+  European Portuguese with "tu".
+
+`ANSWER_PROMPT_VERSION` (default v1) chooses the prompt. Compare on the same
+questions:
+
+    python -m scripts.evaluate_answers --prompts v1,v2
+
+Rule fixed before measuring: v2 becomes the default if, on the 60
+questions, it has more correct answers than v1, no more refused by the
+checks, leaks 0, and no NAO_SEI mixed into answers.

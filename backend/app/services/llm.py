@@ -58,8 +58,10 @@ class OpenAICompatible:
         api_key: str | None,
         timeout: float,
         transport: httpx.BaseTransport | None = None,
+        seed: int | None = None,
     ):
         self.model = model
+        self.seed = seed
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self._client = httpx.Client(
             base_url=base_url.rstrip("/"),
@@ -81,6 +83,9 @@ class OpenAICompatible:
                     # 0: the same question and sources give the same answer.
                     "temperature": 0,
                     "max_tokens": max_tokens,
+                    # A fixed seed makes local models repeatable on a CPU,
+                    # where temperature 0 alone is not enough (AJ-1b).
+                    **({"seed": self.seed} if self.seed is not None else {}),
                 },
             )
         except httpx.HTTPError as exc:
@@ -140,7 +145,9 @@ def _cached(
     if provider == "openai_compatible":
         if not base_url or not model:
             raise LLMUnavailableError("set LLM_BASE_URL and LLM_MODEL to use a language model")
-        return OpenAICompatible(base_url, model, settings.LLM_API_KEY, timeout)
+        return OpenAICompatible(
+            base_url, model, settings.LLM_API_KEY, timeout, seed=settings.LLM_SEED
+        )
     if provider == "extractive":
         return ExtractiveModel()
     raise LLMUnavailableError(f"no language model is configured (provider {provider})")

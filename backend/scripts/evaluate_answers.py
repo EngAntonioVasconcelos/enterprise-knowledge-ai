@@ -15,6 +15,9 @@ model on a CPU can take tens of seconds per answer: start with --limit 10.
 
 Run from the backend folder, with the test database running:
     python -m scripts.evaluate_answers --limit 10
+Compare prompt versions on the same questions (AJ-1b, about 20 minutes per
+version for the 60 questions on a laptop CPU):
+    python -m scripts.evaluate_answers --prompts v1,v2
 """
 
 import argparse
@@ -31,8 +34,8 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.services.llm import LLMUnavailableError, get_chat_model
+from app.services.answer_service import PROMPT_NAME, PROMPT_VERSIONS
 from app.services.prompts import load_prompt
-from app.services.answer_service import PROMPT
 from scripts.prepare_test_database import TEST_ADMIN_URL
 from tests.integration import test_document_permissions as permissions
 from tests.integration.answer_harness import evaluate_answers, format_answer_report
@@ -44,6 +47,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Measure the answers.")
     parser.add_argument("--library", choices=("small", "large"), default="small")
     parser.add_argument("--limit", type=int, default=None, help="only the first N questions")
+    parser.add_argument(
+        "--prompts",
+        default=settings.ANSWER_PROMPT_VERSION,
+        help="prompt versions to compare on the same questions, e.g. v1,v2",
+    )
     args = parser.parse_args()
 
     if make_url(TEST_ADMIN_URL).database != "eka_test":
@@ -54,8 +62,16 @@ def main() -> int:
     except LLMUnavailableError as exc:
         print(f"PAROU: {exc}. See docs/development/answers.md.")
         return 1
-    prompt_id = load_prompt(*PROMPT).prompt_id
-    print(f"Model: {model} ({settings.LLM_PROVIDER}), prompt {prompt_id}, reranker {settings.ANSWER_RERANK}")
+    versions = [v.strip() for v in args.prompts.split(",") if v.strip()]
+    unknown = [v for v in versions if v not in PROMPT_VERSIONS]
+    if unknown or not versions:
+        print(f"PAROU: unknown prompt versions {unknown}; known: {', '.join(PROMPT_VERSIONS)}")
+        return 1
+    prompt_ids = {v: load_prompt(PROMPT_NAME, v).prompt_id for v in versions}
+    print(
+        f"Model: {model} ({settings.LLM_PROVIDER}), seed {settings.LLM_SEED}, "
+        f"prompts {', '.join(prompt_ids.values())}, reranker {settings.ANSWER_RERANK}"
+    )
 
     dataset = load_dataset()
     if args.library == "large":
@@ -72,32 +88,49 @@ def main() -> int:
             ingest(db, world, dataset, Path(storage))
             print(f"Library ready ({len(dataset['documents'])} documents) in {time.perf_counter() - started:.1f} s")
             count = args.limit or len(dataset["questions"])
-            print(f"Asking {count} questions...")
-            result = evaluate_answers(db, world, dataset, limit=args.limit)
+            results = {}
+            for version in versions:
+                print(f"Asking {count} questions with prompt {version}...", flush=True)
+                started = time.perf_counter()
+                results[version] = evaluate_answers(
+                    db, world, dataset, limit=args.limit, prompt_version=version
+                )
+                print(f"  done in {(time.perf_counter() - started) / 60:.1f} min", flush=True)
     finally:
         db.close()
         transaction.rollback()
         connection.close()
         engine.dispose()
 
-    print()
-    print(format_answer_report(result))
-    print("\nA few answers to read:")
-    for sample in result["samples"]:
-        print(f"\n  [{sample['outcome']}] {sample['query']}\n  -> {sample['answer']}")
-        for issue in sample["issues"]:
-            print(f"     check: {issue}")
+    for version, result in results.items():
+        print(f"\n===== prompt {prompt_ids[version]} =====\n")
+        print(format_answer_report(result))
+        print("\nAnswers to read (not correct first):")
+        for sample in result["samples"]:
+            print(f"\n  [{sample['outcome']}] {sample['query']}\n  -> {sample['answer']}")
+            for issue in sample["issues"]:
+                print(f"     check: {issue}")
 
     out = Path("var/eval")
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     path = out / f"answers-{args.library}-{model.replace('/', '_').replace(':', '_')}-{stamp}.json"
     path.write_text(
-        json.dumps({"model": model, "prompt": prompt_id, "library": args.library, **result}, indent=1),
+        json.dumps(
+            {
+                "model": model,
+                "seed": settings.LLM_SEED,
+                "library": args.library,
+                "prompts": prompt_ids,
+                "results": results,
+            },
+            indent=1,
+            ensure_ascii=False,
+        ),
         encoding="utf-8",
     )
     print(f"\nSaved: {path}")
-    return 0 if result["leaks"] == 0 else 1
+    return 0 if all(r["leaks"] == 0 for r in results.values()) else 1
 
 
 if __name__ == "__main__":

@@ -35,7 +35,8 @@ from app.services.search_service import STOPWORDS, SearchHit, search
 
 logger = logging.getLogger("eka.answers")
 
-PROMPT = ("answer", "v1")
+PROMPT_NAME = "answer"
+PROMPT_VERSIONS = ("v1", "v2")
 MAX_QUESTION_CHARS = 500
 MAX_SOURCES = 5
 MAX_CONTEXT_CHARS = 8000
@@ -70,6 +71,8 @@ class AnswerResult:
     prompt_id: str
     model: str | None
     issues: list[str] = field(default_factory=list)
+    # The model wrote NAO_SEI next to an answer; the marker was removed.
+    mixed_abstain: bool = False
     note: str | None = None
     timings_ms: dict[str, float] = field(default_factory=dict)
 
@@ -141,14 +144,40 @@ def verify(answer: str, sources: list[Source], question: str) -> tuple[list[int]
     return cited, issues
 
 
-def answer_question(db: Session, *, organization_id: uuid.UUID, question: str) -> AnswerResult:
+def split_abstain(text: str) -> tuple[str, bool]:
+    """The answer without NAO_SEI markers, and whether one was mixed in.
+
+    The prompt says NAO_SEI must be the whole reply, but small models
+    sometimes append it to a real answer ("...[2]. NAO_SEI"). The person
+    must never see the marker: it is removed and the rest is verified as
+    any other answer; only NAO_SEI alone means "no answer".
+    """
+    stripped = text.strip()
+    if not stripped or stripped.rstrip(".").strip() == ABSTAIN:
+        return "", False
+    if ABSTAIN not in stripped:
+        return stripped, False
+    cleaned = " ".join(stripped.replace(ABSTAIN, " ").split()).strip(" .")
+    return (cleaned + "." if cleaned else ""), True
+
+
+def answer_question(
+    db: Session,
+    *,
+    organization_id: uuid.UUID,
+    question: str,
+    prompt_version: str | None = None,
+) -> AnswerResult:
     question = " ".join(question.split())
     if not question:
         raise InvalidInputError("The question is empty")
     if len(question) > MAX_QUESTION_CHARS:
         raise InvalidInputError(f"The question is longer than {MAX_QUESTION_CHARS} characters")
 
-    prompt = load_prompt(*PROMPT)
+    version = prompt_version or settings.ANSWER_PROMPT_VERSION
+    if version not in PROMPT_VERSIONS:
+        raise InvalidInputError(f"prompt version must be one of: {', '.join(PROMPT_VERSIONS)}")
+    prompt = load_prompt(PROMPT_NAME, version)
     language = question_language(question)
     timings: dict[str, float] = {}
 
@@ -199,8 +228,8 @@ def answer_question(db: Session, *, organization_id: uuid.UUID, question: str) -
         raise UnavailableError(f"Answers are unavailable: {exc}") from None
     timings["model"] = round(1000 * (time.perf_counter() - started), 1)
 
-    text = completion.text.strip()
-    if not text or text.startswith(ABSTAIN):
+    text, mixed = split_abstain(completion.text)
+    if not text:
         result = no_answer([], completion.model)
     else:
         cited, issues = verify(text, sources, question)
@@ -218,6 +247,7 @@ def answer_question(db: Session, *, organization_id: uuid.UUID, question: str) -
                 note=found.note,
                 timings_ms=timings,
             )
+    result.mixed_abstain = mixed
     _log(result)
     return result
 

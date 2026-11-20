@@ -17,7 +17,9 @@ Per question group:
 - unverified: answers the checks refused (wrong citation or a number not
   in the sources); they were not shown, but they say how often the model
   invents;
-- leaks: confidential documents among the sources or citations (must be 0).
+- leaks: confidential documents among the sources or citations (must be 0);
+- NAO_SEI mixed into answers: the model wrote the no-answer marker next to
+  an answer (it is removed before showing; fewer is better).
 Plus the average and 95th percentile time per answer.
 
 There is no language model judging the answers: the checks are plain and
@@ -31,14 +33,22 @@ from app.services.answer_service import answer_question, numbers_in
 from tests.integration.retrieval_harness import _as_runtime, _passages, _plain
 
 
-def evaluate_answers(db, world, dataset: dict, limit: int | None = None) -> dict:
+def evaluate_answers(
+    db, world, dataset: dict, limit: int | None = None, prompt_version: str | None = None
+) -> dict:
     _as_runtime(db, world.rui)
     questions = dataset["questions"][:limit] if limit else dataset["questions"]
     groups = defaultdict(lambda: defaultdict(int))
-    leaks, times, samples = 0, [], []
+    leaks, mixed, times, answers = 0, 0, [], []
     for question in questions:
         started = time.perf_counter()
-        result = answer_question(db, organization_id=world.organization, question=question["query"])
+        result = answer_question(
+            db,
+            organization_id=world.organization,
+            question=question["query"],
+            prompt_version=prompt_version,
+        )
+        mixed += result.mixed_abstain
         times.append(time.perf_counter() - started)
 
         passages = _passages(db, [s.hit.chunk_id for s in result.sources])
@@ -62,17 +72,28 @@ def evaluate_answers(db, world, dataset: dict, limit: int | None = None) -> dict
         for group in {question["category"], "all" if question["category"] != "permission" else "permission"}:
             groups[group][outcome] += 1
             groups[group]["n"] += 1
-        if len(samples) < 8 and question["category"] != "permission":
-            samples.append(
-                {"query": question["query"], "outcome": outcome, "answer": result.answer, "issues": result.issues}
+        if question["category"] != "permission":
+            answers.append(
+                {
+                    "query": question["query"],
+                    "category": question["category"],
+                    "outcome": outcome,
+                    "answer": result.answer,
+                    "issues": result.issues,
+                }
             )
+    # To read: the answers that were not correct first, then a few correct.
+    misses = [a for a in answers if a["outcome"] != "correct"]
+    samples = misses[:8] + [a for a in answers if a["outcome"] == "correct"][: max(2, 8 - len(misses))]
     return {
         "groups": {g: dict(v) for g, v in sorted(groups.items())},
         "leaks": leaks,
+        "mixed_abstain": mixed,
         "questions": len(questions),
         "latency_ms": round(1000 * sum(times) / len(times), 1) if times else 0.0,
         "p95_ms": round(1000 * sorted(times)[int(0.95 * (len(times) - 1))], 1) if times else 0.0,
         "samples": samples,
+        "answers": answers,
     }
 
 
@@ -86,5 +107,8 @@ def format_answer_report(result: dict) -> str:
             f"{group:<12}{counts['n']:>5}" + "".join(f"{counts.get(c, 0):>12}" for c in columns)
         )
     lines.append("-" * len(header))
-    lines.append(f"leaks {result['leaks']}   average {result['latency_ms']} ms   p95 {result['p95_ms']} ms")
+    lines.append(
+        f"leaks {result['leaks']}   NAO_SEI mixed into answers {result['mixed_abstain']}   "
+        f"average {result['latency_ms']} ms   p95 {result['p95_ms']} ms"
+    )
     return "\n".join(lines)

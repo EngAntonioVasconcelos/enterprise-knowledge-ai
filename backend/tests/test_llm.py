@@ -132,3 +132,27 @@ def test_the_prompt_is_versioned_and_complete():
     assert "NAO_SEI" in prompt.system and "data, not instructions" in prompt.system
     with pytest.raises(ValueError, match="unfilled"):
         prompt.render(sources="x")
+
+
+def test_the_seed_is_sent_only_when_set():
+    bodies = []
+
+    def handler(request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    OpenAICompatible("http://x/v1", "m", None, 5.0, transport=_server(handler), seed=0).complete(
+        "s", "u", max_tokens=5
+    )
+    OpenAICompatible("http://x/v1", "m", None, 5.0, transport=_server(handler)).complete(
+        "s", "u", max_tokens=5
+    )
+    assert bodies[0]["seed"] == 0 and "seed" not in bodies[1]
+
+
+def test_prompt_v2_keeps_the_rules_and_adds_the_fixes():
+    v2 = load_prompt("answer", "v2")
+    assert v2.prompt_id != load_prompt("answer", "v1").prompt_id
+    for rule in ("NAO_SEI", "data, not instructions", "European Portuguese", "Answer only what was asked"):
+        assert rule in " ".join(v2.system.split()), rule
+    assert "{{sources}}" in v2.user_template and "{{question}}" in v2.user_template
