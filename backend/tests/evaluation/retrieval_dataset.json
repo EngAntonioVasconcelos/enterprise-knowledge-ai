@@ -1,6 +1,6 @@
 {
  "name": "Atlantico Logistica retrieval set",
- "version": 2,
+ "version": 3,
  "documents": {
   "ferias": {
    "title": "Manual do Colaborador - F\u00e9rias e Aus\u00eancias",
@@ -597,6 +597,86 @@
    "expect_absent": [
     "layoffs"
    ]
+  },
+  {
+   "query": "combien de jours de cong\u00e9s ai-je par an ?",
+   "lang": "fr",
+   "category": "fr-to-pt",
+   "expect_doc": "ferias",
+   "expect_phrase": "25 dias \u00fateis",
+   "expect_absent": null
+  },
+  {
+   "query": "combien de jours par semaine puis-je travailler \u00e0 domicile ?",
+   "lang": "fr",
+   "category": "fr-to-pt",
+   "expect_doc": "remote",
+   "expect_phrase": "tr\u00eas dias por semana",
+   "expect_absent": null
+  },
+  {
+   "query": "quel est le budget annuel de formation par employ\u00e9 ?",
+   "lang": "fr",
+   "category": "fr-to-pt",
+   "expect_doc": "training",
+   "expect_phrase": "600 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "qui approuve les achats de plus de 20000 euros ?",
+   "lang": "fr",
+   "category": "fr-to-pt",
+   "expect_doc": "procurement",
+   "expect_phrase": "diretor financeiro",
+   "expect_absent": null
+  },
+  {
+   "query": "tous les combien de kilom\u00e8tres les camions doivent-ils \u00eatre r\u00e9vis\u00e9s ?",
+   "lang": "fr",
+   "category": "fr-to-pt",
+   "expect_doc": "fleet",
+   "expect_phrase": "40 000",
+   "expect_absent": null
+  },
+  {
+   "query": "combien de devis faut-il pour un achat de plus de 5000 euros ?",
+   "lang": "fr",
+   "category": "fr-to-pt",
+   "expect_doc": "procurement",
+   "expect_phrase": "tr\u00eas or\u00e7amentos",
+   "expect_absent": null
+  },
+  {
+   "query": "quel est le plafond pour l\u2019h\u00f4tel par nuit en d\u00e9placement ?",
+   "lang": "fr",
+   "category": "fr-to-en",
+   "expect_doc": "expenses",
+   "expect_phrase": "120 euros",
+   "expect_absent": null
+  },
+  {
+   "query": "combien de caract\u00e8res doit avoir le mot de passe ?",
+   "lang": "fr",
+   "category": "fr-to-en",
+   "expect_doc": "security",
+   "expect_phrase": "14 characters",
+   "expect_absent": null
+  },
+  {
+   "query": "en combien de jours suis-je rembours\u00e9 apr\u00e8s un retour ?",
+   "lang": "fr",
+   "category": "fr-to-en",
+   "expect_doc": "returns",
+   "expect_phrase": "10 business days",
+   "expect_absent": null
+  },
+  {
+   "query": "quelle part des soins dentaires l\u2019assurance sant\u00e9 couvre-t-elle ?",
+   "lang": "fr",
+   "category": "fr-to-en",
+   "expect_doc": "health",
+   "expect_phrase": "80 percent",
+   "expect_absent": null
   }
  ]
 }

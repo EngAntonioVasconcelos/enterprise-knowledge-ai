@@ -29,6 +29,7 @@ Questions are grouped, because an average hides where search fails:
 | pt-words / en-words | the question uses the same words as the document |
 | pt-meaning / en-meaning | same meaning, different words ("descanso anual" for ferias) |
 | en-to-pt / pt-to-en | question in one language, document in the other |
+| fr-to-pt / fr-to-en | a French question about a Portuguese or English document (dataset version 3) |
 | exact-code | codes and numbers ("RH-12", "2.5") |
 | permission | the answer exists but the user may not see it |
 

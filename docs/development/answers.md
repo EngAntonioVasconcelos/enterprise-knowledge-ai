@@ -148,3 +148,26 @@ questions whose answer is in an English document: the search does not bring
 the passage (AJ-2, question translation). The 95th percentile (12.4 s) is
 below the average because one or two answers took much longer, most likely
 the first ones while the model was loaded into memory.
+
+## AJ-3: French (dataset version 3)
+
+The answers already follow the language of the question (rule 6 of the
+prompt), not the language of the interface. What French lacked was outside
+the prompt:
+
+- the language of a question is told from its small words, now for
+  Portuguese, English and French (accents removed; words two languages
+  share, like "de" or "que", count for neither); the no-answer message has
+  a French version;
+- French small words are left out of the search by words, like the
+  Portuguese and English ones;
+- 10 French questions (6 about Portuguese documents, 4 about English ones),
+  and a new count in the report: answers not written in the language of the
+  question ("other language").
+
+No prompt change: v3 stays the default. Rule, fixed before measuring, on the
+large library with seed 0: French at least 8 of 10 correct and 0 wrong;
+"other language" at most 2 of all 64 answered questions, each one read by
+hand (the small-word test can misjudge a short answer that quotes a
+Portuguese phrase); the other 54 questions at least 52 correct (53 before,
+one of margin for the model), 0 wrong; leaks 0.

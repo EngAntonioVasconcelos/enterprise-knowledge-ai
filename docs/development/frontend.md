@@ -35,9 +35,9 @@ added only when they exist, never as empty menu entries.
   - The switch (rail and entry page) names each language in itself
     (Portugu\u00eas, English, Fran\u00e7ais) and has no flags: flags are
     countries, not languages.
-  - The interface language does not yet change the language of the
-    answers: the answer prompt (v3) writes European Portuguese. Answering
-    in the interface language is a prompt change, measured like the others.
+  - The answers follow the language of the question, not the interface:
+    a question written in English gets an English answer in any interface
+    language (prompt v3, rule 6; French measured in AJ-3).
 - **Security headers** on every page (no framing, no sniffing, strict
   referrer, no camera or microphone).
 - **Tests**: Vitest and Testing Library (components, the citation parser,

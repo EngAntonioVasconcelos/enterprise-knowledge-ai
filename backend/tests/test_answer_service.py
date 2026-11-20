@@ -72,6 +72,15 @@ def test_the_language_of_the_question():
     assert question_language("how many vacation days do I get?") == "en"
     assert question_language("quantos dias de f\u00e9rias tenho?") == "pt"
     assert question_language("RH-12") == "pt"
+    assert question_language("combien de jours de cong\u00e9s ai-je par an ?") == "fr"
+    assert question_language("qui approuve les achats de plus de 20000 euros ?") == "fr"
+    assert question_language("o que \u00e9 preciso para pedir f\u00e9rias?") == "pt"
+
+
+def test_a_french_question_gets_the_french_no_answer(world):
+    world["model"] = FakeModel("NAO_SEI")
+    result = _ask("combien de jours de cong\u00e9s ai-je par an ?")
+    assert result.abstained and result.answer == NO_ANSWER["fr"]
 
 
 def test_sources_cannot_break_out_of_their_tags():

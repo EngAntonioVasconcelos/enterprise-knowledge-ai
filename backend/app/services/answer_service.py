@@ -21,6 +21,7 @@ their measurements (prompt id, model, sources, times, verified).
 import logging
 import re
 import time
+import unicodedata
 import uuid
 from dataclasses import dataclass, field
 
@@ -30,7 +31,7 @@ from app.core.config import settings
 from app.core.errors import InvalidInputError, UnavailableError
 from app.services.llm import ABSTAIN, LLMUnavailableError, get_chat_model
 from app.services.prompts import load_prompt
-from app.services.search_service import STOPWORDS, SearchHit, search
+from app.services.search_service import SearchHit, search
 
 
 logger = logging.getLogger("eka.answers")
@@ -49,9 +50,26 @@ NUMBER = re.compile(r"\d+(?:[ \u00a0.,]\d+)*")
 NO_ANSWER = {
     "pt": "N\u00e3o encontrei, nos documentos a que tens acesso, uma resposta segura a esta pergunta.",
     "en": "I could not find a reliable answer to this question in the documents you can access.",
+    "fr": "Je n\u2019ai pas trouv\u00e9, dans les documents auxquels vous avez acc\u00e8s, de r\u00e9ponse fiable \u00e0 cette question.",
 }
-ENGLISH_WORDS = frozenset(
-    "the a an is are what how when where who which can do does my i you of to for in".split()
+# The small words of each language, accents removed, to tell the language
+# of a question or an answer. Words two languages share count for neither.
+EN_WORDS = frozenset(
+    "the is are what how when where who which can do does my i you of to for in "
+    "be must should much many with from after".split()
+)
+PT_WORDS = frozenset(
+    "o os as um uma uns umas do da dos das no na nas pelo pela com sem ao aos nao "
+    "como qual quais quanto quantos quanta quantas quando onde quem porque eu tu ele "
+    "ela eles elas lhe meu minha meus minhas seu sua seus suas tenho tem temos posso "
+    "pode podem ser sao esta estao isso este essa esse mais muito muita ja ate e em "
+    "para por".split()
+)
+FR_WORDS = frozenset(
+    "le la les un une des du au aux est sont quel quelle quels quelles comment combien "
+    "je j mon ma mes vous votre il elle ils elles pour dans avec sur par pas ne qu qui "
+    "y plus apres avant tous tout toutes ai puis dois peut peux faut ce cet cette "
+    "ces leur leurs an jours".split()
 )
 
 
@@ -78,11 +96,22 @@ class AnswerResult:
 
 
 def question_language(question: str) -> str:
-    """pt or en, from the small words of the question (default pt)."""
-    words = re.findall(r"[a-z]+", question.lower())
-    english = sum(w in ENGLISH_WORDS for w in words)
-    portuguese = sum(w in STOPWORDS and w not in ENGLISH_WORDS for w in words)
-    return "en" if english > portuguese else "pt"
+    """pt, en or fr, from the small words of the text (default pt)."""
+    plain = unicodedata.normalize("NFD", question.lower())
+    plain = "".join(c for c in plain if not unicodedata.combining(c))
+    words = re.findall(r"[a-z]+", plain)
+    scores = {
+        language: sum(w in own and not any(w in o for o in others) for w in words)
+        for language, own, others in (
+            ("pt", PT_WORDS, (EN_WORDS, FR_WORDS)),
+            ("en", EN_WORDS, (PT_WORDS, FR_WORDS)),
+            ("fr", FR_WORDS, (PT_WORDS, EN_WORDS)),
+        )
+    }
+    best = max(scores.values())
+    if best == 0 or scores["pt"] == best:
+        return "pt"
+    return "en" if scores["en"] == best else "fr"
 
 
 def _digits(value: str) -> str:
