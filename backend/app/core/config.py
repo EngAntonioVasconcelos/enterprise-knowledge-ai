@@ -95,8 +95,9 @@ class Settings(BaseSettings):
     # answer on a CPU (empty = do not send one).
     LLM_SEED: int | None = 0
     # The answer prompt in use (app/prompts/answer_<version>.txt); a new
-    # version becomes the default only after it wins the evaluation.
-    ANSWER_PROMPT_VERSION: str = "v1"
+    # version becomes the default only after it wins the evaluation
+    # (v3 since 20 Nov 2026: 50 of 54 correct, 0 wrong, 0 leaks).
+    ANSWER_PROMPT_VERSION: str = "v3"
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

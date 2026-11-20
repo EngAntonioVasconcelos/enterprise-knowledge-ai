@@ -129,3 +129,22 @@ belong to the answer (limits, ages, amounts). Rule fixed before measuring
 v3 (v1 numbers above are the baseline; the seed makes them repeatable):
 correct at least 49, wrong 0, refused at most 1, mixed 0, leaks 0. Then v3
 becomes the default.
+
+## Measured v3 (20 November 2026, 60 questions, seed 0): the new default
+
+| | v1 | v2 | v3 |
+|---|---|---|---|
+| correct (of 54) | 49 | 49 | 50 |
+| wrong (shown to the person) | 0 | 2 | 0 |
+| no-answer | 4 | 3 | 4 |
+| refused by the checks | 1 | 0 | 0 |
+| NAO_SEI mixed into answers | 4 | 0 | 0 |
+| leaks | 0 | 0 | 0 |
+| average per answer | 16.2 s | 10.7 s | 13.7 s |
+
+v3 passes every condition of its rule and is the default
+(`ANSWER_PROMPT_VERSION=v3`). The four no-answers are all Portuguese
+questions whose answer is in an English document: the search does not bring
+the passage (AJ-2, question translation). The 95th percentile (12.4 s) is
+below the average because one or two answers took much longer, most likely
+the first ones while the model was loaded into memory.
