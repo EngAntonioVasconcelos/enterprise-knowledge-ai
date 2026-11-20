@@ -74,7 +74,20 @@ export const fr: Messages = {
     },
   },
   noOrganization: {
-    title: "Vous ne faites encore partie d\u2019aucune organisation",
-    body: "Demandez \u00e0 un administrateur de votre entreprise de vous inviter. Une fois l\u2019invitation accept\u00e9e, l\u2019assistant sera disponible ici.",
+    title: "Cr\u00e9ez l\u2019organisation de votre entreprise",
+    body: "Elle regroupe les documents et les personnes qui y ont acc\u00e8s. Vous en devenez le propri\u00e9taire.",
+    invited: "Si votre entreprise utilise d\u00e9j\u00e0 Enterprise Knowledge AI, n\u2019en cr\u00e9ez pas une autre\u00a0: demandez \u00e0 un administrateur de vous inviter.",
+  },
+  onboarding: {
+    nameLabel: "Nom de l\u2019organisation",
+    nameHint: "En g\u00e9n\u00e9ral, le nom de l\u2019entreprise ou de l\u2019\u00e9quipe.",
+    namePlaceholder: "Ex.\u00a0: Atlantique Assurances",
+    create: "Cr\u00e9er l\u2019organisation",
+    creating: "Cr\u00e9ation\u2026",
+    errors: {
+      invalid: "Saisissez un nom de 2 \u00e0 150 caract\u00e8res.",
+      signedOut: "Votre session a expir\u00e9. Reconnectez-vous et r\u00e9essayez.",
+      unavailable: "Impossible de cr\u00e9er l\u2019organisation. R\u00e9essayez dans un instant.",
+    },
   },
 };

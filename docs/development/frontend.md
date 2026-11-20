@@ -66,6 +66,16 @@ behind it. The design follows from that.
   how long it has taken; it does not pretend to stream. An unavailable
   model, a lost session and a bad question each get their own message and
   next step. "No safe answer" is shown as a result, not as an error.
+- **Errors are not empty states.** If the backend refuses the request
+  (401: the session; 403: the e-mail is not confirmed; other: the service),
+  the page says so and offers the way out. "No organization" is shown only
+  when the backend answered and the person really has none.
+- **The first organization.** A new account with no organization sees one
+  field, the organization's name; the technical name (slug) is made from it
+  ("Atl\u00e2ntico Seguros" becomes `atlantico-seguros`) and gets a short
+  random ending if it is taken. The person becomes its owner. A note says
+  to ask for an invitation instead when the company already uses the
+  product.
 - **Quality floor.** Keyboard first (Enter asks, Shift+Enter breaks a
   line, visible focus), screen-reader labels and live regions, works down
   to a phone, and the only self-running motion stops for people who ask

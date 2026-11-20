@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AssistantView } from "@/components/assistant/AssistantView";
+import { CreateOrganization } from "@/components/onboarding/CreateOrganization";
 import { OrganizationSwitch } from "@/components/shell/OrganizationSwitch";
 import { getMessages } from "@/i18n/server";
 import { loadOrganizations } from "@/lib/organizations";
@@ -44,8 +45,14 @@ export default async function AssistantPage({
   if (!active) {
     return (
       <section className="mx-auto max-w-xl px-6 py-24">
-        <h1 className="text-lead font-semibold">{t.noOrganization.title}</h1>
-        <p className="mt-3 text-ink-soft text-pretty">{t.noOrganization.body}</p>
+        <h1 className="text-question font-semibold tracking-[-0.02em] text-balance">
+          {t.noOrganization.title}
+        </h1>
+        <p className="mt-3 text-lead text-ink-soft text-pretty">{t.noOrganization.body}</p>
+        <CreateOrganization />
+        <p className="mt-10 max-w-md border-l-2 border-line pl-4 text-meta text-ink-soft text-pretty">
+          {t.noOrganization.invited}
+        </p>
       </section>
     );
   }

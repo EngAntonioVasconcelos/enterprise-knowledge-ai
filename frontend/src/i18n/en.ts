@@ -73,7 +73,20 @@ export const en: Messages = {
     },
   },
   noOrganization: {
-    title: "You are not in an organization yet",
-    body: "Ask an administrator at your company to invite you. Once you accept the invitation, the assistant is available here.",
+    title: "Create your company\u2019s organization",
+    body: "It holds the documents and the people who can access them. You become its owner.",
+    invited: "If your company already uses Enterprise Knowledge AI, do not create another one: ask an administrator to invite you.",
+  },
+  onboarding: {
+    nameLabel: "Organization name",
+    nameHint: "Usually the name of the company or the team.",
+    namePlaceholder: "e.g. Atlantic Insurance",
+    create: "Create organization",
+    creating: "Creating\u2026",
+    errors: {
+      invalid: "Enter a name between 2 and 150 characters.",
+      signedOut: "Your session has ended. Sign in again and try once more.",
+      unavailable: "The organization could not be created. Try again in a moment.",
+    },
   },
 };

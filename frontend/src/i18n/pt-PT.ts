@@ -73,8 +73,21 @@ export const ptPT = {
     },
   },
   noOrganization: {
-    title: "Ainda n\u00e3o pertences a nenhuma organiza\u00e7\u00e3o",
-    body: "Pede a um administrador da tua empresa que te convide. Quando aceitares o convite, o assistente fica dispon\u00edvel aqui.",
+    title: "Cria a organiza\u00e7\u00e3o da tua empresa",
+    body: "\u00c9 onde ficam os documentos e as pessoas com acesso a eles. Ficas como propriet\u00e1rio.",
+    invited: "Se a tua empresa j\u00e1 usa o Enterprise Knowledge AI, n\u00e3o cries outra: pede a um administrador que te convide.",
+  },
+  onboarding: {
+    nameLabel: "Nome da organiza\u00e7\u00e3o",
+    nameHint: "Normalmente, o nome da empresa ou da equipa.",
+    namePlaceholder: "Ex.: Atl\u00e2ntico Seguros",
+    create: "Criar organiza\u00e7\u00e3o",
+    creating: "A criar\u2026",
+    errors: {
+      invalid: "Escreve um nome entre 2 e 150 caracteres.",
+      signedOut: "A tua sess\u00e3o terminou. Entra de novo e tenta outra vez.",
+      unavailable: "N\u00e3o foi poss\u00edvel criar a organiza\u00e7\u00e3o. Tenta de novo daqui a pouco.",
+    },
   },
 };
 
