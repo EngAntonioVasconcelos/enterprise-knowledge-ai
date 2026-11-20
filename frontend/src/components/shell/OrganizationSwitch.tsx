@@ -8,9 +8,11 @@ import type { Organization } from "@/lib/api-types";
 export function OrganizationSwitch({
   organizations,
   activeId,
+  basePath = "/assistente",
 }: {
   organizations: Organization[];
   activeId: string;
+  basePath?: string;
 }) {
   const router = useRouter();
   const { t } = useI18n();
@@ -20,7 +22,7 @@ export function OrganizationSwitch({
       <select
         value={activeId}
         aria-label={t.nav.switchOrganization}
-        onChange={(event) => router.push(`/assistente?org=${event.target.value}`)}
+        onChange={(event) => router.push(`${basePath}?org=${event.target.value}`)}
         className="rounded-control border border-line bg-surface px-2 py-1 text-body text-ink"
       >
         {organizations.map((organization) => (

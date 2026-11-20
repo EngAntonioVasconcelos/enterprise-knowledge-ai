@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
   // The development badge sits bottom right, clear of the rail's name,
   // language and sign-out (it never shows in production).
   devIndicators: { position: "bottom-right" },
+  experimental: {
+    // Uploads pass through the proxy: allow the backend's 20 MB per file.
+    proxyClientMaxBodySize: "21mb",
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

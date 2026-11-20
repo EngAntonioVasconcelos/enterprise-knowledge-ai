@@ -32,7 +32,9 @@ export function LanguageSwitch({ align = "start" }: { align?: "start" | "end" })
         className="inline-flex items-center gap-1.5 rounded-control px-1.5 py-1 text-meta font-medium text-ink-soft transition-colors outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-cobalt data-[state=open]:text-ink disabled:opacity-60"
       >
         <Languages aria-hidden className="size-3.5" strokeWidth={2} />
-        <span lang={locale}>{LANGUAGE_NAMES[locale]}</span>
+        <span lang={locale} className="hidden sm:inline lg:inline">
+          {LANGUAGE_NAMES[locale]}
+        </span>
         <ChevronDown aria-hidden className="size-3" strokeWidth={2.25} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>

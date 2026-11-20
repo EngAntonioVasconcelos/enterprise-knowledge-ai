@@ -48,3 +48,32 @@ export function errorKindFromStatus(status: number): AnswerErrorKind {
   if (status === 503) return "unavailable";
   return "unknown";
 }
+
+export type Connection = {
+  id: string;
+  provider: string;
+  name: string;
+  status: string;
+  last_synced_at: string | null;
+  last_error: string | null;
+  disconnected_at: string | null;
+};
+
+export type Upload = {
+  id: string;
+  connection_id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  created_at: string;
+};
+
+export type DocumentItem = {
+  id: string;
+  connection_id: string;
+  title: string;
+  mime_type: string | null;
+  status: "pending" | "active" | "failed" | "removed" | string;
+  last_synced_at: string | null;
+  updated_at: string;
+};

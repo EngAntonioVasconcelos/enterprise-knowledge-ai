@@ -76,6 +76,16 @@ behind it. The design follows from that.
   random ending if it is taken. The person becomes its owner. A note says
   to ask for an invitation instead when the company already uses the
   product.
+- **Documents.** One screen lists the documents the person can read, with
+  their state in plain words (queued, reading, ready, could not be read),
+  and refreshes itself while something is being read. Owners and
+  administrators add files by dragging them or choosing them (PDF, Word
+  .docx, text; 20 MB each, checked in the browser first). The upload source
+  ("Uploaded files", a `file_upload` connection) is created on the first
+  upload: nobody sets up a "connection" to send a PDF. Files go one per
+  request through `POST /api/uploads` (the proxy allows 21 MB). Members and
+  viewers see the list only, for now: they cannot list connections, so they
+  cannot find the upload source.
 - **Quality floor.** Keyboard first (Enter asks, Shift+Enter breaks a
   line, visible focus), screen-reader labels and live regions, works down
   to a phone, and the only self-running motion stops for people who ask
