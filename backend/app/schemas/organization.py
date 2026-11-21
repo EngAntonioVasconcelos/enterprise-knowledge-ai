@@ -45,6 +45,9 @@ class OrganizationResponse(BaseModel):
     created_at: datetime
     # Days each person's questions are kept; 0 keeps none.
     history_retention_days: int = 90
+    # Limits of the agent for one answer: model calls and tool calls.
+    agent_max_steps: int = 4
+    agent_max_tool_calls: int = 6
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -71,6 +74,8 @@ class OrganizationUpdate(BaseModel):
         max_length=100,
     )
     history_retention_days: Literal[0, 30, 90, 365] | None = None
+    agent_max_steps: int | None = Field(default=None, ge=1, le=8)
+    agent_max_tool_calls: int | None = Field(default=None, ge=1, le=12)
 
     @field_validator("name", mode="before")
     @classmethod

@@ -13,7 +13,8 @@ Providers (setting LLM_PROVIDER):
   that is the organization's choice to make.
 - extractive: a deterministic stand-in for tests and CI. It picks the
   source sentence that shares the most words with the question and cites
-  it; it does not write or understand anything.
+  it; it does not write or understand anything. Asked whether an answer
+  responds to a question, it says YES when they share two words or more.
 - none (default): no model; the answer step says it is unavailable.
 """
 
@@ -121,12 +122,19 @@ def _words(value: str) -> set[str]:
     return {w for w in re.findall(r"[0-9a-z]+", plain) if len(w) > 2}
 
 
+RELEVANCE = re.compile(r"<question>(.*?)</question>\s*<answer>(.*?)</answer>", re.S)
+
+
 class ExtractiveModel:
     """Copies the best matching source sentence and cites it; tests only."""
 
     model = EXTRACTIVE_MODEL
 
     def complete(self, system: str, user: str, *, max_tokens: int) -> Completion:
+        relevance = RELEVANCE.search(user)
+        if relevance:
+            shared = _words(relevance.group(1)) & _words(relevance.group(2))
+            return Completion(text="YES" if len(shared) > 1 else "NO", model=self.model)
         match = QUESTION.search(user)
         asked = _words(match.group(1)) if match else set()
         best, best_score = None, 1

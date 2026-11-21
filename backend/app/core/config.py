@@ -95,6 +95,9 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SECONDS: float = 120.0
     # The answer step reorders the first results with the reranker (AI-2c).
     ANSWER_RERANK: bool = True
+    # Before an answer is shown, the model checks that it responds to the
+    # question (AL-2): one more model call per answer.
+    ANSWER_RELEVANCE_CHECK: bool = True
     # Fixed seed sent to the model, so the same question gives the same
     # answer on a CPU (empty = do not send one).
     LLM_SEED: int | None = 0

@@ -27,6 +27,14 @@ class Organization(Base):
             "history_retention_days IN (0, 30, 90, 365)",
             name="ck_organizations_history_retention_days",
         ),
+        CheckConstraint(
+            "agent_max_steps BETWEEN 1 AND 8",
+            name="ck_organizations_agent_max_steps",
+        ),
+        CheckConstraint(
+            "agent_max_tool_calls BETWEEN 1 AND 12",
+            name="ck_organizations_agent_max_tool_calls",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -90,6 +98,21 @@ class Organization(Base):
         Integer,
         default=90,
         server_default=text("90"),
+        nullable=False,
+    )
+
+    # Limits of the agent for one answer (migration b8e4d2f6a1c3): model
+    # calls and tool calls.
+    agent_max_steps: Mapped[int] = mapped_column(
+        Integer,
+        default=4,
+        server_default=text("4"),
+        nullable=False,
+    )
+    agent_max_tool_calls: Mapped[int] = mapped_column(
+        Integer,
+        default=6,
+        server_default=text("6"),
         nullable=False,
     )
 
