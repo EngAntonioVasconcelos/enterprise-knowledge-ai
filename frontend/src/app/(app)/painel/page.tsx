@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { AccessProblem } from "@/components/shell/AccessProblem";
-import { OrganizationSwitch } from "@/components/shell/OrganizationSwitch";
 import { getMessages } from "@/i18n/server";
 import { loadDashboard } from "@/lib/dashboard";
 import { loadOrganizations } from "@/lib/organizations";
@@ -27,10 +26,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   if (!data) return <AccessProblem t={t} problem="unavailable" retry={`/painel?org=${active.id}`} />;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 lg:px-10 lg:py-12">
-      {organizations.length > 1 ? (
-        <OrganizationSwitch organizations={organizations} activeId={active.id} basePath="/painel" />
-      ) : null}
+    <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
       <DashboardView organizationId={active.id} data={data} />
     </div>
   );

@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { PeopleView } from "@/components/people/PeopleView";
 import { AccessProblem } from "@/components/shell/AccessProblem";
-import { OrganizationSwitch } from "@/components/shell/OrganizationSwitch";
 import { getMessages } from "@/i18n/server";
 import { auth0 } from "@/lib/auth0";
 import { loadOrganizations } from "@/lib/organizations";
@@ -34,10 +33,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   if (!data) return <AccessProblem t={t} problem="unavailable" retry={`/pessoas?org=${active.id}`} />;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 lg:px-10 lg:py-12">
-      {organizations.length > 1 ? (
-        <OrganizationSwitch organizations={organizations} activeId={active.id} basePath="/pessoas" />
-      ) : null}
+    <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
       <PeopleView
         organizationId={active.id}
         actorRole={active.role}

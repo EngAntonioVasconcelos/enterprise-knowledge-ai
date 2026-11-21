@@ -30,6 +30,9 @@ export const en: Messages = {
     signOut: "Sign out",
     organization: "Organization",
     switchOrganization: "Switch organization",
+    admin: "Administration",
+    account: "Your account",
+    skip: "Skip to content",
   },
   language: {
     label: "Interface language",
@@ -42,6 +45,8 @@ export const en: Messages = {
     asking: "Searching and writing\u2026",
     hint: "Enter sends the question. Shift+Enter starts a new line.",
     emptyTitle: "What do you need to know?",
+    emptyTitleNamed: (name: string) => `What do you need to know, ${name}?`,
+    recentTitle: "Your recent questions",
     emptyBody: "Answers cite the passage they come from. If the documents you can access do not answer, I tell you I don\u2019t know. I never make things up.",
     sources: "Sources",
     source: (number: number) => `Source ${number}`,
