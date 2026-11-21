@@ -32,6 +32,15 @@ from app.core.config import settings
 from app.core.errors import InvalidInputError, UnavailableError
 from app.services.llm import ABSTAIN, LLMUnavailableError, get_chat_model
 from app.services.prompts import load_prompt
+from app.services.data_tool import (
+    TOOL as DATA_TOOL,
+    DataResult,
+    DataTool,
+    DataToolError,
+    data_text,
+    render_catalog,
+    render_rows,
+)
 from app.services.search_service import SearchHit, search
 
 
@@ -39,6 +48,11 @@ logger = logging.getLogger("eka.answers")
 
 PROMPT_NAME = "answer"
 RELEVANCE_PROMPT = ("relevance", "v1")
+DATA_QUERY_PROMPT = ("data_query", "v1")
+DATA_ANSWER_PROMPT = ("data_answer", "v1")
+DATA_CITATION = re.compile(r"\[D1\]")
+# Writing a query, answering from its rows, and the relevance check.
+DATA_STEPS = 3
 NOT_RELEVANT = "the answer does not respond to the question"
 PROMPT_VERSIONS = ("v1", "v2", "v3", "v4", "v5")
 LANGUAGES = ("pt", "en", "fr")
@@ -117,6 +131,17 @@ class AnswerResult:
     tool_calls: int = 0
     # None when the relevance check did not run.
     relevant: bool | None = None
+    # The database answer (AL-4): which connection, the query and the rows
+    # read. Shown to the person; never logged or kept.
+    data: "DataAnswer | None" = None
+
+
+@dataclass
+class DataAnswer:
+    connection_id: uuid.UUID
+    connection_name: str
+    sql: str
+    result: DataResult
 
 
 @dataclass(frozen=True)
@@ -137,7 +162,7 @@ def gap_reason(result) -> str | None:
     it answered another question. None when there was an answer."""
     if not result.abstained:
         return None
-    if not result.sources:
+    if not result.sources and getattr(result, "data", None) is None:
         return "no_sources"
     issues = getattr(result, "issues", None) or []
     if NOT_RELEVANT in issues:
@@ -145,8 +170,9 @@ def gap_reason(result) -> str | None:
     return "checks" if issues else "not_found"
 
 
-# Called after every tool call: tool, step, number of results, milliseconds.
-ToolRecorder = Callable[[str, int, int, float], None]
+# Called after every tool call: tool, step, number of results,
+# milliseconds and, for the data tool, the connection.
+ToolRecorder = Callable[..., None]
 
 
 def question_language(question: str, fallback: str | None = None) -> str:
@@ -273,6 +299,7 @@ def answer_question(
     limits: AgentLimits | None = None,
     relevance_check: bool | None = None,
     on_tool_call: ToolRecorder | None = None,
+    data_tool: DataTool | None = None,
 ) -> AnswerResult:
     """An answer from the sources the person may read (the agent, AL-2).
 
@@ -286,6 +313,12 @@ def answer_question(
     conversation (at most two, oldest first). They help with follow-ups
     ("and for interns?"): the last one joins the search, and the model sees
     them as context. Earlier answers are never sent back to the model.
+
+    With a data_tool (AL-4) and a database the person may use, the first
+    model call chooses: a read-only SELECT on one database, or NONE. A
+    query's rows are answered from, checked (citation [D1], numbers in the
+    rows, relevance) and shown; NONE, or a query that fails or returns
+    nothing, goes on to the documents while the budget allows.
     """
     question = " ".join(question.split())
     if not question:
@@ -348,6 +381,117 @@ def answer_question(
             relevant=relevant,
         )
 
+    def get_model():
+        nonlocal model
+        if model is None:
+            try:
+                model = get_chat_model()
+            except LLMUnavailableError as exc:
+                raise UnavailableError(f"Answers are unavailable: {exc}") from None
+        return model
+
+    def complete(prompt_, max_tokens, **values):
+        started = time.perf_counter()
+        try:
+            completion = get_model().complete(
+                prompt_.system, prompt_.render(**values), max_tokens=max_tokens
+            )
+        except LLMUnavailableError as exc:
+            raise UnavailableError(f"Answers are unavailable: {exc}") from None
+        add_time("model", started)
+        spent["steps"] += 1
+        return completion
+
+    def record(tool, results, started, **extra):
+        spent["tool_calls"] += 1
+        if on_tool_call is not None:
+            on_tool_call(
+                tool, spent["tool_calls"], results, 1000 * (time.perf_counter() - started), **extra
+            )
+
+    def from_data() -> AnswerResult | None:
+        """One attempt with the data tool; None to go on to the documents."""
+        nonlocal last
+        steps_needed = DATA_STEPS if check else DATA_STEPS - 1
+        if data_tool is None or spent["steps"] + steps_needed > limits.max_steps:
+            return None
+        if spent["tool_calls"] >= limits.max_tool_calls:
+            return None
+        connections = data_tool.connections()
+        if not connections:
+            return None
+        asked = with_context(question, previous)
+        reply = complete(
+            load_prompt(*DATA_QUERY_PROMPT),
+            MAX_OUTPUT_TOKENS,
+            catalog=render_catalog(connections),
+            question=_untagged(asked),
+        )
+        choice = parse_data_query(reply.text, len(connections))
+        if choice is None:
+            return None
+        connection = connections[choice[0] - 1]
+        started = time.perf_counter()
+        try:
+            rows = data_tool.query(connection.connection_id, choice[1])
+        except DataToolError as exc:
+            logger.info("data query refused or failed: %s", type(exc).__name__)
+            record(DATA_TOOL, 0, started, connection_id=connection.connection_id)
+            return None
+        add_time("data", started)
+        record(DATA_TOOL, len(rows.rows), started, connection_id=connection.connection_id)
+        if not rows.rows:
+            return None
+        data = DataAnswer(connection.connection_id, connection.name, choice[1], rows)
+
+        completion = complete(
+            load_prompt(*DATA_ANSWER_PROMPT),
+            MAX_OUTPUT_TOKENS,
+            data=render_rows(connection.name, rows),
+            question=_untagged(asked),
+            language=LANGUAGE_NAMES[language],
+        )
+        text, mixed = split_abstain(completion.text)
+        refused = None
+        if not text:
+            refused = no_answer([], None, [], completion.model)
+        else:
+            issues = verify_data(text, rows, question)
+            if issues:
+                refused = no_answer([], None, issues, completion.model, draft=text)
+            elif check:
+                started = time.perf_counter()
+                relevant = responds_to_question(get_model(), asked, text)
+                add_time("relevance", started)
+                spent["steps"] += 1
+                if not relevant:
+                    refused = no_answer(
+                        [], None, [NOT_RELEVANT], completion.model, draft=text, relevant=False
+                    )
+        if refused is not None:
+            refused.data = data
+            refused.mixed_abstain = mixed
+            last = refused
+            return None
+        result = AnswerResult(
+            answer=text,
+            abstained=False,
+            verified=True,
+            sources=[],
+            cited=[],
+            prompt_id=prompt.prompt_id,
+            model=completion.model,
+            language=language,
+            relevant=True if check else None,
+            data=data,
+        )
+        result.mixed_abstain = mixed
+        return result
+
+    answered = from_data()
+    if answered is not None:
+        return finish(answered)
+
     for query in queries:
         if spent["tool_calls"] >= limits.max_tool_calls:
             break
@@ -363,41 +507,20 @@ def answer_question(
             rerank=settings.ANSWER_RERANK,
         )
         add_time("search", started)
-        spent["tool_calls"] += 1
-        if on_tool_call is not None:
-            on_tool_call(
-                "search_documents",
-                spent["tool_calls"],
-                len(found.hits),
-                1000 * (time.perf_counter() - started),
-            )
+        record("search_documents", len(found.hits), started)
         sources = select_sources(found.hits)
         if not sources:
             # Nothing the person may read matches: no need to ask a model.
             last = no_answer(sources, found.note, [], None)
             continue
 
-        if model is None:
-            try:
-                model = get_chat_model()
-            except LLMUnavailableError as exc:
-                raise UnavailableError(f"Answers are unavailable: {exc}") from None
-
-        started = time.perf_counter()
-        try:
-            completion = model.complete(
-                prompt.system,
-                prompt.render(
-                    sources=render_sources(sources),
-                    question=with_context(question, previous),
-                    language=LANGUAGE_NAMES[language],
-                ),
-                max_tokens=MAX_OUTPUT_TOKENS,
-            )
-        except LLMUnavailableError as exc:
-            raise UnavailableError(f"Answers are unavailable: {exc}") from None
-        add_time("model", started)
-        spent["steps"] += 1
+        completion = complete(
+            prompt,
+            MAX_OUTPUT_TOKENS,
+            sources=render_sources(sources),
+            question=with_context(question, previous),
+            language=LANGUAGE_NAMES[language],
+        )
 
         text, mixed = split_abstain(completion.text)
         if not text:
@@ -413,7 +536,7 @@ def answer_question(
         relevant = None
         if check:
             started = time.perf_counter()
-            relevant = responds_to_question(model, with_context(question, previous), text)
+            relevant = responds_to_question(get_model(), with_context(question, previous), text)
             add_time("relevance", started)
             spent["steps"] += 1
             if not relevant:
@@ -441,6 +564,53 @@ def answer_question(
     return finish(last or no_answer([], None, [], None))
 
 
+def parse_data_query(reply: str, databases: int) -> tuple[int, str] | None:
+    """(database number, SQL) from the model's reply, or None for NONE or
+    anything that does not follow the form. The gateway, not this parser,
+    makes sure only a read-only SELECT runs."""
+    text = reply.strip()
+    if not text or text.split()[0].strip(".:").upper() == "NONE":
+        return None
+    match = re.search(r"DATABASE:\s*(\d+)\s*\n\s*SQL:\s*(.+)", text, flags=re.S | re.I)
+    if not match:
+        return None
+    number = int(match.group(1))
+    sql = match.group(2).strip()
+    fenced = re.fullmatch(r"```(?:sql)?\s*(.+?)\s*```", sql, flags=re.S | re.I)
+    if fenced:
+        sql = fenced.group(1).strip()
+    if not 1 <= number <= databases or not sql:
+        return None
+    return number, sql
+
+
+def verify_data(answer: str, result: DataResult, question: str) -> list[str]:
+    """The checks of a database answer: it cites the data and every number
+    in it is in the rows (or in the question)."""
+    issues = []
+    if not DATA_CITATION.search(answer):
+        issues.append("cites no data")
+    allowed = numbers_in(question) | data_numbers(result)
+    claimed = numbers_in(DATA_CITATION.sub(" ", answer))
+    unsupported = sorted(n for n in claimed if n not in allowed)
+    if unsupported:
+        issues.append(f"numbers not found in the data: {unsupported}")
+    return issues
+
+
+def data_numbers(result: DataResult) -> set[str]:
+    """The numbers of the rows, also as people write them: 20.00 can be
+    "20" and 10.50 can be "10,5"."""
+    numbers = set()
+    for value in data_text(result).split():
+        for found in re.findall(r"\d+(?:[.,]\d+)?", value):
+            whole, _, fraction = found.replace(",", ".").partition(".")
+            numbers.add(whole + fraction)
+            trimmed = fraction.rstrip("0")
+            numbers.add(whole + trimmed)
+    return numbers | numbers_in(data_text(result))
+
+
 def responds_to_question(model, question: str, answer: str) -> bool:
     """The model's yes or no: does the answer respond to the question?
 
@@ -452,7 +622,10 @@ def responds_to_question(model, question: str, answer: str) -> bool:
     try:
         completion = model.complete(
             prompt.system,
-            prompt.render(question=_untagged(question), answer=_untagged(CITATION.sub("", answer))),
+            prompt.render(
+                question=_untagged(question),
+                answer=_untagged(DATA_CITATION.sub("", CITATION.sub("", answer))),
+            ),
             max_tokens=3,
         )
     except LLMUnavailableError:

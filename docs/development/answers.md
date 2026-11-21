@@ -297,3 +297,10 @@ alone; a first question has none. When the budget runs out, the person gets
   check off, for measurements only.
 - The extractive stand-in used in tests says YES when the question and the
   answer share two words or more.
+
+## Answers from databases (Phase 7, AL-4)
+
+With a data gateway configured and a database the person may use, the
+agent can answer from rows instead of documents, cited as `[D1]`, with
+the same rules: numbers must be in the rows, the relevance check runs, and
+nothing unchecked is shown. See `data-gateway.md`.
