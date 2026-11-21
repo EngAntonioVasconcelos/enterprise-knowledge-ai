@@ -189,7 +189,7 @@ def main() -> int:
                 # Database answers state facts; they do not say "you have".
                 addressed += bool(
                     result.data is not None and not result.abstained
-                    and re.match(r"\s*(tens|tem|you have)\b", result.answer, re.I)
+                    and re.match(r"\s*(tu\s+)?(tens|tem|you have)\b", result.answer, re.I)
                 )
                 print("=" * 72)
                 print(f"{number}. {question.text}   [{'OK' if ok else 'FALHOU'}]")

@@ -58,7 +58,7 @@ DATA_FIX_PROMPT = ("data_fix", "v1")
 # PostgreSQL error classes worth one repair: syntax or access rule (42) and
 # data exceptions such as a bad date (22). Not timeouts or anything else.
 REPAIRABLE_SQLSTATE = ("42", "22")
-DATA_ANSWER_PROMPT = ("data_answer", "v4")
+DATA_ANSWER_PROMPT = ("data_answer", "v3")
 # The route's reply: its first word. Anything else means documents, the
 # safe side: a policy question answered from rows is a wrong answer.
 DATA_ROUTE_WORDS = frozenset({"DATA", "DADOS", "DONNEES"})

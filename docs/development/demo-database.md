@@ -127,10 +127,20 @@ passes, AL-4g and AL-4h are merged together; if not, neither is.
   language after the checks (19209.94: "19 209,94" in Portuguese and
   French, "19,209.94" in English); codes such as "Cliente 018" and years
   stay as they are. The table in the margin does the same.
-- The answer prompt v4 states facts instead of addressing the person
-  ("Ha 55 faturas pendentes", not "Tens 55 faturas"). The evaluation
+- The answer prompt v4 was to state facts instead of addressing the person
+  ("Ha 55 faturas pendentes", not "Tens 55 faturas"); the evaluation
   counts data answers that address the person.
 
 Rule, fixed before measuring AL-6: 0 wrong answers shown, at least 7 of
 8 correct, 0 data answers that address the person, at most 35 s per
 question.
+
+Result (21 Nov, gemma3:4b): 8 of 8 correct, 0 wrong answers shown, but 6
+data answers still address the person ("Tens 55 faturas", "Tu tens os
+seguintes clientes"; the count said 5, missing "Tu tens") and 52.6 s per
+question (28.6 s with AL-4h, with the same steps: the computer was busy
+rebuilding the web app). The prompt v4 did not pass and was dropped: the
+answers use v3 again. The number formatting is code, not a prompt, and
+stays. The product addresses the person as "tu" everywhere ("os
+documentos a que tens acesso"), so "Tens 55 faturas" is clumsy, not wrong;
+it is measured again with the hosted model (Phase 8).
