@@ -45,7 +45,7 @@ describe("database answers", () => {
     expect(within(panel).getByText("Da base de dados Vendas")).toBeInTheDocument();
     expect(within(panel).getByText("2 linhas lidas")).toBeInTheDocument();
     expect(within(panel).getByRole("columnheader", { name: "total" })).toBeInTheDocument();
-    expect(within(panel).getByText("15.75")).toBeInTheDocument();
+    expect(within(panel).getByText("15,75")).toBeInTheDocument();
     expect(within(panel).getByText("vazio")).toBeInTheDocument();
     expect(within(panel).getByText(/Havia mais linhas/)).toBeInTheDocument();
     await userEvent.click(within(panel).getByText("Ver a consulta"));
@@ -55,6 +55,6 @@ describe("database answers", () => {
   it("never shows rows next to a refused answer", () => {
     render(<AnswerDocument answer={{ ...answer, abstained: true, answer: "Sem resposta." }} />);
     expect(screen.queryByRole("complementary", { name: "Dados" })).toBeNull();
-    expect(screen.queryByText("15.75")).toBeNull();
+    expect(screen.queryByText("15,75")).toBeNull();
   });
 });

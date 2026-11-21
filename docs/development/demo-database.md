@@ -79,6 +79,7 @@ score goes up and nothing else gets worse.
 |---|---|---|---|
 | AL-4f (21 Nov, gemma3:4b) | 3 of 8 | 1 (the holiday question answered from invoices) | 25.7 s |
 | AL-4g (21 Nov, gemma3:4b) | 4 of 8 (rule: 5) | 0 | 26.5 s |
+| AL-4h (21 Nov, gemma3:4b) | 8 of 8 | 0 | 28.6 s |
 
 AL-4g changes, after reading every reply of that run:
 
@@ -119,3 +120,17 @@ AL-4h, on top of AL-4g:
 Rule, fixed before measuring AL-4h: 0 wrong answers shown, at least 6 of
 8 correct, questions 1, 5, 7 and 8 kept, at most 35 s per question. If it
 passes, AL-4g and AL-4h are merged together; if not, neither is.
+
+### AL-6: answers people read
+
+- Numbers that are whole values of the rows are written as in the answer's
+  language after the checks (19209.94: "19 209,94" in Portuguese and
+  French, "19,209.94" in English); codes such as "Cliente 018" and years
+  stay as they are. The table in the margin does the same.
+- The answer prompt v4 states facts instead of addressing the person
+  ("Ha 55 faturas pendentes", not "Tens 55 faturas"). The evaluation
+  counts data answers that address the person.
+
+Rule, fixed before measuring AL-6: 0 wrong answers shown, at least 7 of
+8 correct, 0 data answers that address the person, at most 35 s per
+question.

@@ -17,6 +17,7 @@ Run from the backend folder, in the container, with the app running:
 """
 
 import argparse
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -150,7 +151,7 @@ def main() -> int:
     answer_service.get_chat_model = lambda: model
 
     engine = create_engine(settings.MIGRATION_DATABASE_URL)
-    score, wrong, times = 0, 0, []
+    score, wrong, addressed, times = 0, 0, 0, []
     try:
         with Session(engine) as db:
             organization, problem = choose(db.execute(text(OWNERS_SQL)).all(), arguments.organization)
@@ -185,6 +186,11 @@ def main() -> int:
                 score += ok
                 # The worst outcome: an answer shown that is not right.
                 wrong += not ok and not result.abstained
+                # Database answers state facts; they do not say "you have".
+                addressed += bool(
+                    result.data is not None and not result.abstained
+                    and re.match(r"\s*(tens|tem|you have)\b", result.answer, re.I)
+                )
                 print("=" * 72)
                 print(f"{number}. {question.text}   [{'OK' if ok else 'FALHOU'}]")
                 print(f"data={result.data_outcome} steps={result.steps} tools={result.tool_calls} "
@@ -201,6 +207,7 @@ def main() -> int:
     print("=" * 72)
     print(
         f"{score} of {len(chosen)} correct, {wrong} wrong answers shown, "
+        f"{addressed} data answers that address the person, "
         f"{sum(times) / max(len(times), 1):.1f} s per question"
     )
     return 0
