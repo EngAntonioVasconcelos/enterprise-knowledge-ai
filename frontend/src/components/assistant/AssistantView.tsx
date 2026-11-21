@@ -40,9 +40,12 @@ export async function requestAnswer(
 export function AssistantView({
   organizationId,
   organizationName,
+  initialQuestion = null,
 }: {
   organizationId: string;
   organizationName: string;
+  /** Asked at once: "Ask again" from the history. */
+  initialQuestion?: string | null;
 }) {
   const { locale, t: all } = useI18n();
   const t = all.assistant;
@@ -50,6 +53,19 @@ export function AssistantView({
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => () => controller.current?.abort(), []);
+
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!initialQuestion || asked.current) return;
+    asked.current = true;
+    // Out of the address, so reloading the page does not ask again.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("q");
+    window.history.replaceState(null, "", url);
+    void ask(initialQuestion);
+    // Only once, when the page opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function ask(question: string) {
     controller.current?.abort();

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import (
     BaseModel,
@@ -42,6 +43,8 @@ class OrganizationResponse(BaseModel):
     slug: str
     status: str
     created_at: datetime
+    # Days each person's questions are kept; 0 keeps none.
+    history_retention_days: int = 90
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,6 +70,7 @@ class OrganizationUpdate(BaseModel):
         min_length=2,
         max_length=100,
     )
+    history_retention_days: Literal[0, 30, 90, 365] | None = None
 
     @field_validator("name", mode="before")
     @classmethod

@@ -15,9 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AssistantPage({
   searchParams,
 }: {
-  searchParams: Promise<{ org?: string }>;
+  searchParams: Promise<{ org?: string; q?: string }>;
 }) {
-  const [{ org }, result, { t }] = await Promise.all([
+  const [{ org, q }, result, { t }] = await Promise.all([
     searchParams,
     loadOrganizations(),
     getMessages(),
@@ -48,7 +48,12 @@ export default async function AssistantPage({
       {organizations.length > 1 ? (
         <OrganizationSwitch organizations={organizations} activeId={active.id} />
       ) : null}
-      <AssistantView key={active.id} organizationId={active.id} organizationName={active.name} />
+      <AssistantView
+        key={active.id}
+        organizationId={active.id}
+        organizationName={active.name}
+        initialQuestion={q && q.trim().length <= 500 ? q.trim() : null}
+      />
     </div>
   );
 }

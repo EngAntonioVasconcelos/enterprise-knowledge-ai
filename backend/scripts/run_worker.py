@@ -15,10 +15,23 @@ import socket
 import sys
 import time
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.services.worker import run_once
+from app.services.history_service import purge_expired
+from app.services.worker import WORKER_ROLE, run_once
+
+# Old questions are deleted once an hour (and at start).
+PURGE_EVERY_SECONDS = 3600
+
+
+def purge_questions(engine) -> int:
+    with Session(engine) as db:
+        db.execute(text(f"SET LOCAL ROLE {WORKER_ROLE}"))
+        removed = purge_expired(db)
+        db.commit()
+    return removed
 
 
 def main() -> int:
@@ -41,8 +54,17 @@ def main() -> int:
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     engine = create_engine(settings.WORKER_DATABASE_URL, pool_pre_ping=True)
 
+    last_purge = 0.0
     try:
         while True:
+            if time.monotonic() - last_purge >= PURGE_EVERY_SECONDS:
+                try:
+                    removed = purge_questions(engine)
+                    logging.info("worker %s: %s old questions deleted", worker_id, removed)
+                except Exception as error:  # the queue keeps running
+                    logging.warning("question purge failed: %s", type(error).__name__)
+                last_purge = time.monotonic()
+
             outcome = run_once(
                 engine, worker_id=worker_id, limit=arguments.batch
             )
