@@ -92,6 +92,18 @@ export type Answer = {
   timings_ms: Record<string, number>;
   /** pt, en or fr: the language the answer is written in. */
   language?: string;
+  /** Present when the answer comes from a database (AL-4), cited [D1]. */
+  data?: AnswerData | null;
+};
+
+export type AnswerData = {
+  connection_id: string;
+  connection_name: string;
+  /** The read-only query that ran. */
+  sql: string;
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  truncated: boolean;
 };
 
 export type AnswerErrorKind =
