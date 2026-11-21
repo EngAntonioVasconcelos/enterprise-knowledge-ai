@@ -53,3 +53,22 @@ end in "no reliable answer", never in an invented number.
 
 The data goes with the container. The connection stays in the development
 database and goes to `error` until the demo database runs again.
+
+## Measure the data tool (AL-4f)
+
+    docker compose -f ../infrastructure/dev/docker-compose.yml run --rm backend python -m scripts.evaluate_data_answers
+
+Eight fixed questions through the real agent, as the organization's owner,
+with the configured model and the data gateway: six about the sales data
+(expected numbers checked), one about documents (must not use the data)
+and one the data cannot answer (must end with no answer). For each one it
+prints the query the model wrote, the database's error, the rows read, the
+model's raw replies (query, repair, answer, relevance) and the answer or
+the refused draft, then the score and the time per question.
+
+It prints what the product never logs, so it refuses anything but the
+development database and gives the agent only the "Vendas (exemplo)"
+connection, whose data is invented. It writes nothing: no history, no
+dashboard counts, no audit. Use it to measure a prompt change: run it
+before and after, with the same model, and keep the change only if the
+score goes up and nothing else gets worse.
