@@ -54,6 +54,24 @@ services:
       - ../../backend:/app/backend
     ports:
       - "127.0.0.1:8000:8000"
+    environment:
+      # The agent's data tool goes through the data gateway (AL-4).
+      DATA_GATEWAY_URL: http://data-gateway:8100
+
+  # The data gateway (profile app, AL-4): the only process that queries
+  # customer databases, read-only, for the agent. It holds what the worker
+  # holds (WORKER_DATABASE_URL, the master private key) and needs
+  # DATA_GATEWAY_TOKEN. No published port: only the API reaches it, inside
+  # the Docker network. See docs/development/data-gateway.md.
+  data-gateway:
+    profiles: ["app"]
+    image: eka-backend:dev
+    build:
+      context: ../../backend
+    command: ["python", "-m", "scripts.run_data_gateway"]
+    volumes:
+      - ../../backend:/app/backend
+    restart: unless-stopped
 
   # The background worker (profile app): reads uploaded and synced files,
   # cuts them into passages and computes their vectors. Same image and

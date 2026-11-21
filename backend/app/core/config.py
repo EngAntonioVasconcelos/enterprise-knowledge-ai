@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     # Before an answer is shown, the model checks that it responds to the
     # question (AL-2): one more model call per answer.
     ANSWER_RELEVANCE_CHECK: bool = True
+    # The data gateway (AL-4): the internal service that runs the agent's
+    # read-only queries on customer databases. Empty URL = no data tool.
+    # DATA_GATEWAY_TOKEN is a secret: only in .env, never in Git.
+    DATA_GATEWAY_URL: str | None = None
+    DATA_GATEWAY_TOKEN: str | None = None
+    DATA_QUERY_MAX_ROWS: int = 50
+    DATA_QUERY_TIMEOUT_MS: int = 5000
     # Fixed seed sent to the model, so the same question gives the same
     # answer on a CPU (empty = do not send one).
     LLM_SEED: int | None = 0

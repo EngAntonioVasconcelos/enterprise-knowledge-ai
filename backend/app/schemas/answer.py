@@ -36,6 +36,20 @@ class AnswerSourceResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class AnswerDataResponse(BaseModel):
+    """The database rows an answer comes from (AL-4), cited as [D1]."""
+
+    connection_id: uuid.UUID
+    connection_name: str
+    # The read-only query that ran, so the person can check it.
+    sql: str
+    columns: list[str]
+    rows: list[list[str | int | float | bool | None]]
+    truncated: bool
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class AnswerResponse(BaseModel):
     question: str
     answer: str
@@ -49,5 +63,7 @@ class AnswerResponse(BaseModel):
     language: str
     note: str | None = None
     timings_ms: dict[str, float]
+    # Present when the answer comes from a database, not from documents.
+    data: AnswerDataResponse | None = None
 
     model_config = ConfigDict(extra="forbid")

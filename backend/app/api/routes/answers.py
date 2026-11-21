@@ -9,9 +9,15 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.authorization import require_roles
 from app.db.session import get_db
 from app.models.membership import OrganizationMembership
-from app.schemas.answer import AnswerRequest, AnswerResponse, AnswerSourceResponse
+from app.schemas.answer import (
+    AnswerDataResponse,
+    AnswerRequest,
+    AnswerResponse,
+    AnswerSourceResponse,
+)
 from app.services.answer_service import AgentLimits, ToolRecorder, answer_question, gap_reason
 from app.services.dashboard_service import record_event
+from app.services.data_tool import data_tool_for
 from app.services.history_service import record_answer
 
 
@@ -45,6 +51,7 @@ def answer(
             max_tool_calls=member.organization.agent_max_tool_calls,
         ),
         on_tool_call=_tool_recorder(db, member.organization_id),
+        data_tool=data_tool_for(organization_id=member.organization_id, role=member.role),
     )
     cited = set(result.cited)
     response = AnswerResponse(
@@ -72,26 +79,46 @@ def answer(
         model=result.model,
         note=result.note,
         timings_ms=result.timings_ms,
+        data=_data(result),
     )
     _keep_in_history(db, member, response)
     _count_for_dashboard(db, member, response, gap_reason(result))
     return response
 
 
+def _data(result) -> AnswerDataResponse | None:
+    """The database answer, shown only when it was answered from: the
+    rows of a refused answer are not sent."""
+    data = getattr(result, "data", None)
+    if data is None or result.abstained:
+        return None
+    return AnswerDataResponse(
+        connection_id=data.connection_id,
+        connection_name=data.connection_name,
+        sql=data.sql,
+        columns=list(data.result.columns),
+        rows=[list(row) for row in data.result.rows],
+        truncated=data.result.truncated,
+    )
+
+
 def _tool_recorder(db: Session, organization_id: uuid.UUID) -> ToolRecorder | None:
     """Writes each tool call of the agent to the audit log: the tool, the
-    step, how many results and how long. Never the question, never the
+    step, how many results, how long and, for the data tool, the
+    connection. Never the question, the query or the rows, never the
     person. A failure here never costs the person their answer."""
     if db.get_bind().dialect.name != "postgresql":
         return None
 
-    def record(tool: str, step: int, results: int, ms: float) -> None:
+    def record(
+        tool: str, step: int, results: int, ms: float, connection_id: uuid.UUID | None = None
+    ) -> None:
         try:
             with db.begin_nested():
                 db.execute(
                     text(
                         "SELECT app_private.record_agent_tool_call("
-                        ":organization_id, :tool, :step, :results, :ms)"
+                        ":organization_id, :tool, :step, :results, :ms, :connection_id)"
                     ),
                     {
                         "organization_id": organization_id,
@@ -99,6 +126,7 @@ def _tool_recorder(db: Session, organization_id: uuid.UUID) -> ToolRecorder | No
                         "step": step,
                         "results": results,
                         "ms": round(ms),
+                        "connection_id": connection_id,
                     },
                 )
         except SQLAlchemyError as error:

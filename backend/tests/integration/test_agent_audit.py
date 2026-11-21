@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from sqlalchemy import select, text
 
@@ -17,10 +19,12 @@ def world(perm_db):
     return permissions.World(perm_db)
 
 
-def _record(db, organization_id, tool="search_documents", step=1, results=3, ms=12):
+def _record(
+    db, organization_id, tool="search_documents", step=1, results=3, ms=12, connection_id=None
+):
     return text(
-        "SELECT app_private.record_agent_tool_call(:o, :tool, :step, :results, :ms)"
-    ).bindparams(o=organization_id, tool=tool, step=step, results=results, ms=ms)
+        "SELECT app_private.record_agent_tool_call(:o, :tool, :step, :results, :ms, :c)"
+    ).bindparams(o=organization_id, tool=tool, step=step, results=results, ms=ms, c=connection_id)
 
 
 def _tool_calls(db, organization_id):
@@ -66,4 +70,37 @@ def test_the_limits_are_checked_by_the_database(perm_db, world):
             o=world.organization
         ),
         "ck_organizations_agent_max_steps",
+    )
+
+
+def test_a_data_query_is_recorded_with_its_connection_only(perm_db, world):
+    db = perm_db
+    connection = world.connection
+    _as_runtime(db, world.ana)
+    db.execute(_record(db, world.organization, tool="query_data", results=7, connection_id=connection))
+
+    [event] = _tool_calls(db, world.organization)
+    assert event.actor_user_id is None
+    assert event.details == {
+        "tool": "query_data",
+        "connection_id": str(connection),
+        "step": 1,
+        "results": 7,
+        "ms": 12,
+    }
+
+
+def test_a_data_query_must_name_a_connection_of_the_organization(perm_db, world):
+    db = perm_db
+    _as_runtime(db, world.ana)
+    _refused(db, _record(db, world.organization, tool="query_data"), "names its connection")
+    _refused(
+        db,
+        _record(db, world.organization, connection_id=world.connection),
+        "names its connection",
+    )
+    _refused(
+        db,
+        _record(db, world.organization, tool="query_data", connection_id=uuid.uuid4()),
+        "unknown connection",
     )
