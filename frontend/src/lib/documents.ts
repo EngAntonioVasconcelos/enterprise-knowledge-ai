@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Connection, DocumentItem, Upload } from "@/lib/api-types";
 import { backendFetch } from "@/lib/backend";
-import { UPLOAD_PROVIDER } from "@/lib/uploads";
+import { DRIVE_PROVIDER, UPLOAD_PROVIDER } from "@/lib/uploads";
 
 export type DocumentsData = {
   documents: DocumentItem[];
@@ -11,11 +11,18 @@ export type DocumentsData = {
   /** Files sent but not yet read by the worker. */
   waiting: Upload[];
   lastError: string | null;
+  /** The Google Drive source, for owners and admins; null when not connected. */
+  drive: Connection | null;
 };
 
 /** The upload source of an organization, if it has one. */
 export function uploadSource(connections: Connection[]): Connection | undefined {
   return connections.find((c) => c.provider === UPLOAD_PROVIDER && !c.disconnected_at);
+}
+
+/** The Google Drive source of an organization, if it has one. */
+export function driveSource(connections: Connection[]): Connection | undefined {
+  return connections.find((c) => c.provider === DRIVE_PROVIDER && !c.disconnected_at);
 }
 
 export async function loadDocuments(organizationId: string): Promise<DocumentsData | null> {
@@ -29,10 +36,12 @@ export async function loadDocuments(organizationId: string): Promise<DocumentsDa
   );
 
   if (!connectionsResponse.ok) {
-    return { documents, canManage: false, waiting: [], lastError: null };
+    return { documents, canManage: false, waiting: [], lastError: null, drive: null };
   }
-  const source = uploadSource((await connectionsResponse.json()) as Connection[]);
-  if (!source) return { documents, canManage: true, waiting: [], lastError: null };
+  const connections = (await connectionsResponse.json()) as Connection[];
+  const drive = driveSource(connections) ?? null;
+  const source = uploadSource(connections);
+  if (!source) return { documents, canManage: true, waiting: [], lastError: null, drive };
 
   const uploadsResponse = await backendFetch(
     `/organizations/${organizationId}/connections/${source.id}/uploads/`,
@@ -44,5 +53,6 @@ export async function loadDocuments(organizationId: string): Promise<DocumentsDa
     canManage: true,
     waiting: uploads.filter((upload) => Date.parse(upload.created_at) > syncedAt),
     lastError: source.last_error,
+    drive,
   };
 }

@@ -8,6 +8,9 @@ import { getMessages } from "@/i18n/server";
 import { loadDocuments } from "@/lib/documents";
 import { loadOrganizations } from "@/lib/organizations";
 
+type Notice = "connected" | "denied" | "expired" | "failed";
+const NOTICES = new Set<string>(["connected", "denied", "expired", "failed"]);
+
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getMessages();
   return { title: t.documents.title };
@@ -16,9 +19,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ org?: string }>;
+  searchParams: Promise<{ org?: string; google?: string }>;
 }) {
-  const [{ org }, result, { t }] = await Promise.all([searchParams, loadOrganizations(), getMessages()]);
+  const [{ org, google }, result, { t }] = await Promise.all([searchParams, loadOrganizations(), getMessages()]);
   if ("problem" in result) return <AccessProblem t={t} problem={result.problem} retry="/documentos" />;
 
   const { organizations } = result;
@@ -34,7 +37,7 @@ export default async function DocumentsPage({
       {organizations.length > 1 ? (
         <OrganizationSwitch organizations={organizations} activeId={active.id} basePath="/documentos" />
       ) : null}
-      <DocumentsView organizationId={active.id} {...data} />
+      <DocumentsView organizationId={active.id} {...data} notice={NOTICES.has(google ?? "") ? (google as Notice) : null} />
     </div>
   );
 }

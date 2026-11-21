@@ -4,8 +4,9 @@ import { FileUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type DragEvent, useEffect, useRef, useState } from "react";
 
+import { SourcesPanel } from "@/components/documents/SourcesPanel";
 import { useI18n } from "@/i18n/client";
-import type { DocumentItem, Upload } from "@/lib/api-types";
+import type { Connection, DocumentItem, Upload } from "@/lib/api-types";
 import { ACCEPTED_EXTENSIONS, checkFile, documentKind, type UploadErrorKind } from "@/lib/uploads";
 
 const REFRESH_MS = 4000;
@@ -16,6 +17,9 @@ type Props = {
   canManage: boolean;
   waiting: Upload[];
   lastError: string | null;
+  drive?: Connection | null;
+  /** The outcome of connecting Google Drive, after Google sends the person back. */
+  notice?: "connected" | "denied" | "expired" | "failed" | null;
 };
 
 type Row = {
@@ -45,7 +49,15 @@ export async function sendFile(
   }
 }
 
-export function DocumentsView({ organizationId, documents, canManage, waiting, lastError }: Props) {
+export function DocumentsView({
+  organizationId,
+  documents,
+  canManage,
+  waiting,
+  lastError,
+  drive = null,
+  notice = null,
+}: Props) {
   const { locale, t: all } = useI18n();
   const t = all.documents;
   const router = useRouter();
@@ -73,7 +85,9 @@ export function DocumentsView({ organizationId, documents, canManage, waiting, l
       at: document.updated_at,
     })),
   ];
-  const busy = rows.some((row) => row.status === "waiting" || row.status === "pending");
+  // The first reading of a new source counts as work in progress too.
+  const firstSync = Boolean(drive && drive.status === "active" && !drive.last_synced_at);
+  const busy = firstSync || rows.some((row) => row.status === "waiting" || row.status === "pending");
 
   // While something is being read, look again every few seconds.
   useEffect(() => {
@@ -115,6 +129,17 @@ export function DocumentsView({ organizationId, documents, canManage, waiting, l
     <div>
       <h1 className="text-question font-semibold tracking-[-0.02em]">{t.title}</h1>
       <p className="mt-3 max-w-[40rem] text-lead text-ink-soft text-pretty">{t.lead}</p>
+      {notice ? (
+        <p
+          role="status"
+          className={
+            "mt-6 max-w-[40rem] border-l-2 pl-4 text-body " +
+            (notice === "connected" ? "border-checked text-checked" : "border-caution text-caution")
+          }
+        >
+          {t.notice[notice]}
+        </p>
+      ) : null}
 
       {canManage ? (
         <section
@@ -177,6 +202,8 @@ export function DocumentsView({ organizationId, documents, canManage, waiting, l
           </p>
         ) : null}
       </div>
+
+      {canManage ? <SourcesPanel organizationId={organizationId} drive={drive} /> : null}
 
       {rows.length ? (
         <table className="mt-10 w-full table-fixed border-collapse text-left">

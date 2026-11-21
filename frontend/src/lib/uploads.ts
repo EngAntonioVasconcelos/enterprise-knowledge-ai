@@ -3,6 +3,7 @@
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"] as const;
 export const UPLOAD_PROVIDER = "file_upload";
+export const DRIVE_PROVIDER = "google_drive";
 
 export type UploadErrorKind =
   | "tooLarge"

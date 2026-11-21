@@ -55,7 +55,13 @@ describe("loadDocuments", () => {
 
   it("reads the list without managing it when the connections are not allowed", async () => {
     backend(json([]), json({}, 403));
-    expect(await loadDocuments(ORG)).toEqual({ documents: [], canManage: false, waiting: [], lastError: null });
+    expect(await loadDocuments(ORG)).toEqual({
+      documents: [],
+      canManage: false,
+      waiting: [],
+      lastError: null,
+      drive: null,
+    });
   });
 });
 
