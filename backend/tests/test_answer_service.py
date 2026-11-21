@@ -517,12 +517,16 @@ class DataModel:
 
     def __init__(self, query="DATABASE: 1\nSQL: SELECT sum(amount) AS total FROM public.orders",
                  answer="O total das vendas foi 35,75 euros [D1].", verdict="YES",
-                 documents="Tens 25 dias uteis [1]."):
-        self.replies = {"query": query, "data": answer, "relevance": verdict, "documents": documents}
+                 documents="Tens 25 dias uteis [1].", route="DATA"):
+        self.replies = {
+            "route": route, "query": query, "data": answer, "relevance": verdict, "documents": documents
+        }
         self.calls = []
 
     def complete(self, system, user, *, max_tokens):
-        if "<answer>" in user:
+        if "DATA or DOCUMENTS" in system:
+            kind = "route"
+        elif "<answer>" in user:
             kind = "relevance"
         elif "<database" in user:
             kind = "query"
@@ -556,7 +560,7 @@ def test_a_database_answer_is_checked_and_shown(world):
     assert not result.abstained and result.answer == "O total das vendas foi 35,75 euros [D1]."
     assert result.data.connection_name == "Vendas" and result.sources == []
     assert data.queries == [(SALES, "SELECT sum(amount) AS total FROM public.orders")]
-    assert (result.steps, result.tool_calls) == (3, 1)
+    assert (result.steps, result.tool_calls) == (4, 1)
     assert calls == [("query_data", 1, {"connection_id": SALES})]
     assert answer_service.gap_reason(result) is None
 
@@ -565,7 +569,7 @@ def test_none_goes_on_to_the_documents(world):
     model = DataModel(query="NONE")
     result = _ask_data(FakeData(), model, world, question="quantos dias de ferias tenho?")
     assert not result.abstained and result.data is None
-    assert [kind for kind, _ in model.calls] == ["query", "documents", "relevance"]
+    assert [kind for kind, _ in model.calls] == ["route", "query", "documents", "relevance"]
 
 
 @pytest.mark.parametrize(
@@ -577,11 +581,14 @@ def test_none_goes_on_to_the_documents(world):
 )
 def test_a_database_answer_that_fails_the_checks_is_not_shown(world, answer, issue):
     # With budget left the documents get their turn; without, no answer.
-    fallback = _ask_data(FakeData(), DataModel(answer=answer), world)
+    fallback = _ask_data(
+        FakeData(), DataModel(answer=answer), world,
+        limits=answer_service.AgentLimits(max_steps=6, max_tool_calls=6),
+    )
     assert fallback.answer == "Tens 25 dias uteis [1]." and fallback.data is None
     result = _ask_data(
         FakeData(), DataModel(answer=answer), world,
-        limits=answer_service.AgentLimits(max_steps=3, max_tool_calls=6),
+        limits=answer_service.AgentLimits(max_steps=4, max_tool_calls=6),
     )
     assert result.abstained and issue in result.issues
     assert answer_service.gap_reason(result) == "checks"
@@ -703,20 +710,23 @@ class FixingModel(DataModel):
 def test_a_query_the_database_refuses_gets_one_repair(world, caplog):
     caplog.set_level("INFO", logger="eka.answers")
     data, model = RepairingData(), FixingModel()
-    result = _ask_data(data, model, world)
+    result = _ask_data(data, model, world, limits=answer_service.AgentLimits(max_steps=5, max_tool_calls=6))
     assert not result.abstained and result.data.sql.endswith("FROM sales.invoices")
-    assert [kind for kind, _ in model.calls] == ["query", "fix", "data", "relevance"]
+    assert [kind for kind, _ in model.calls] == ["route", "query", "fix", "data", "relevance"]
     fix_prompt = dict(model.calls)["fix"]
     assert '<error>The query failed: column "valor" does not exist</error>' in fix_prompt
-    assert (result.steps, result.tool_calls) == (4, 2) and result.data_outcome == "answered+repaired"
+    assert (result.steps, result.tool_calls) == (5, 2) and result.data_outcome == "answered+repaired"
     # The log says how it went, never the query, the error text or the rows.
     assert "data=answered+repaired" in caplog.text
-    assert "valor" not in caplog.text and "SELECT" not in caplog.text and "35" not in caplog.text
+    assert "valor" not in caplog.text and "SELECT" not in caplog.text and "35.75" not in caplog.text
 
 
 def test_a_timeout_is_not_repaired(world):
     model = FixingModel()
-    result = _ask_data(RepairingData(sqlstate="57014"), model, world, question="quantos dias de ferias tenho?")
+    result = _ask_data(
+        RepairingData(sqlstate="57014"), model, world, question="quantos dias de ferias tenho?",
+        limits=answer_service.AgentLimits(max_steps=5, max_tool_calls=6),
+    )
     assert "fix" not in [kind for kind, _ in model.calls]
     assert result.data is None and result.data_outcome == "failed:57014"
 
@@ -742,3 +752,77 @@ def test_an_unexpected_relevance_reply_is_logged_as_other(agent, caplog):
     agent["model"] = AgentModel(["Tens 25 dias uteis [1]."], ["Talvez"])
     assert _ask_agent().abstained
     assert "relevance verdict=other" in caplog.text and "Talvez" not in caplog.text
+
+
+
+def test_with_four_steps_a_refused_query_is_not_repaired(world):
+    model = FixingModel()
+    result = _ask_data(
+        RepairingData(), model, world, limits=answer_service.AgentLimits(max_steps=4, max_tool_calls=6)
+    )
+    assert "fix" not in [kind for kind, _ in model.calls] and result.data_outcome == "failed:42703"
+
+
+@pytest.mark.parametrize("route", ["DOCUMENTS", "Documentos", "", "Talvez DATA"])
+def test_anything_but_data_goes_to_the_documents_without_a_query(world, route):
+    data, model = FakeData(), DataModel(route=route)
+    result = _ask_data(data, model, world, question="quantos dias de ferias tenho?")
+    assert data.queries == [] and result.answer == "Tens 25 dias uteis [1]."
+    assert [kind for kind, _ in model.calls] == ["route", "documents", "relevance"]
+    assert result.data_outcome == "documents" and result.steps == 3
+
+
+@pytest.mark.parametrize("route", ["DATA", "Dados.", "**DATA**", "Donn\u00e9es"])
+def test_a_data_route_in_any_language(world, route):
+    assert not _ask_data(FakeData(), DataModel(route=route), world).abstained
+
+
+@pytest.mark.parametrize("answer", ["N\u00e3o sei [D1].", "NAO SEI", "I don't know [D1]", "Je ne sais pas."])
+def test_a_data_answer_that_only_says_it_does_not_know_is_no_answer(world, answer):
+    result = _ask_data(
+        FakeData(), DataModel(answer=answer), world,
+        limits=answer_service.AgentLimits(max_steps=4, max_tool_calls=6),
+    )
+    assert result.abstained and result.draft is None
+
+
+def test_the_catalog_shows_what_each_column_holds():
+    catalog = render_catalog([
+        DataConnectionInfo(SALES, "Vendas", {"tables": [{
+            "schema": "sales", "name": "invoices", "comment": "One row per invoice",
+            "columns": [{"name": "status", "type": "text", "comment": "paga, pendente or anulada"}],
+        }]})
+    ])
+    assert "sales.invoices -- One row per invoice" in catalog
+    assert "  status text -- paga, pendente or anulada" in catalog
+
+
+
+def test_the_default_budget_has_room_for_a_repair(world):
+    model = FixingModel()
+    result = _ask_data(RepairingData(), model, world)
+    assert result.data_outcome == "answered+repaired" and result.steps == 5
+
+
+@pytest.mark.parametrize(
+    "sql, tidy",
+    [
+        ("SELECT count(id) AS total FROM sales.invoices WHERE status = 'pendente';\nLIMIT 50;",
+         "SELECT count(id) AS total FROM sales.invoices WHERE status = 'pendente'\nLIMIT 50"),
+        ("SELECT 1;", "SELECT 1"),
+        ("SELECT 1 ;\n", "SELECT 1"),
+        ("SELECT ';' AS x LIMIT 5", "SELECT ';' AS x LIMIT 5"),
+        # Anything else is sent as written, for the gateway to refuse.
+        ("SELECT 1; DELETE FROM sales.invoices", "SELECT 1; DELETE FROM sales.invoices"),
+        ("SELECT 1; LIMIT 5; SELECT 2", "SELECT 1; LIMIT 5; SELECT 2"),
+    ],
+)
+def test_a_stray_semicolon_before_the_limit_is_removed(sql, tidy):
+    assert answer_service.tidy_sql(sql) == tidy
+
+
+def test_the_tidy_query_is_the_one_sent(world):
+    data = FakeData()
+    model = DataModel(query="DATABASE: 1\nSQL: ```sql\nSELECT count(id) FROM sales.invoices;\nLIMIT 50\n```")
+    _ask_data(data, model, world)
+    assert data.queries[0][1] == "SELECT count(id) FROM sales.invoices\nLIMIT 50"

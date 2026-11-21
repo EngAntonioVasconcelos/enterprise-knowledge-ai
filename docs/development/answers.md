@@ -282,7 +282,7 @@ alone; a first question has none. When the budget runs out, the person gets
 "no reliable answer" with the sources. Nothing unchecked is shown.
 
 - Budget per organization, checked by the database:
-  `agent_max_steps` (model calls, 1 to 8, default 4) and
+  `agent_max_steps` (model calls, 1 to 8, default 5 since AL-4h) and
   `agent_max_tool_calls` (searches, 1 to 12, default 6). Owners and admins
   change them with `PATCH /organizations/{id}`.
 - The relevance prompt treats the question and the answer as data between

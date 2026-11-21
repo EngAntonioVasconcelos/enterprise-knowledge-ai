@@ -31,13 +31,15 @@ the agent answers from documents only.
 
 ## How the agent uses it
 
-When the person may use at least one database, the first model call
-(prompt `data_query_v2`, which also gives today's date) sees the question and the catalogs (table and
+When the person may use at least one database, a first short call
+(prompt `data_route_v1`, AL-4g) chooses DATA or DOCUMENTS from the
+question and the catalog; anything but DATA goes to the documents. Then a
+call (prompt `data_query_v2`, which also gives today's date) sees the question and the catalogs (table and
 column names, types, comments; never rows) and replies with
 `DATABASE: n` and a `SQL:` query, or `NONE`.
 
 1. A query runs through the gateway; its rows go to the model (prompt
-   `data_answer_v1`) between `<data id="D1">` tags.
+   `data_answer_v3`) between `<data id="D1">` tags.
 2. The answer must cite `[D1]`, and every number in it must be in the rows
    (20.00 may be written 20, 10.50 may be 10,5) or in the question.
 3. The relevance check of AL-2 runs as for documents.
@@ -49,9 +51,9 @@ column names, types, comments; never rows) and replies with
    turn while the budget allows (AL-2 limits). An answer that fails a
    check is never shown.
 
-Writing, answering and checking cost 3 model steps, so with the default
-budget (4) a data attempt that fails after the answer leaves no room for
-the documents.
+Choosing, writing, answering and checking cost 4 model steps, and a
+repair one more: the default budget is 5 (AL-4h). Owners and admins can
+set 1 to 8.
 
 Customer text (connection names, table comments, values) cannot close the
 tags around it or fill a prompt placeholder. The prompts say it is data.

@@ -52,15 +52,22 @@ RELEVANCE_PROMPT = ("relevance", "v1")
 # The relevance check's reply: its first word, without accents or marks.
 RELEVANT_WORDS = frozenset({"YES", "SIM", "OUI"})
 NOT_RELEVANT_WORDS = frozenset({"NO", "NAO", "NON"})
+DATA_ROUTE_PROMPT = ("data_route", "v1")
 DATA_QUERY_PROMPT = ("data_query", "v2")
 DATA_FIX_PROMPT = ("data_fix", "v1")
 # PostgreSQL error classes worth one repair: syntax or access rule (42) and
 # data exceptions such as a bad date (22). Not timeouts or anything else.
 REPAIRABLE_SQLSTATE = ("42", "22")
-DATA_ANSWER_PROMPT = ("data_answer", "v1")
+DATA_ANSWER_PROMPT = ("data_answer", "v3")
+# The route's reply: its first word. Anything else means documents, the
+# safe side: a policy question answered from rows is a wrong answer.
+DATA_ROUTE_WORDS = frozenset({"DATA", "DADOS", "DONNEES"})
+# A data answer that only says it does not know is no answer.
+NOT_KNOWN = re.compile(r"^\W*(nao sei|i do not know|i don't know|je ne sais pas)\W*$")
 DATA_CITATION = re.compile(r"\[D1\]")
-# Writing a query, answering from its rows, and the relevance check.
-DATA_STEPS = 3
+# Choosing data or documents, writing a query, answering from its rows,
+# and the relevance check.
+DATA_STEPS = 4
 NOT_RELEVANT = "the answer does not respond to the question"
 PROMPT_VERSIONS = ("v1", "v2", "v3", "v4", "v5")
 LANGUAGES = ("pt", "en", "fr")
@@ -159,7 +166,7 @@ class DataAnswer:
 class AgentLimits:
     """How much one answer may spend (per organization, AL-2)."""
 
-    max_steps: int = 4
+    max_steps: int = 5
     max_tool_calls: int = 6
 
 
@@ -442,6 +449,14 @@ def answer_question(
         asked = with_context(question, previous)
         catalog = render_catalog(connections)
         today = dt.date.today().isoformat()
+        # First the choice alone (AL-4g): asked together with writing the
+        # query, a small model writes SQL even for policy questions.
+        route = complete(
+            load_prompt(*DATA_ROUTE_PROMPT), 3, catalog=catalog, question=_untagged(asked)
+        )
+        if _first_word(route.text) not in DATA_ROUTE_WORDS:
+            data_outcome["value"] = "documents"
+            return None
         reply = complete(
             load_prompt(*DATA_QUERY_PROMPT),
             MAX_OUTPUT_TOKENS,
@@ -463,10 +478,11 @@ def answer_question(
             except DataToolError as exc:
                 record(DATA_TOOL, 0, started, connection_id=connection.connection_id)
                 data_outcome["value"] = f"failed:{exc.sqlstate or 'gateway'}"
+                # The repair, then the answer and its check.
                 can_repair = (
                     not repaired
                     and (exc.sqlstate or "")[:2] in REPAIRABLE_SQLSTATE
-                    and spent["steps"] + steps_needed <= limits.max_steps
+                    and spent["steps"] + (3 if check else 2) <= limits.max_steps
                     and spent["tool_calls"] < limits.max_tool_calls
                 )
                 if not can_repair:
@@ -501,6 +517,8 @@ def answer_question(
             language=LANGUAGE_NAMES[language],
         )
         text, mixed = split_abstain(completion.text)
+        if text and NOT_KNOWN.match(_plain(DATA_CITATION.sub(" ", text))):
+            text = ""
         refused = None
         if not text:
             refused = no_answer([], None, [], completion.model)
@@ -614,6 +632,34 @@ def answer_question(
     return finish(last or no_answer([], None, [], None))
 
 
+def tidy_sql(sql: str) -> str:
+    """The query without a stray semicolon before its LIMIT.
+
+    Small models write "... WHERE status = 'pendente';\nLIMIT 50": one
+    statement with a misplaced semicolon, which PostgreSQL refuses. Only
+    that shape is changed; anything else is sent as written, and the
+    gateway still refuses a second statement.
+    """
+    query = sql.strip().rstrip(";").rstrip()
+    cut = _semicolon_outside_text(query)
+    if cut is None:
+        return query
+    rest = query[cut + 1:]
+    if re.fullmatch(r"\s*(LIMIT\s+\d+)?\s*", rest, flags=re.I):
+        return (query[:cut].rstrip() + ("\n" + rest.strip() if rest.strip() else "")).strip()
+    return query
+
+
+def _semicolon_outside_text(sql: str) -> int | None:
+    quoted = False
+    for index, char in enumerate(sql):
+        if char == "'":
+            quoted = not quoted
+        elif char == ";" and not quoted:
+            return index
+    return None
+
+
 def parse_data_query(reply: str, databases: int) -> tuple[int, str] | None:
     """(database number, SQL) from the model's reply, or None for NONE or
     anything that does not follow the form. The gateway, not this parser,
@@ -629,6 +675,7 @@ def parse_data_query(reply: str, databases: int) -> tuple[int, str] | None:
     fenced = re.fullmatch(r"```(?:sql)?\s*(.+?)\s*```", sql, flags=re.S | re.I)
     if fenced:
         sql = fenced.group(1).strip()
+    sql = tidy_sql(sql)
     if not 1 <= number <= databases or not sql:
         return None
     return number, sql
@@ -683,12 +730,21 @@ def responds_to_question(model, question: str, answer: str) -> bool:
     except LLMUnavailableError:
         logger.info("relevance verdict=unavailable")
         return False
-    first = (completion.text.strip().split() or [""])[0]
-    plain = unicodedata.normalize("NFD", first)
-    word = re.sub(r"[^A-Za-z]", "", "".join(c for c in plain if not unicodedata.combining(c))).upper()
+    word = _first_word(completion.text)
     verdict = "yes" if word in RELEVANT_WORDS else "no" if word in NOT_RELEVANT_WORDS else "other"
     logger.info("relevance verdict=%s", verdict)
     return verdict == "yes"
+
+
+def _first_word(text: str) -> str:
+    """The first word, upper case, without accents or marks."""
+    first = (text.strip().split() or [""])[0]
+    return re.sub(r"[^A-Za-z]", "", _plain(first)).upper()
+
+
+def _plain(text: str) -> str:
+    plain = unicodedata.normalize("NFD", text.lower())
+    return "".join(c for c in plain if not unicodedata.combining(c)).strip()
 
 
 def _untagged(text: str) -> str:

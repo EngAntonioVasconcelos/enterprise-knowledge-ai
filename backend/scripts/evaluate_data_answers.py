@@ -100,7 +100,8 @@ class Recording:
     def complete(self, system, user, *, max_tokens):
         completion = self.inner.complete(system, user, max_tokens=max_tokens)
         kind = (
-            "relevance" if "<answer>" in user
+            "route" if "DATA or DOCUMENTS" in system
+            else "relevance" if "<answer>" in user
             else "fix" if "<error>" in user
             else "query" if "<database" in user
             else "data answer" if "<data " in user
@@ -149,7 +150,7 @@ def main() -> int:
     answer_service.get_chat_model = lambda: model
 
     engine = create_engine(settings.MIGRATION_DATABASE_URL)
-    score, times = 0, []
+    score, wrong, times = 0, 0, []
     try:
         with Session(engine) as db:
             organization, problem = choose(db.execute(text(OWNERS_SQL)).all(), arguments.organization)
@@ -182,6 +183,8 @@ def main() -> int:
                 times.append(time.perf_counter() - started)
                 ok = correct(question, result)
                 score += ok
+                # The worst outcome: an answer shown that is not right.
+                wrong += not ok and not result.abstained
                 print("=" * 72)
                 print(f"{number}. {question.text}   [{'OK' if ok else 'FALHOU'}]")
                 print(f"data={result.data_outcome} steps={result.steps} tools={result.tool_calls} "
@@ -196,7 +199,10 @@ def main() -> int:
     finally:
         engine.dispose()
     print("=" * 72)
-    print(f"{score} of {len(chosen)} correct, {sum(times) / max(len(times), 1):.1f} s per question")
+    print(
+        f"{score} of {len(chosen)} correct, {wrong} wrong answers shown, "
+        f"{sum(times) / max(len(times), 1):.1f} s per question"
+    )
     return 0
 
 
