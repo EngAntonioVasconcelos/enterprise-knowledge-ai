@@ -18,6 +18,7 @@ from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.organization import (
     OrganizationCreate,
+    OrganizationListItem,
     OrganizationResponse,
     OrganizationUpdate,
 )
@@ -115,7 +116,7 @@ def create_organization(
 
 @router.get(
     "/",
-    response_model=list[OrganizationResponse],
+    response_model=list[OrganizationListItem],
 )
 def list_organizations(
     skip: int = Query(default=0, ge=0),
@@ -124,7 +125,7 @@ def list_organizations(
     db: Session = Depends(get_db),
 ):
     statement = (
-        select(Organization)
+        select(Organization, OrganizationMembership.role)
         .join(
             OrganizationMembership,
             OrganizationMembership.organization_id == Organization.id,
@@ -141,7 +142,13 @@ def list_organizations(
         .limit(limit)
     )
 
-    return db.scalars(statement).all()
+    return [
+        OrganizationListItem(
+            **OrganizationResponse.model_validate(organization).model_dump(),
+            role=role,
+        )
+        for organization, role in db.execute(statement).all()
+    ]
 
 
 @router.get(

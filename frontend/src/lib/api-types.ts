@@ -1,11 +1,43 @@
 // The shapes the backend returns (backend/app/schemas). Only what the
 // interface reads.
 
+export type Role = "owner" | "admin" | "member" | "viewer";
+
 export type Organization = {
   id: string;
   name: string;
   slug: string;
   status: string;
+  /** The signed-in person's own role in it (list of organizations only). */
+  role?: Role;
+};
+
+export type Membership = {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  role: Role;
+  is_active: boolean;
+};
+
+export type Member = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_active: boolean;
+  membership: Membership;
+};
+
+export type Invitation = {
+  id: string;
+  organization_id: string;
+  email: string;
+  role: Role;
+  status: string;
+  expires_at: string;
+  created_at: string;
+  /** Only while e-mails are not delivered (development): shown once. */
+  token?: string | null;
 };
 
 export type AnswerSource = {

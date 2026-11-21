@@ -157,6 +157,19 @@ def test_list_organizations(client):
     assert len(response.json()) == 2
 
 
+def test_list_organizations_includes_the_callers_role(client):
+    created = client.post(
+        "/api/v1/organizations/",
+        json={"name": "Role Organization", "slug": "role-organization"},
+    )
+    assert created.status_code == 201
+
+    response = client.get("/api/v1/organizations/")
+
+    assert response.status_code == 200
+    assert [item["role"] for item in response.json()] == ["owner"]
+
+
 def test_list_organizations_with_pagination(client):
     for number in range(3):
         response = client.post(

@@ -46,6 +46,16 @@ class OrganizationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class OrganizationListItem(OrganizationResponse):
+    """An organization in the caller's list, with the caller's own role.
+
+    The web app shows management screens (people, sources) only to owners
+    and admins; the backend still checks every request.
+    """
+
+    role: str
+
+
 class OrganizationUpdate(BaseModel):
     name: str | None = Field(
         default=None,
