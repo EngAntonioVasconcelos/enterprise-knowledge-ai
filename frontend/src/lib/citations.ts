@@ -4,9 +4,11 @@
 
 export type AnswerPiece =
   | { kind: "text"; text: string }
-  | { kind: "citation"; number: number };
+  | { kind: "citation"; number: number }
+  | { kind: "data" };
 
-const MARKER = /\[(\d{1,2})\]/g;
+// [1]..[99] cite a document passage; [D1] cites the database rows (AL-4).
+const MARKER = /\[(\d{1,2}|D1)\]/g;
 
 export function splitAnswer(answer: string): AnswerPiece[] {
   const pieces: AnswerPiece[] = [];
@@ -16,7 +18,7 @@ export function splitAnswer(answer: string): AnswerPiece[] {
     // A citation hugs the word before it, like a footnote mark.
     const before = answer.slice(last, start).trimEnd();
     if (before) pieces.push({ kind: "text", text: before });
-    pieces.push({ kind: "citation", number: Number(match[1]) });
+    pieces.push(match[1] === "D1" ? { kind: "data" } : { kind: "citation", number: Number(match[1]) });
     last = start + match[0].length;
   }
   if (last < answer.length) pieces.push({ kind: "text", text: answer.slice(last) });

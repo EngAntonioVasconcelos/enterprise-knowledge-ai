@@ -156,3 +156,13 @@ behind it. The design follows from that.
 Checks, as blocks run them:
 
     docker compose -f infrastructure/dev/docker-compose.yml run --rm --no-deps frontend npm run check
+
+## Answers from databases (AL-4b)
+
+When an answer comes from a database (`data` in the answer, see
+`data-gateway.md`), the margin shows the rows read instead of passages:
+the connection's name, how many rows, the rows as a table (empty values
+say so) and, folded, the read-only query that ran. The `[D1]` citation is
+a small database mark that lights the rows up, as a number lights up its
+passage. A refused answer never shows rows. The margin keeps at least
+18rem on wide screens, so the table stays readable next to the text.
