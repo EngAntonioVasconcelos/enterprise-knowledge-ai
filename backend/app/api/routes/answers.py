@@ -2,6 +2,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -9,7 +10,7 @@ from app.api.dependencies.authorization import require_roles
 from app.db.session import get_db
 from app.models.membership import OrganizationMembership
 from app.schemas.answer import AnswerRequest, AnswerResponse, AnswerSourceResponse
-from app.services.answer_service import answer_question
+from app.services.answer_service import AgentLimits, ToolRecorder, answer_question
 from app.services.dashboard_service import record_event
 from app.services.history_service import record_answer
 
@@ -39,6 +40,11 @@ def answer(
         question=body.question,
         interface_language=body.interface_language,
         previous_questions=body.previous_questions,
+        limits=AgentLimits(
+            max_steps=member.organization.agent_max_steps,
+            max_tool_calls=member.organization.agent_max_tool_calls,
+        ),
+        on_tool_call=_tool_recorder(db, member.organization_id),
     )
     cited = set(result.cited)
     response = AnswerResponse(
@@ -70,6 +76,35 @@ def answer(
     _keep_in_history(db, member, response)
     _count_for_dashboard(db, member, response)
     return response
+
+
+def _tool_recorder(db: Session, organization_id: uuid.UUID) -> ToolRecorder | None:
+    """Writes each tool call of the agent to the audit log: the tool, the
+    step, how many results and how long. Never the question, never the
+    person. A failure here never costs the person their answer."""
+    if db.get_bind().dialect.name != "postgresql":
+        return None
+
+    def record(tool: str, step: int, results: int, ms: float) -> None:
+        try:
+            with db.begin_nested():
+                db.execute(
+                    text(
+                        "SELECT app_private.record_agent_tool_call("
+                        ":organization_id, :tool, :step, :results, :ms)"
+                    ),
+                    {
+                        "organization_id": organization_id,
+                        "tool": tool,
+                        "step": step,
+                        "results": results,
+                        "ms": round(ms),
+                    },
+                )
+        except SQLAlchemyError as error:
+            logger.warning("tool call not audited: %s", type(error).__name__)
+
+    return record
 
 
 def _count_for_dashboard(

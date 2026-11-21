@@ -23,7 +23,7 @@ import re
 import time
 import unicodedata
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
@@ -38,6 +38,8 @@ from app.services.search_service import SearchHit, search
 logger = logging.getLogger("eka.answers")
 
 PROMPT_NAME = "answer"
+RELEVANCE_PROMPT = ("relevance", "v1")
+NOT_RELEVANT = "the answer does not respond to the question"
 PROMPT_VERSIONS = ("v1", "v2", "v3", "v4", "v5")
 LANGUAGES = ("pt", "en", "fr")
 # How prompt v4 names the language of the answer, decided here and not by
@@ -110,6 +112,23 @@ class AnswerResult:
     # The model's text when the checks refused it. Kept for the evaluation
     # report only: never sent to the person, never logged.
     draft: str | None = None
+    # What the agent spent: model calls and tool calls (searches).
+    steps: int = 0
+    tool_calls: int = 0
+    # None when the relevance check did not run.
+    relevant: bool | None = None
+
+
+@dataclass(frozen=True)
+class AgentLimits:
+    """How much one answer may spend (per organization, AL-2)."""
+
+    max_steps: int = 4
+    max_tool_calls: int = 6
+
+
+# Called after every tool call: tool, step, number of results, milliseconds.
+ToolRecorder = Callable[[str, int, int, float], None]
 
 
 def question_language(question: str, fallback: str | None = None) -> str:
@@ -233,8 +252,17 @@ def answer_question(
     prompt_version: str | None = None,
     interface_language: str | None = None,
     previous_questions: Sequence[str] = (),
+    limits: AgentLimits | None = None,
+    relevance_check: bool | None = None,
+    on_tool_call: ToolRecorder | None = None,
 ) -> AnswerResult:
-    """An answer from the sources the person may read.
+    """An answer from the sources the person may read (the agent, AL-2).
+
+    A short loop, bounded by `limits`: search as the person, answer, check
+    the citations and numbers, then check with the model that the answer
+    responds to the question. A follow-up gets a second attempt with the
+    question alone when the first fails. Nothing unchecked is shown: when
+    the budget runs out, the person gets "no reliable answer".
 
     previous_questions are the person's own earlier questions in the same
     conversation (at most two, oldest first). They help with follow-ups
@@ -256,6 +284,8 @@ def answer_question(
     if version not in PROMPT_VERSIONS:
         raise InvalidInputError(f"prompt version must be one of: {', '.join(PROMPT_VERSIONS)}")
     prompt = load_prompt(PROMPT_NAME, version)
+    limits = limits or AgentLimits()
+    check = settings.ANSWER_RELEVANCE_CHECK if relevance_check is None else relevance_check
     # A follow-up without small words ("and EXP-22?") keeps the language of
     # the conversation.
     fallback = (
@@ -265,19 +295,26 @@ def answer_question(
     )
     language = question_language(question, fallback=fallback)
     timings: dict[str, float] = {}
+    spent = {"steps": 0, "tool_calls": 0}
+    # A follow-up is searched with the question before it; if that fails,
+    # once more with the question alone.
+    queries = list(dict.fromkeys([f"{previous[-1]} {question}", question] if previous else [question]))
+    model = None
+    last: AnswerResult | None = None
+    # Each attempt costs one model call, and one more with the check.
+    per_attempt = 2 if check else 1
 
-    started = time.perf_counter()
-    found = search(
-        db,
-        organization_id=organization_id,
-        query=f"{previous[-1]} {question}" if previous else question,
-        limit=MAX_SOURCES,
-        rerank=settings.ANSWER_RERANK,
-    )
-    timings["search"] = round(1000 * (time.perf_counter() - started), 1)
-    sources = select_sources(found.hits)
+    def add_time(key: str, started: float) -> None:
+        timings[key] = round(timings.get(key, 0.0) + 1000 * (time.perf_counter() - started), 1)
 
-    def no_answer(issues: list[str], model: str | None, draft: str | None = None) -> AnswerResult:
+    def finish(result: AnswerResult) -> AnswerResult:
+        result.steps = spent["steps"]
+        result.tool_calls = spent["tool_calls"]
+        result.timings_ms = timings
+        _log(result)
+        return result
+
+    def no_answer(sources, note, issues, model_name, draft=None, relevant=None) -> AnswerResult:
         return AnswerResult(
             answer=NO_ANSWER[language],
             abstained=True,
@@ -285,74 +322,145 @@ def answer_question(
             sources=sources,
             cited=[],
             prompt_id=prompt.prompt_id,
-            model=model,
+            model=model_name,
             issues=issues,
-            note=found.note,
-            timings_ms=timings,
+            note=note,
             language=language,
             draft=draft,
+            relevant=relevant,
         )
 
-    if not sources:
-        # Nothing the person may read matches: no need to ask a model.
-        result = no_answer([], None)
-        _log(result)
-        return result
+    for query in queries:
+        if spent["tool_calls"] >= limits.max_tool_calls:
+            break
+        if spent["steps"] + per_attempt > limits.max_steps:
+            break
 
-    try:
-        model = get_chat_model()
-    except LLMUnavailableError as exc:
-        raise UnavailableError(f"Answers are unavailable: {exc}") from None
+        started = time.perf_counter()
+        found = search(
+            db,
+            organization_id=organization_id,
+            query=query,
+            limit=MAX_SOURCES,
+            rerank=settings.ANSWER_RERANK,
+        )
+        add_time("search", started)
+        spent["tool_calls"] += 1
+        if on_tool_call is not None:
+            on_tool_call(
+                "search_documents",
+                spent["tool_calls"],
+                len(found.hits),
+                1000 * (time.perf_counter() - started),
+            )
+        sources = select_sources(found.hits)
+        if not sources:
+            # Nothing the person may read matches: no need to ask a model.
+            last = no_answer(sources, found.note, [], None)
+            continue
 
-    started = time.perf_counter()
+        if model is None:
+            try:
+                model = get_chat_model()
+            except LLMUnavailableError as exc:
+                raise UnavailableError(f"Answers are unavailable: {exc}") from None
+
+        started = time.perf_counter()
+        try:
+            completion = model.complete(
+                prompt.system,
+                prompt.render(
+                    sources=render_sources(sources),
+                    question=with_context(question, previous),
+                    language=LANGUAGE_NAMES[language],
+                ),
+                max_tokens=MAX_OUTPUT_TOKENS,
+            )
+        except LLMUnavailableError as exc:
+            raise UnavailableError(f"Answers are unavailable: {exc}") from None
+        add_time("model", started)
+        spent["steps"] += 1
+
+        text, mixed = split_abstain(completion.text)
+        if not text:
+            last = no_answer(sources, found.note, [], completion.model)
+            last.mixed_abstain = mixed
+            continue
+        cited, issues = verify(text, sources, question)
+        if issues:
+            last = no_answer(sources, found.note, issues, completion.model, draft=text)
+            last.mixed_abstain = mixed
+            continue
+
+        relevant = None
+        if check:
+            started = time.perf_counter()
+            relevant = responds_to_question(model, with_context(question, previous), text)
+            add_time("relevance", started)
+            spent["steps"] += 1
+            if not relevant:
+                last = no_answer(
+                    sources, found.note, [NOT_RELEVANT], completion.model, draft=text, relevant=False
+                )
+                last.mixed_abstain = mixed
+                continue
+
+        result = AnswerResult(
+            answer=text,
+            abstained=False,
+            verified=True,
+            sources=sources,
+            cited=cited,
+            prompt_id=prompt.prompt_id,
+            model=completion.model,
+            note=found.note,
+            language=language,
+            relevant=relevant,
+        )
+        result.mixed_abstain = mixed
+        return finish(result)
+
+    return finish(last or no_answer([], None, [], None))
+
+
+def responds_to_question(model, question: str, answer: str) -> bool:
+    """The model's yes or no: does the answer respond to the question?
+
+    The answer holds text from the documents, so it is passed as data
+    between tags; the reply can only be YES or NO, and anything else counts
+    as NO. When the check cannot run, the answer is not shown.
+    """
+    prompt = load_prompt(*RELEVANCE_PROMPT)
     try:
         completion = model.complete(
             prompt.system,
-            prompt.render(
-                sources=render_sources(sources),
-                question=with_context(question, previous),
-                language=LANGUAGE_NAMES[language],
-            ),
-            max_tokens=MAX_OUTPUT_TOKENS,
+            prompt.render(question=_untagged(question), answer=_untagged(CITATION.sub("", answer))),
+            max_tokens=3,
         )
-    except LLMUnavailableError as exc:
-        raise UnavailableError(f"Answers are unavailable: {exc}") from None
-    timings["model"] = round(1000 * (time.perf_counter() - started), 1)
+    except LLMUnavailableError:
+        return False
+    word = re.sub(r"[^A-Za-z]", "", (completion.text.strip().split() or [""])[0]).upper()
+    return word == "YES"
 
-    text, mixed = split_abstain(completion.text)
-    if not text:
-        result = no_answer([], completion.model)
-    else:
-        cited, issues = verify(text, sources, question)
-        if issues:
-            result = no_answer(issues, completion.model, draft=text)
-        else:
-            result = AnswerResult(
-                answer=text,
-                abstained=False,
-                verified=True,
-                sources=sources,
-                cited=cited,
-                prompt_id=prompt.prompt_id,
-                model=completion.model,
-                note=found.note,
-                timings_ms=timings,
-                language=language,
-            )
-    result.mixed_abstain = mixed
-    _log(result)
-    return result
+
+def _untagged(text: str) -> str:
+    # The text cannot close or open the tags around it, or fill a placeholder.
+    return text.replace("<", "\u2039").replace(">", "\u203a").replace("{{", "{ {")
 
 
 def _log(result: AnswerResult) -> None:
     # Measurements only: never the question, the passages or the answer.
     logger.info(
-        "answer prompt=%s model=%s sources=%d cited=%s abstained=%s verified=%s ms=%s",
+        "answer prompt=%s model=%s sources=%d cited=%s abstained=%s verified=%s "
+        "relevant=%s steps=%d tools=%d ms=%s",
         result.prompt_id,
         result.model,
         len(result.sources),
         result.cited,
         result.abstained,
         result.verified,
+        result.relevant,
+        result.steps,
+        result.tool_calls,
         result.timings_ms,
     )

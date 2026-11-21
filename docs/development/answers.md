@@ -261,3 +261,39 @@ as "and for interns?" only makes sense next to the question before it.
   10 to 20 s per answer on the local CPU. It is measured again with the
   hosted model (Phase 10).
 - The history (AK-6) keeps each question as the person wrote it.
+
+## The bounded agent and the relevance check (Phase 7, AL-2)
+
+An answer is now made by a short loop with a fixed budget, not a single
+call. AL-1 showed why: a sentence can be true, cited and checked, and still
+answer another question ("25 days" when the person asked how many days
+carry over).
+
+One attempt is:
+
+1. search the documents as the person (tool `search_documents`);
+2. answer from the sources (one model call);
+3. check the citations and numbers (no model);
+4. ask the model whether the answer responds to the question (one model
+   call, prompt `relevance_v1`, reply YES or NO, at most 3 tokens).
+
+If step 3 or 4 fails, a follow-up gets one more attempt with the question
+alone; a first question has none. When the budget runs out, the person gets
+"no reliable answer" with the sources. Nothing unchecked is shown.
+
+- Budget per organization, checked by the database:
+  `agent_max_steps` (model calls, 1 to 8, default 4) and
+  `agent_max_tool_calls` (searches, 1 to 12, default 6). Owners and admins
+  change them with `PATCH /organizations/{id}`.
+- The relevance prompt treats the question and the answer as data between
+  tags; the text cannot close the tags or fill a placeholder. Any reply but
+  YES counts as NO, and a model error counts as NO.
+- Each tool call is written to `audit_events` (`agent.tool_call`) through
+  `app_private.record_agent_tool_call`: the tool, the step, how many
+  results and how long. No person (`actor_user_id` is NULL) and no text.
+  Only members of the organization can call it, and only for known tools.
+- Cost: one more model call per answer (about 1 to 3 s on the local CPU,
+  since the reply is one word). `ANSWER_RELEVANCE_CHECK=false` turns the
+  check off, for measurements only.
+- The extractive stand-in used in tests says YES when the question and the
+  answer share two words or more.
