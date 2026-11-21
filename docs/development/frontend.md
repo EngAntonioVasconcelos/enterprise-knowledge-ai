@@ -121,6 +121,17 @@ behind it. The design follows from that.
   numbers: questions per day (answered and "no safe answer"), the most
   cited documents they can open, languages, documents and members. Never
   who asked or what. See dashboard.md.
+- **The frame (design pass, AL-1b).** On wide screens a rail that stays in
+  place while the page scrolls: the product mark and name; the organization
+  being worked in (monogram, name and the person's role, and the switch
+  when there is more than one, staying on the same screen); the screens
+  with icons, management screens in their own group; and the account menu
+  (photo or initials, name, e-mail, interface language, sign out). On small
+  screens the same in a top bar, with the screens as a row that scrolls.
+  Every page uses the same content width (72rem, centred), so the left edge
+  does not jump between screens. A "skip to content" link comes first for
+  keyboards. The assistant greets the person by first name and lists their
+  five latest questions, which open from the history.
 - **Quality floor.** Keyboard first (Enter asks, Shift+Enter breaks a
   line, visible focus), screen-reader labels and live regions, works down
   to a phone, and the only self-running motion stops for people who ask

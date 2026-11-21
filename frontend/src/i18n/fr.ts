@@ -31,6 +31,9 @@ export const fr: Messages = {
     signOut: "Se d\u00e9connecter",
     organization: "Organisation",
     switchOrganization: "Changer d\u2019organisation",
+    admin: "Administration",
+    account: "Votre compte",
+    skip: "Aller au contenu",
   },
   language: {
     label: "Langue de l\u2019interface",
@@ -43,6 +46,8 @@ export const fr: Messages = {
     asking: "Recherche et r\u00e9daction\u2026",
     hint: "Entr\u00e9e envoie la question. Maj+Entr\u00e9e passe \u00e0 la ligne.",
     emptyTitle: "Que souhaitez-vous savoir\u00a0?",
+    emptyTitleNamed: (name: string) => `Que souhaitez-vous savoir, ${name} ?`,
+    recentTitle: "Vos questions r\u00e9centes",
     emptyBody: "Les r\u00e9ponses citent le passage dont elles viennent. Si les documents auxquels vous avez acc\u00e8s ne r\u00e9pondent pas, je vous dis que je ne sais pas. Je n\u2019invente jamais.",
     sources: "Sources",
     source: (number: number) => `Source ${number}`,

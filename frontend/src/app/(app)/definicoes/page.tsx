@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { AccessProblem } from "@/components/shell/AccessProblem";
-import { OrganizationSwitch } from "@/components/shell/OrganizationSwitch";
 import { getMessages } from "@/i18n/server";
 import { loadOrganizations } from "@/lib/organizations";
 import { managesPeople } from "@/lib/roles";
@@ -24,10 +23,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (!managesPeople(active.role)) redirect(`/assistente?org=${active.id}`);
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 lg:px-10 lg:py-12">
-      {organizations.length > 1 ? (
-        <OrganizationSwitch organizations={organizations} activeId={active.id} basePath="/definicoes" />
-      ) : null}
+    <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
       <SettingsForm
         key={`${active.id}-${active.name}-${active.history_retention_days}`}
         organizationId={active.id}

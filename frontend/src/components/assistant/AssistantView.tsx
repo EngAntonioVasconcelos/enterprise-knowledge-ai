@@ -1,11 +1,14 @@
 "use client";
 
+import { ArrowUpRight, History } from "lucide-react";
+import Link from "next/link";
+
 import { useEffect, useRef, useState } from "react";
 
 import { AnswerDocument } from "@/components/assistant/AnswerDocument";
 import { Composer } from "@/components/assistant/Composer";
 import { useI18n } from "@/i18n/client";
-import { type Answer, type AnswerErrorKind, errorKindFromStatus } from "@/lib/api-types";
+import { type Answer, type AnswerErrorKind, errorKindFromStatus, type HistoryItem } from "@/lib/api-types";
 
 
 type State =
@@ -42,11 +45,17 @@ export function AssistantView({
   organizationId,
   organizationName,
   initialQuestion = null,
+  firstName = null,
+  recent = [],
 }: {
   organizationId: string;
   organizationName: string;
   /** Asked at once: "Ask again" from the history. */
   initialQuestion?: string | null;
+  /** To greet the person by name. */
+  firstName?: string | null;
+  /** The person's own latest questions, to pick up where they left off. */
+  recent?: HistoryItem[];
 }) {
   const { locale, t: all } = useI18n();
   const t = all.assistant;
@@ -135,7 +144,7 @@ export function AssistantView({
       ) : null}
 
       <div aria-live="polite" className="mt-12">
-        {state.status === "idle" ? <EmptyState /> : null}
+        {state.status === "idle" ? <EmptyState firstName={firstName} recent={recent} organizationId={organizationId} /> : null}
         {state.status === "asking" ? (
           <Pending question={state.question} startedAt={state.startedAt} />
         ) : null}
@@ -148,12 +157,42 @@ export function AssistantView({
   );
 }
 
-function EmptyState() {
+function EmptyState({
+  firstName,
+  recent,
+  organizationId,
+}: {
+  firstName: string | null;
+  recent: HistoryItem[];
+  organizationId: string;
+}) {
   const t = useI18n().t.assistant;
+  const query = `?org=${encodeURIComponent(organizationId)}`;
   return (
-    <section className="max-w-[38rem]">
-      <h2 className="text-question font-semibold tracking-[-0.02em]">{t.emptyTitle}</h2>
+    <section className="max-w-[40rem]">
+      <h2 className="text-question font-semibold tracking-[-0.02em] text-balance">
+        {firstName ? t.emptyTitleNamed(firstName) : t.emptyTitle}
+      </h2>
       <p className="mt-4 font-reading text-answer text-ink-soft text-pretty">{t.emptyBody}</p>
+      {recent.length ? (
+        <div className="mt-10">
+          <h3 className="text-meta font-medium text-ink-faint">{t.recentTitle}</h3>
+          <ul className="mt-3 border-t border-line">
+            {recent.map((item) => (
+              <li key={item.id} className="border-b border-line">
+                <Link
+                  href={`/historico/${item.id}${query}`}
+                  className="group flex items-center gap-3 py-3 text-body text-ink-soft transition-colors hover:text-ink"
+                >
+                  <History aria-hidden className="size-4 shrink-0 text-ink-faint group-hover:text-cobalt" strokeWidth={1.75} />
+                  <span className="min-w-0 flex-1 truncate">{item.question}</span>
+                  <ArrowUpRight aria-hidden className="size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

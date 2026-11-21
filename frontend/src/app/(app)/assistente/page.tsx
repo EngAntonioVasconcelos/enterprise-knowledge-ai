@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import { AssistantView } from "@/components/assistant/AssistantView";
 import { CreateOrganization } from "@/components/onboarding/CreateOrganization";
 import { AccessProblem } from "@/components/shell/AccessProblem";
-import { OrganizationSwitch } from "@/components/shell/OrganizationSwitch";
 import { getMessages } from "@/i18n/server";
+import { auth0 } from "@/lib/auth0";
+import { loadHistory } from "@/lib/history";
 import { loadOrganizations } from "@/lib/organizations";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -43,16 +44,22 @@ export default async function AssistantPage({
     );
   }
 
+  // The greeting and the latest questions: where the person left off.
+  const [session, recent] = await Promise.all([
+    auth0.getSession(),
+    (active.history_retention_days ?? 90) > 0 ? loadHistory(active.id, 5) : Promise.resolve([]),
+  ]);
+  const firstName = session?.user.given_name ?? session?.user.name?.split(/\s+/)[0] ?? null;
+
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 lg:px-10 lg:py-12">
-      {organizations.length > 1 ? (
-        <OrganizationSwitch organizations={organizations} activeId={active.id} />
-      ) : null}
+    <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
       <AssistantView
         key={active.id}
         organizationId={active.id}
         organizationName={active.name}
         initialQuestion={q && q.trim().length <= 500 ? q.trim() : null}
+        firstName={typeof firstName === "string" ? firstName : null}
+        recent={recent ?? []}
       />
     </div>
   );

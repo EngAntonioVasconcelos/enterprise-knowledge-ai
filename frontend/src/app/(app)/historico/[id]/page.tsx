@@ -38,7 +38,7 @@ export default async function HistoryEntryPage({
   if (!entry) return <AccessProblem t={t} problem="unavailable" retry={`/historico/${id}?org=${active.id}`} />;
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 lg:px-10 lg:py-12">
+    <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
       <HistoryEntryView organizationId={active.id} entry={entry} />
     </div>
   );

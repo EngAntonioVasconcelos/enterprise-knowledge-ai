@@ -30,6 +30,9 @@ export const ptPT = {
     signOut: "Sair",
     organization: "Organiza\u00e7\u00e3o",
     switchOrganization: "Mudar de organiza\u00e7\u00e3o",
+    admin: "Administra\u00e7\u00e3o",
+    account: "A tua conta",
+    skip: "Saltar para o conte\u00fado",
   },
   language: {
     label: "Idioma da interface",
@@ -42,6 +45,8 @@ export const ptPT = {
     asking: "A procurar e a escrever\u2026",
     hint: "Enter envia a pergunta. Shift+Enter muda de linha.",
     emptyTitle: "O que precisas de saber?",
+    emptyTitleNamed: (name: string) => `O que precisas de saber, ${name}?`,
+    recentTitle: "As tuas perguntas recentes",
     emptyBody: "As respostas citam a passagem de onde v\u00eam. Se os documentos a que tens acesso n\u00e3o responderem, digo-te que n\u00e3o sei. Nunca invento.",
     sources: "Fontes",
     source: (number: number) => `Fonte ${number}`,
