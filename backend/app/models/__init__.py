@@ -1,4 +1,5 @@
-﻿from app.models.audit_event import AuditEvent
+﻿from app.models.answer_event import AnswerEvent
+from app.models.audit_event import AuditEvent
 from app.models.authentication_identity import AuthenticationIdentity
 from app.models.background_job import BackgroundJob
 from app.models.credential import ConnectionCredential, OrganizationKey
@@ -37,4 +38,5 @@ __all__ = [
     "FileUpload",
     "DocumentChunk",
     "QuestionHistory",
+    "AnswerEvent",
 ]
