@@ -52,6 +52,25 @@ If Google later refuses the authorization (access removed in the Google
 account), the connection goes to `error` and an admin authorizes again;
 that puts it back to `active`.
 
+## In the web app
+
+The Documents screen has a Sources section for owners and administrators.
+
+- "Connect Google Drive" creates the organization's `google_drive` source
+  the first time (named "Google Drive"), asks the backend for the
+  authorization address and opens it; only an `https://accounts.google.com/`
+  address is followed.
+- Google sends the browser to `/connections/google/callback`, a route of
+  the web app. It reads which organization and source the signed state
+  names (only to know where to send the code; the backend checks the
+  signature, the person and the expiry), posts code and state to the
+  backend, queues the first sync and returns to Documents with the
+  outcome: connected, cancelled at Google, expired or already used, or
+  failed.
+- The source shows its state: reading for the first time, the time of the
+  last sync, or Google's refusal with "Authorize again". "Sync now" queues
+  a sync. The list refreshes itself during the first reading.
+
 ## Setting up Google Cloud (free)
 
 Standard use of the Drive API has no cost, and no billing account is
