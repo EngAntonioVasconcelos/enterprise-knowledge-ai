@@ -238,3 +238,26 @@ wrong; at most 1 refused; 0 NAO_SEI mixed; 0 leaks), plus: the English and
 French vacation questions say "working days" or "jours ouvres". The best
 version that passes becomes the default in a separate change; if none
 does, v3 stays.
+
+## Follow-up questions (Phase 7, AL-1)
+
+In the assistant, a question asked after another is part of the same
+conversation until the person chooses "New conversation". A follow-up such
+as "and for interns?" only makes sense next to the question before it.
+
+- The web app sends the person's own earlier questions of the conversation
+  (`previous_questions`, at most two, oldest first). It never sends earlier
+  answers: an answer is text drawn from documents, and feeding it back to
+  the model would let document text steer the next answer.
+- The search uses the last earlier question together with the new one, so
+  "and for interns?" finds the holiday rules.
+- The model sees the earlier questions after the new one, marked as
+  context only; it answers the new question from the sources, and the same
+  checks apply (citations and numbers). The prompt files do not change, so
+  the measured prompt versions keep their ids.
+- A follow-up without small words ("and EXP-22?") keeps the language of
+  the conversation.
+- No extra model call: a rewrite of the question by the model would cost
+  10 to 20 s per answer on the local CPU. It is measured again with the
+  hosted model (Phase 10).
+- The history (AK-6) keeps each question as the person wrote it.

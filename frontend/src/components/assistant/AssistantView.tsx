@@ -19,13 +19,14 @@ export async function requestAnswer(
   question: string,
   signal?: AbortSignal,
   language?: string,
+  previous: string[] = [],
 ): Promise<{ answer: Answer } | { error: AnswerErrorKind }> {
   let response: Response;
   try {
     response = await fetch("/api/answers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId, question, language }),
+      body: JSON.stringify({ organizationId, question, language, ...(previous.length ? { previous } : {}) }),
       signal,
     });
   } catch {
@@ -50,6 +51,10 @@ export function AssistantView({
   const { locale, t: all } = useI18n();
   const t = all.assistant;
   const [state, setState] = useState<State>({ status: "idle" });
+  // The questions already answered in this conversation, oldest first. A
+  // follow-up sends the last two; earlier answers are never sent.
+  const [thread, setThread] = useState<string[]>([]);
+  const [conversation, setConversation] = useState(0);
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => () => controller.current?.abort(), []);
@@ -67,19 +72,34 @@ export function AssistantView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function ask(question: string) {
+  async function ask(question: string, earlier: string[] = thread) {
     controller.current?.abort();
     const current = new AbortController();
     controller.current = current;
     setState({ status: "asking", question, startedAt: Date.now() });
     // The interface language helps only when the question does not show its own.
-    const result = await requestAnswer(organizationId, question, current.signal, locale.slice(0, 2));
-    if (current.signal.aborted) return;
-    setState(
-      "answer" in result
-        ? { status: "answered", answer: result.answer }
-        : { status: "failed", question, kind: result.error },
+    const result = await requestAnswer(
+      organizationId,
+      question,
+      current.signal,
+      locale.slice(0, 2),
+      earlier.slice(-2),
     );
+    if (current.signal.aborted) return;
+    if ("answer" in result) {
+      setState({ status: "answered", answer: result.answer });
+      setThread([...earlier, question]);
+    } else {
+      setState({ status: "failed", question, kind: result.error });
+    }
+  }
+
+  function startOver() {
+    controller.current?.abort();
+    setThread([]);
+    setState({ status: "idle" });
+    // A new composer, empty.
+    setConversation((value) => value + 1);
   }
 
   const busy = state.status === "asking";
@@ -87,7 +107,32 @@ export function AssistantView({
   return (
     <div>
       <h1 className="sr-only">{`${t.title}, ${organizationName}`}</h1>
-      <Composer onAsk={ask} busy={busy} />
+      <Composer
+        key={conversation}
+        onAsk={(question) => ask(question)}
+        busy={busy}
+        placeholder={thread.length ? t.followUpPlaceholder : undefined}
+      />
+      {thread.length ? (
+        <div className="mt-4 flex max-w-[46rem] flex-wrap items-baseline gap-x-4 gap-y-2 text-meta">
+          <p className="min-w-0 flex-1 text-ink-soft">
+            <span className="text-ink-faint">{t.inConversation}</span>{" "}
+            {thread.slice(-3).map((question, index) => (
+              <span key={index}>
+                {index ? <span aria-hidden className="text-ink-faint">, </span> : null}
+                <q className="text-ink">{question}</q>
+              </span>
+            ))}
+          </p>
+          <button
+            type="button"
+            onClick={startOver}
+            className="font-medium text-cobalt underline-offset-4 hover:underline"
+          >
+            {t.newConversation}
+          </button>
+        </div>
+      ) : null}
 
       <div aria-live="polite" className="mt-12">
         {state.status === "idle" ? <EmptyState /> : null}

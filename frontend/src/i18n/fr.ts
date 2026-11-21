@@ -60,6 +60,9 @@ export const fr: Messages = {
       unknown: "Un probl\u00e8me est survenu de notre c\u00f4t\u00e9. R\u00e9essayez dans un instant.",
     },
     tryAgain: "R\u00e9essayer",
+    followUpPlaceholder: "Question de suivi, par exemple : et pour les stagiaires ?",
+    inConversation: "Dans cette conversation :",
+    newConversation: "Nouvelle conversation",
   },
   access: {
     signedOut: {

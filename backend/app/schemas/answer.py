@@ -1,9 +1,9 @@
 import uuid
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app.services.answer_service import MAX_QUESTION_CHARS
+from app.services.answer_service import MAX_PREVIOUS_QUESTIONS, MAX_QUESTION_CHARS
 
 
 class AnswerRequest(BaseModel):
@@ -11,6 +11,11 @@ class AnswerRequest(BaseModel):
     # The language of the interface: used only when the question itself
     # does not show its language ("minimum password length").
     interface_language: Literal["pt", "en", "fr"] | None = None
+    # The person's own earlier questions in this conversation, oldest
+    # first: they make follow-ups ("and for interns?") work. Never answers.
+    previous_questions: list[
+        Annotated[str, StringConstraints(min_length=1, max_length=MAX_QUESTION_CHARS)]
+    ] = Field(default_factory=list, max_length=MAX_PREVIOUS_QUESTIONS)
 
     model_config = ConfigDict(extra="forbid")
 

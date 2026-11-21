@@ -38,6 +38,7 @@ def answer(
         organization_id=organization_id,
         question=body.question,
         interface_language=body.interface_language,
+        previous_questions=body.previous_questions,
     )
     cited = set(result.cited)
     response = AnswerResponse(

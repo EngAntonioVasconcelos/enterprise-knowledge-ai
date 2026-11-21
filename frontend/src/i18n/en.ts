@@ -59,6 +59,9 @@ export const en: Messages = {
       unknown: "Something went wrong on our side. Try again in a moment.",
     },
     tryAgain: "Try again",
+    followUpPlaceholder: "Follow-up question, for example: and for interns?",
+    inConversation: "In this conversation:",
+    newConversation: "New conversation",
   },
   access: {
     signedOut: {

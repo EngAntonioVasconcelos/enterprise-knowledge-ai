@@ -6,7 +6,15 @@ import { useI18n } from "@/i18n/client";
 
 const MAX = 500;
 
-export function Composer({ onAsk, busy }: { onAsk: (question: string) => void; busy: boolean }) {
+export function Composer({
+  onAsk,
+  busy,
+  placeholder,
+}: {
+  onAsk: (question: string) => void;
+  busy: boolean;
+  placeholder?: string;
+}) {
   const t = useI18n().t.assistant;
   const [question, setQuestion] = useState("");
   const trimmed = question.trim();
@@ -38,7 +46,7 @@ export function Composer({ onAsk, busy }: { onAsk: (question: string) => void; b
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={t.placeholder}
+          placeholder={placeholder ?? t.placeholder}
           className="block w-full resize-none bg-transparent px-5 pt-4 pb-2 text-lead outline-none placeholder:text-ink-faint [field-sizing:content]"
         />
         <div className="flex items-center justify-end gap-4 px-5 pb-3 sm:justify-between">
