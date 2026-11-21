@@ -188,7 +188,7 @@ def test_the_answers_route(client, world, monkeypatch):
     monkeypatch.setattr(
         answers,
         "answer_question",
-        lambda db, organization_id, question, interface_language: replace(
+        lambda db, organization_id, question, interface_language, previous_questions: replace(
             _ask(question), timings_ms={"search": 1.0, "model": 2.0}
         ),
     )
@@ -284,3 +284,60 @@ def test_prompt_v5_keeps_the_qualifiers_of_numbers(world):
     )
     assert result.prompt_id.startswith("answer-v5-") and result.language == "en"
     assert world["model"].user.rstrip().endswith("Answer in: English")
+
+
+def test_a_follow_up_leans_on_the_earlier_question(world, monkeypatch):
+    queries = []
+
+    def search(db, **kwargs):
+        queries.append(kwargs["query"])
+        return SearchResult("hybrid", world["hits"], reranked=True)
+
+    monkeypatch.setattr(answer_service, "search", search)
+    world["model"] = RecordingModel("Os estagiarios tem 22 dias uteis [1].")
+    world["hits"] = [_hit("Ferias", "Os estagiarios tem 22 dias uteis de ferias.")]
+    result = answer_question(
+        None,
+        organization_id=uuid.uuid4(),
+        question="e os estagiarios?",
+        previous_questions=["pergunta antiga", "quantos dias de ferias tenho?"],
+    )
+    assert queries == ["quantos dias de ferias tenho? e os estagiarios?"]
+    assert '"pergunta antiga"; "quantos dias de ferias tenho?"' in world["model"].user
+    assert "Question: e os estagiarios?" in world["model"].user
+    assert result.verified and result.language == "pt"
+
+
+def test_a_follow_up_without_small_words_keeps_the_conversation_language(world):
+    world["model"] = FakeModel("NAO_SEI")
+    result = answer_question(
+        None,
+        organization_id=uuid.uuid4(),
+        question="EXP-22?",
+        interface_language="pt",
+        previous_questions=["what is the travel policy?"],
+    )
+    assert result.language == "en"
+
+
+def test_at_most_two_earlier_questions_are_used(world):
+    world["model"] = RecordingModel("Tens 25 dias uteis [1].")
+    answer_question(
+        None,
+        organization_id=uuid.uuid4(),
+        question="e depois?",
+        previous_questions=["um", "dois", "tres"],
+    )
+    assert '"dois"; "tres"' in world["model"].user and '"um"' not in world["model"].user
+
+
+def test_the_route_refuses_more_than_two_earlier_questions(client):
+    organization = client.post(
+        "/api/v1/organizations/",
+        json={"name": "Follow Org", "slug": f"follow-{uuid.uuid4().hex[:8]}"},
+    ).json()
+    response = client.post(
+        f"/api/v1/organizations/{organization['id']}/answers/",
+        json={"question": "e depois?", "previous_questions": ["a", "b", "c"]},
+    )
+    assert response.status_code == 422

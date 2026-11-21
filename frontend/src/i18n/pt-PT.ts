@@ -59,6 +59,9 @@ export const ptPT = {
       unknown: "Algo correu mal do nosso lado. Tenta de novo daqui a pouco.",
     },
     tryAgain: "Tentar de novo",
+    followUpPlaceholder: "Pergunta de seguimento, por exemplo: e para os estagi\u00e1rios?",
+    inConversation: "Nesta conversa:",
+    newConversation: "Nova conversa",
   },
   access: {
     signedOut: {

@@ -23,6 +23,7 @@ import re
 import time
 import unicodedata
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
@@ -48,6 +49,8 @@ LANGUAGE_NAMES = {
     "fr": 'French, addressing the person as "vous"',
 }
 MAX_QUESTION_CHARS = 500
+# Earlier questions of the conversation that a follow-up may lean on.
+MAX_PREVIOUS_QUESTIONS = 2
 MAX_SOURCES = 5
 MAX_CONTEXT_CHARS = 8000
 MAX_OUTPUT_TOKENS = 400
@@ -210,6 +213,18 @@ def split_abstain(text: str) -> tuple[str, bool]:
     return (cleaned + "." if cleaned else ""), True
 
 
+def with_context(question: str, previous: Sequence[str]) -> str:
+    """The question as the model reads it, after the earlier questions."""
+    if not previous:
+        return question
+    earlier = "; ".join(f'"{text}"' for text in previous)
+    return (
+        f"{question}\n(This follows earlier questions in the same "
+        f"conversation: {earlier}. Use them only to understand what the "
+        "question refers to; answer only this question.)"
+    )
+
+
 def answer_question(
     db: Session,
     *,
@@ -217,25 +232,45 @@ def answer_question(
     question: str,
     prompt_version: str | None = None,
     interface_language: str | None = None,
+    previous_questions: Sequence[str] = (),
 ) -> AnswerResult:
+    """An answer from the sources the person may read.
+
+    previous_questions are the person's own earlier questions in the same
+    conversation (at most two, oldest first). They help with follow-ups
+    ("and for interns?"): the last one joins the search, and the model sees
+    them as context. Earlier answers are never sent back to the model.
+    """
     question = " ".join(question.split())
     if not question:
         raise InvalidInputError("The question is empty")
     if len(question) > MAX_QUESTION_CHARS:
         raise InvalidInputError(f"The question is longer than {MAX_QUESTION_CHARS} characters")
+    previous = [
+        " ".join(text.split())[:MAX_QUESTION_CHARS]
+        for text in list(previous_questions)[-MAX_PREVIOUS_QUESTIONS:]
+        if text and text.strip()
+    ]
 
     version = prompt_version or settings.ANSWER_PROMPT_VERSION
     if version not in PROMPT_VERSIONS:
         raise InvalidInputError(f"prompt version must be one of: {', '.join(PROMPT_VERSIONS)}")
     prompt = load_prompt(PROMPT_NAME, version)
-    language = question_language(question, fallback=interface_language)
+    # A follow-up without small words ("and EXP-22?") keeps the language of
+    # the conversation.
+    fallback = (
+        question_language(previous[-1], fallback=interface_language)
+        if previous
+        else interface_language
+    )
+    language = question_language(question, fallback=fallback)
     timings: dict[str, float] = {}
 
     started = time.perf_counter()
     found = search(
         db,
         organization_id=organization_id,
-        query=question,
+        query=f"{previous[-1]} {question}" if previous else question,
         limit=MAX_SOURCES,
         rerank=settings.ANSWER_RERANK,
     )
@@ -275,7 +310,7 @@ def answer_question(
             prompt.system,
             prompt.render(
                 sources=render_sources(sources),
-                question=question,
+                question=with_context(question, previous),
                 language=LANGUAGE_NAMES[language],
             ),
             max_tokens=MAX_OUTPUT_TOKENS,

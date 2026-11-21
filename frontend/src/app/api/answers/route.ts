@@ -4,6 +4,7 @@ import { backendFetch, SignedOutError } from "@/lib/backend";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_QUESTION = 500;
+const MAX_PREVIOUS = 2;
 const LANGUAGES = new Set(["pt", "en", "fr"]);
 
 // The browser asks this route; this route asks the backend with the
@@ -15,12 +16,21 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ detail: "invalid body" }, { status: 400 });
   }
-  const { organizationId, question, language } = (body ?? {}) as Record<string, unknown>;
+  const { organizationId, question, language, previous } = (body ?? {}) as Record<string, unknown>;
   if (typeof organizationId !== "string" || !UUID.test(organizationId)) {
     return NextResponse.json({ detail: "invalid organization" }, { status: 400 });
   }
   if (typeof question !== "string" || !question.trim() || question.length > MAX_QUESTION) {
     return NextResponse.json({ detail: "invalid question" }, { status: 400 });
+  }
+  // The person's own earlier questions in this conversation (follow-ups).
+  const earlier = previous === undefined ? [] : previous;
+  if (
+    !Array.isArray(earlier) ||
+    earlier.length > MAX_PREVIOUS ||
+    earlier.some((item) => typeof item !== "string" || !item.trim() || item.length > MAX_QUESTION)
+  ) {
+    return NextResponse.json({ detail: "invalid previous questions" }, { status: 400 });
   }
 
   try {
@@ -30,6 +40,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         question: question.trim(),
         ...(typeof language === "string" && LANGUAGES.has(language) ? { interface_language: language } : {}),
+        ...(earlier.length ? { previous_questions: (earlier as string[]).map((item) => item.trim()) } : {}),
       }),
     });
     const data = await response.json().catch(() => ({}));
