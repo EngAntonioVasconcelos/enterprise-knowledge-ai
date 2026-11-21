@@ -397,7 +397,7 @@ def test_a_relevant_answer_is_shown(agent):
     assert "<answer>Tens 25 dias uteis .</answer>" in user
 
 
-@pytest.mark.parametrize("verdict", ["NO", "No.", "", "Maybe YES", "SIM"])
+@pytest.mark.parametrize("verdict", ["NO", "No.", "", "Maybe YES", "N\u00e3o", "YESNO"])
 def test_an_answer_that_does_not_respond_is_not_shown(agent, verdict):
     agent["model"] = AgentModel(["Tens 25 dias uteis [1]."], [verdict])
     result = _ask_agent()
@@ -727,3 +727,18 @@ def test_the_query_prompt_knows_today(world):
     today = __import__("datetime").date.today().isoformat()
     assert f"Today is {today}." in dict(model.calls)["query"]
     assert "{{" not in answer_service.load_prompt(*answer_service.DATA_QUERY_PROMPT).system
+
+
+@pytest.mark.parametrize("verdict", ["YES", "Yes.", "**YES**", "Sim", "SIM.", "Oui"])
+def test_a_yes_in_the_question_language_counts(agent, verdict, caplog):
+    caplog.set_level("INFO", logger="eka.answers")
+    agent["model"] = AgentModel(["Tens 25 dias uteis [1]."], [verdict])
+    assert not _ask_agent().abstained
+    assert "relevance verdict=yes" in caplog.text
+
+
+def test_an_unexpected_relevance_reply_is_logged_as_other(agent, caplog):
+    caplog.set_level("INFO", logger="eka.answers")
+    agent["model"] = AgentModel(["Tens 25 dias uteis [1]."], ["Talvez"])
+    assert _ask_agent().abstained
+    assert "relevance verdict=other" in caplog.text and "Talvez" not in caplog.text

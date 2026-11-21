@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     OIDC_AUDIENCE: str | None = None
     OIDC_JWKS_URL: str | None = None
     OIDC_JWKS_TIMEOUT_SECONDS: float = 5.0
+    # Clocks drift (the Docker VM after the computer sleeps, servers): a
+    # token issued a few seconds "in the future" is still accepted.
+    OIDC_CLOCK_SKEW_SECONDS: int = 60
     # Prefix of the custom claims that carry email, email_verified and
     # name in the access token (an Auth0 Action adds them). Empty means
     # the standard claim names.

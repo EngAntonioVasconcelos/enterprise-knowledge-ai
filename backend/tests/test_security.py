@@ -251,3 +251,28 @@ def test_reject_token_missing_required_subject(
     with pytest.raises(jwt.MissingRequiredClaimError):
         security.verify_access_token(token)
 
+
+
+@pytest.mark.parametrize("ahead, accepted", [(timedelta(seconds=30), True), (timedelta(minutes=5), False)])
+def test_a_small_clock_drift_is_tolerated(monkeypatch, oidc_settings, rsa_keys, ahead, accepted):
+    private_key, public_key = rsa_keys
+    configure_jwks_client(monkeypatch, public_key)
+    # Issued "in the future" by the identity provider's clock.
+    issued = datetime.now(timezone.utc) + ahead
+    token = jwt.encode(
+        {
+            "sub": "external-user-123",
+            "iss": "https://identity.example.com/",
+            "aud": "enterprise-knowledge-api",
+            "iat": issued,
+            "nbf": issued,
+            "exp": issued + timedelta(minutes=15),
+        },
+        private_key,
+        algorithm="RS256",
+    )
+    if accepted:
+        assert security.verify_access_token(token)["sub"] == "external-user-123"
+    else:
+        with pytest.raises(jwt.ImmatureSignatureError):
+            security.verify_access_token(token)

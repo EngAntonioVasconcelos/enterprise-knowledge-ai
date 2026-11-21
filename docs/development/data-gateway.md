@@ -71,7 +71,9 @@ example:
 did not follow the form), `failed:<sqlstate>` (the database refused the
 query, with PostgreSQL's error code, for example 42703 unknown column or
 42601 syntax), `empty` (no rows), `refused` (the answer failed a check) or
-`answered`, with `+repaired` after a repair. Neither the question, the
+`answered`, with `+repaired` after a repair. With `refused` and `relevant=False`, the
+line before says what the relevance check replied
+(`relevance verdict=...`). Neither the question, the
 query, the database's error text nor the rows are ever logged.
 
     docker compose -f ../infrastructure/dev/docker-compose.yml --profile app logs --since 10m api | Select-String "answer prompt"

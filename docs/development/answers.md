@@ -286,8 +286,11 @@ alone; a first question has none. When the budget runs out, the person gets
   `agent_max_tool_calls` (searches, 1 to 12, default 6). Owners and admins
   change them with `PATCH /organizations/{id}`.
 - The relevance prompt treats the question and the answer as data between
-  tags; the text cannot close the tags or fill a placeholder. Any reply but
-  YES counts as NO, and a model error counts as NO.
+  tags; the text cannot close the tags or fill a placeholder. The first
+  word of the reply decides: YES, SIM or OUI (without accents or marks) is
+  a yes, because small models answer in the question's language (AL-4e);
+  anything else, and a model error, counts as NO. The log says
+  `relevance verdict=yes|no|other|unavailable`, never the word itself.
 - Each tool call is written to `audit_events` (`agent.tool_call`) through
   `app_private.record_agent_tool_call`: the tool, the step, how many
   results and how long. No person (`actor_user_id` is NULL) and no text.
