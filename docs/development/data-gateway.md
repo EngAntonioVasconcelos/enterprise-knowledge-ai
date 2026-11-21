@@ -70,9 +70,8 @@ organization.
 (32 random bytes, never shown). The compose file starts the gateway with
 the app profile and points the API at `http://data-gateway:8100`.
 
-To try it with a local database, see "Development" in
-`postgresql-connector.md` (private hosts and `sslmode` disable are for
-development only).
+To try it end to end, use the invented sales database
+(`demo-database.md`).
 
 ## Production (Phase 10)
 

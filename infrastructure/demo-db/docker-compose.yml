@@ -1,0 +1,28 @@
+# A customer database for trying the agent's data tool (AL-4c).
+# Invented sales data, created on every start (the data lives in memory),
+# with a read-only login, eka_reader, as a customer should give us.
+# Only this computer can reach it (127.0.0.1). The passwords below are for
+# this local, throwaway database only: never use them anywhere else.
+# See docs/development/demo-database.md.
+services:
+  postgres:
+    image: postgres:18-trixie
+    container_name: eka-demo-sales
+    environment:
+      POSTGRES_DB: sales
+      POSTGRES_USER: demo_admin
+      POSTGRES_PASSWORD: local-demo-admin-only
+    ports:
+      - "127.0.0.1:1995:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"'
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s

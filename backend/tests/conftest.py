@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.dependencies.authentication import get_current_user
+from app.core.config import settings
 from app.db.base import Base
 from app.db.context import set_identity_context
 from app.db.session import get_db
@@ -29,6 +30,13 @@ TestingSessionLocal = sessionmaker(
     autoflush=False,
     bind=test_engine,
 )
+
+
+@pytest.fixture(autouse=True)
+def _private_hosts_refused_by_default(monkeypatch):
+    # backend/.env allows private hosts in development (the demo database,
+    # AL-4c); tests start from the production setting and opt in.
+    monkeypatch.setattr(settings, "DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS", False)
 
 
 @pytest.fixture
