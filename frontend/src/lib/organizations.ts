@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import type { Organization } from "@/lib/api-types";
 import { backendFetch, SignedOutError } from "@/lib/backend";
 
@@ -12,7 +14,11 @@ export type OrganizationsResult =
   | { organizations: Organization[] }
   | { problem: AccessProblem };
 
-export async function loadOrganizations(): Promise<OrganizationsResult> {
+// The frame (navigation) and the page both need the list: one call per
+// request, shared.
+export const loadOrganizations = cache(fetchOrganizations);
+
+async function fetchOrganizations(): Promise<OrganizationsResult> {
   let response: Response;
   try {
     response = await backendFetch("/organizations/");

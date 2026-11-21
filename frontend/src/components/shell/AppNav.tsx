@@ -5,16 +5,26 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { useI18n } from "@/i18n/client";
 
-export function AppNav() {
+export function AppNav({
+  managed = [],
+  fallback = null,
+}: {
+  /** Organizations where the person is an owner or an admin. */
+  managed?: string[];
+  /** The organization screens open on when none is chosen. */
+  fallback?: string | null;
+}) {
   const pathname = usePathname();
   const { t } = useI18n();
   // The chosen organization follows the person from screen to screen.
   const org = useSearchParams().get("org");
   const query = org ? `?org=${encodeURIComponent(org)}` : "";
-  // Only screens that exist are listed: no "coming soon" entries.
+  const current = org ?? fallback;
+  // Only screens that exist, and that this person may use, are listed.
   const items = [
     { href: "/assistente", label: t.nav.assistant },
     { href: "/documentos", label: t.nav.documents },
+    ...(current && managed.includes(current) ? [{ href: "/pessoas", label: t.nav.people }] : []),
   ];
   return (
     <nav aria-label={t.nav.main} className="order-last w-full lg:order-none lg:mt-10 lg:w-auto">

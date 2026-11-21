@@ -1,16 +1,22 @@
 import { type ReactNode, Suspense } from "react";
 
 import { AppNav } from "@/components/shell/AppNav";
+import { Avatar } from "@/components/shell/Avatar";
 import { Wordmark } from "@/components/Wordmark";
 import { LanguageSwitch } from "@/components/shell/LanguageSwitch";
 import { getMessages } from "@/i18n/server";
 import { auth0 } from "@/lib/auth0";
+import { loadOrganizations } from "@/lib/organizations";
+import { managesPeople } from "@/lib/roles";
 
 // The frame of every signed-in page: a quiet rail on wide screens, a top
 // bar on small ones. The content is the point; the frame stays out of it.
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const [session, { t }] = await Promise.all([auth0.getSession(), getMessages()]);
+  const [session, { t }, result] = await Promise.all([auth0.getSession(), getMessages(), loadOrganizations()]);
   const name = session?.user.name ?? session?.user.email ?? "";
+  const email = session?.user.email ?? "";
+  const organizations = "organizations" in result ? result.organizations : [];
+  const managed = organizations.filter((o) => managesPeople(o.role)).map((o) => o.id);
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -24,13 +30,26 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </span>
         </a>
         <Suspense>
-          <AppNav />
+          <AppNav managed={managed} fallback={organizations[0]?.id ?? null} />
         </Suspense>
         <div className="flex items-center gap-4 lg:mt-auto lg:flex-col lg:items-stretch lg:gap-2 lg:px-2">
-          <span className="hidden truncate text-meta text-ink-soft lg:block" title={name}>
-            {name}
-          </span>
+          <div className="hidden min-w-0 items-center gap-2.5 lg:flex">
+            <Avatar name={session?.user.name} email={email} picture={session?.user.picture} size="sm" />
+            <div className="min-w-0">
+              <p className="truncate text-meta font-medium text-ink" title={name}>
+                {name}
+              </p>
+              {email && email !== name ? (
+                <p className="truncate text-[0.75rem] text-ink-faint" title={email}>
+                  {email}
+                </p>
+              ) : null}
+            </div>
+          </div>
           <div className="flex items-center gap-2 sm:gap-3 lg:-ml-1.5 lg:justify-between">
+            <span className="lg:hidden" title={name}>
+              <Avatar name={session?.user.name} email={email} picture={session?.user.picture} size="sm" />
+            </span>
             <LanguageSwitch />
             <a
               href="/auth/logout"

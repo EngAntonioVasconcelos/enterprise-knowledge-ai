@@ -88,6 +88,29 @@ behind it. The design follows from that.
   request through `POST /api/uploads` (the proxy allows 21 MB). Members and
   viewers see the list only, for now: they cannot list connections, so they
   cannot find the upload source.
+- **People (AK-5).** Owners and administrators get a "People" screen
+  (the menu shows it only to them: the list of organizations now carries
+  the person's own `role`). It lists the active members, with their role,
+  and the invitations not yet accepted. One form invites by e-mail with a
+  role; the line under it says what the chosen role can do. An admin can
+  give only member and viewer, and cannot change owners or admins (the
+  backend's rule; the screen just does not offer it). Your own row has no
+  actions, so nobody locks themselves out. Removing asks first, in the row;
+  a role change applies at once and goes back if the backend refuses it
+  (for example, the last owner).
+- **Invitations.** The link is `/invitations/accept#token=...`. The token
+  is after `#`, so it never reaches a server log; the page reads it in the
+  browser, keeps it in this tab (`sessionStorage`) and takes it out of the
+  address. Without a session it sends the person to sign in and back
+  (`/auth/login?returnTo=/invitations/accept`); with one it shows the
+  account that will accept and one button. Wrong e-mail, expired or used,
+  and already a member each get their own message. While the server does
+  not deliver e-mails (`EMAIL_SENDER=console`), the backend returns the
+  token once and the People screen shows the link to copy and pass on.
+- **Account photo.** The rail shows the photo of the sign-in (the
+  `picture` claim from Google or Auth0), or the initials when there is
+  none or it fails to load. Nothing is uploaded or stored by us. Other
+  people's rows show initials.
 - **Quality floor.** Keyboard first (Enter asks, Shift+Enter breaks a
   line, visible focus), screen-reader labels and live regions, works down
   to a phone, and the only self-running motion stops for people who ask
