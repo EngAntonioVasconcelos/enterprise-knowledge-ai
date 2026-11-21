@@ -826,3 +826,32 @@ def test_the_tidy_query_is_the_one_sent(world):
     model = DataModel(query="DATABASE: 1\nSQL: ```sql\nSELECT count(id) FROM sales.invoices;\nLIMIT 50\n```")
     _ask_data(data, model, world)
     assert data.queries[0][1] == "SELECT count(id) FROM sales.invoices\nLIMIT 50"
+
+
+@pytest.mark.parametrize(
+    "language, expected",
+    [
+        ("pt", "Lisboa: 33\u00a0488,20; Norte: 10\u00a0564,37 [D1]."),
+        ("fr", "Lisboa: 33\u00a0488,20; Norte: 10\u00a0564,37 [D1]."),
+        ("en", "Lisboa: 33,488.20; Norte: 10,564.37 [D1]."),
+    ],
+)
+def test_the_rows_numbers_are_written_as_in_the_language(language, expected):
+    rows = DataResult(("region", "total"), (("Lisboa", "33488.20"), ("Norte", "10564.37")), False)
+    answer = "Lisboa: 33488.20; Norte: 10564.37 [D1]."
+    assert answer_service.localize_numbers(answer, rows, language) == expected
+
+
+def test_only_whole_row_values_with_decimals_or_four_digits_change():
+    rows = DataResult(("name", "count", "total"), (("Cliente 018", 55, "1250"),), False)
+    answer = "Em 2026, o Cliente 018 tem 55 faturas e 1250 euros [D1]."
+    assert answer_service.localize_numbers(answer, rows, "pt") == (
+        "Em 2026, o Cliente 018 tem 55 faturas e 1\u00a0250 euros [D1]."
+    )
+
+
+def test_a_shown_database_answer_has_its_numbers_written_for_people(world):
+    data = FakeData(DataResult(("total",), (("97211.08",),), False))
+    result = _ask_data(data, DataModel(answer="O total foi 97211.08 euros [D1]."), world)
+    assert result.answer == "O total foi 97\u00a0211,08 euros [D1]."
+    assert answer_service.numbers_in(answer_service.DATA_CITATION.sub("", result.answer)) == {"9721108"}

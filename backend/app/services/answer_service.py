@@ -541,7 +541,8 @@ def answer_question(
             last = refused
             return None
         result = AnswerResult(
-            answer=text,
+            # Checked first, then written as people read numbers.
+            answer=localize_numbers(text, rows, language),
             abstained=False,
             verified=True,
             sources=[],
@@ -693,6 +694,35 @@ def verify_data(answer: str, result: DataResult, question: str) -> list[str]:
     if unsupported:
         issues.append(f"numbers not found in the data: {unsupported}")
     return issues
+
+
+# Thousands and decimal separators per answer language.
+NUMBER_STYLE = {"pt": ("\u00a0", ","), "fr": ("\u00a0", ","), "en": (",", ".")}
+_NUMBER_TOKEN = re.compile(r"(?<![\w.,])-?\d+(?:\.\d+)?(?![\w]|[.,]\d)")
+
+
+def localize_numbers(answer: str, result: DataResult, language: str) -> str:
+    """The answer with the rows' numbers written as in the language:
+    19209.94 becomes 19 209,94 in Portuguese and French, 19,209.94 in
+    English. Only a number that is a whole value of a row changes, and
+    only when it has decimals or four digits or more, so years in the
+    question or codes such as "Cliente 018" stay as they are. The digits
+    never change, so the checks done before still hold."""
+    values = {str(value).strip() for row in result.rows for value in row if value is not None}
+    thousands, decimal = NUMBER_STYLE.get(language, NUMBER_STYLE["pt"])
+
+    def written(match: re.Match) -> str:
+        token = match.group(0)
+        if token not in values or re.match(r"-?0\d", token):
+            return token
+        whole, _, fraction = token.partition(".")
+        digits = whole.lstrip("-")
+        if len(digits) < 4 and not fraction:
+            return token
+        grouped = f"{int(digits):,}".replace(",", thousands)
+        return ("-" if whole.startswith("-") else "") + grouped + (decimal + fraction if fraction else "")
+
+    return _NUMBER_TOKEN.sub(written, answer)
 
 
 def data_numbers(result: DataResult) -> set[str]:

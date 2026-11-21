@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useI18n } from "@/i18n/client";
 import type { Answer, AnswerData, AnswerSource } from "@/lib/api-types";
 import { excerpt, paragraphs, passageText, splitAnswer } from "@/lib/citations";
+import { cellText, numberColumns } from "@/lib/data-cells";
 
 
 // The answer reads like an annotated page: the text on the left, the
@@ -120,7 +121,9 @@ function DataPanel({
   active: boolean;
   onActive: (number: number | null) => void;
 }) {
-  const t = useI18n().t.assistant;
+  const { locale, t: all } = useI18n();
+  const t = all.assistant;
+  const numeric = numberColumns(data.rows, data.columns.length);
   return (
     <section
       id="dados"
@@ -140,7 +143,11 @@ function DataPanel({
           <thead className="sticky top-0 bg-surface">
             <tr className="border-b border-line">
               {data.columns.map((column, index) => (
-                <th key={index} scope="col" className="px-3 py-2 font-medium whitespace-nowrap text-ink-soft">
+                <th
+                  key={index}
+                  scope="col"
+                  className={"px-3 py-2 font-medium whitespace-nowrap text-ink-soft " + (numeric[index] ? "text-right" : "")}
+                >
                   {column}
                 </th>
               ))}
@@ -150,8 +157,15 @@ function DataPanel({
             {data.rows.map((row, rowIndex) => (
               <tr key={rowIndex} className="border-b border-line last:border-0">
                 {row.map((value, index) => (
-                  <td key={index} className="px-3 py-1.5 align-top whitespace-nowrap text-ink">
-                    {value === null || value === "" ? <span className="text-ink-faint">{t.dataEmpty}</span> : String(value)}
+                  <td
+                    key={index}
+                    className={"px-3 py-1.5 align-top whitespace-nowrap text-ink " + (numeric[index] ? "text-right" : "")}
+                  >
+                    {value === null || value === "" ? (
+                      <span className="text-ink-faint">{t.dataEmpty}</span>
+                    ) : (
+                      cellText(value, locale)
+                    )}
                   </td>
                 ))}
               </tr>

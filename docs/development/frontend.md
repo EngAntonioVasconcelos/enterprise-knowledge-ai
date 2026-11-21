@@ -166,3 +166,6 @@ say so) and, folded, the read-only query that ran. The `[D1]` citation is
 a small database mark that lights the rows up, as a number lights up its
 passage. A refused answer never shows rows. The margin keeps at least
 18rem on wide screens, so the table stays readable next to the text.
+Numbers in the table are written as in the interface's language and
+aligned to the right; codes with a leading zero and text stay as they
+came (AL-6, `lib/data-cells.ts`).
