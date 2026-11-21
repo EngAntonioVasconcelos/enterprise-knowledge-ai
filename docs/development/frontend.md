@@ -111,6 +111,12 @@ behind it. The design follows from that.
   `picture` claim from Google or Auth0), or the initials when there is
   none or it fails to load. Nothing is uploaded or stored by us. Other
   people's rows show initials.
+- **History and settings (AK-6).** Everyone has a History screen with
+  their own questions (nobody else sees them, admins included); an old
+  answer is hidden when a cited document is no longer readable, and "Ask
+  again" asks it at once. Owners and admins have Settings: the
+  organization's name and how long questions are kept (0, 30, 90 or 365
+  days). See question-history.md.
 - **Quality floor.** Keyboard first (Enter asks, Shift+Enter breaks a
   line, visible focus), screen-reader labels and live regions, works down
   to a phone, and the only self-running motion stops for people who ask

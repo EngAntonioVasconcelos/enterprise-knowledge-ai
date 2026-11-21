@@ -24,7 +24,13 @@ export function AppNav({
   const items = [
     { href: "/assistente", label: t.nav.assistant },
     { href: "/documentos", label: t.nav.documents },
-    ...(current && managed.includes(current) ? [{ href: "/pessoas", label: t.nav.people }] : []),
+    { href: "/historico", label: t.nav.history },
+    ...(current && managed.includes(current)
+      ? [
+          { href: "/pessoas", label: t.nav.people },
+          { href: "/definicoes", label: t.nav.settings },
+        ]
+      : []),
   ];
   return (
     <nav aria-label={t.nav.main} className="order-last w-full lg:order-none lg:mt-10 lg:w-auto">

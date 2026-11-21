@@ -13,6 +13,7 @@ from app.models.membership import OrganizationMembership
 from app.models.organization import Organization
 from app.models.owner_recovery_event import OrganizationOwnerRecoveryEvent
 from app.models.platform_membership import PlatformMembership
+from app.models.question_history import QuestionHistory
 from app.models.user import User
 
 __all__ = [
@@ -35,4 +36,5 @@ __all__ = [
     "DocumentAccess",
     "FileUpload",
     "DocumentChunk",
+    "QuestionHistory",
 ]

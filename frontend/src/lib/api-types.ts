@@ -10,6 +10,33 @@ export type Organization = {
   status: string;
   /** The signed-in person's own role in it (list of organizations only). */
   role?: Role;
+  /** Days each person's questions are kept; 0 keeps none. */
+  history_retention_days?: number;
+};
+
+export const RETENTION_DAYS = [0, 30, 90, 365] as const;
+export type RetentionDays = (typeof RETENTION_DAYS)[number];
+
+export type HistoryItem = {
+  id: string;
+  question: string;
+  abstained: boolean;
+  created_at: string;
+};
+
+export type HistoryEntry = {
+  id: string;
+  question: string;
+  /** null when a cited document can no longer be read. */
+  answer: string | null;
+  abstained: boolean;
+  verified: boolean;
+  language: string;
+  created_at: string;
+  sources: AnswerSource[];
+  hidden: boolean;
+  /** A cited document changed since this answer. */
+  outdated: boolean;
 };
 
 export type Membership = {

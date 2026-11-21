@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -22,6 +22,10 @@ class Organization(Base):
         CheckConstraint(
             "status IN ('active', 'suspended', 'pending_deletion', 'deleted')",
             name="ck_organization_status",
+        ),
+        CheckConstraint(
+            "history_retention_days IN (0, 30, 90, 365)",
+            name="ck_organizations_history_retention_days",
         ),
     )
 
@@ -78,6 +82,15 @@ class Organization(Base):
         DateTime(timezone=True),
         nullable=True,
         index=True,
+    )
+
+    # How long each person's questions are kept, in days; 0 keeps none
+    # (migration e6b1d4a8c2f9).
+    history_retention_days: Mapped[int] = mapped_column(
+        Integer,
+        default=90,
+        server_default=text("90"),
+        nullable=False,
     )
 
     creator: Mapped["User | None"] = relationship(
