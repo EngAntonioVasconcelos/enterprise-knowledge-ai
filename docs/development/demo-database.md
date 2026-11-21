@@ -78,6 +78,7 @@ score goes up and nothing else gets worse.
 | Version | Correct | Wrong answers shown | Time per question |
 |---|---|---|---|
 | AL-4f (21 Nov, gemma3:4b) | 3 of 8 | 1 (the holiday question answered from invoices) | 25.7 s |
+| AL-4g (21 Nov, gemma3:4b) | 4 of 8 (rule: 5) | 0 | 26.5 s |
 
 AL-4g changes, after reading every reply of that run:
 
@@ -97,3 +98,24 @@ AL-4g changes, after reading every reply of that run:
 Rule, fixed before measuring AL-4g: 0 wrong answers shown, at least 5 of
 8 correct, none of questions 3, 5 and 8 lost, at most 35 s per question.
 If it fails, AL-4g is not merged.
+
+AL-4g did not pass its rule (4 of 8, question 3 lost) and was kept off
+main. What failed: a stray semicolon before `LIMIT 50` (questions 2 and
+4, with otherwise right SQL), an alias error that the repair used to fix
+but no longer had room for with 4 steps (question 3), and "Nao sei [D1]"
+next to a right count (question 6).
+
+AL-4h, on top of AL-4g:
+
+- a semicolon outside quotes followed only by `LIMIT n` is removed before
+  the query is sent (`tidy_sql`); anything else is sent as written and the
+  gateway still refuses a second statement;
+- the answer prompt v3 gives three examples on other subjects, one of them
+  a single count;
+- the default budget goes from 4 to 5 steps (migration `e9c4a7b2d6f1`;
+  organizations still on 4 move to 5, other values are kept), so the
+  repair fits again.
+
+Rule, fixed before measuring AL-4h: 0 wrong answers shown, at least 6 of
+8 correct, questions 1, 5, 7 and 8 kept, at most 35 s per question. If it
+passes, AL-4g and AL-4h are merged together; if not, neither is.

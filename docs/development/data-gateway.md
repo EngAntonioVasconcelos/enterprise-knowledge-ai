@@ -39,7 +39,7 @@ column names, types, comments; never rows) and replies with
 `DATABASE: n` and a `SQL:` query, or `NONE`.
 
 1. A query runs through the gateway; its rows go to the model (prompt
-   `data_answer_v2`) between `<data id="D1">` tags.
+   `data_answer_v3`) between `<data id="D1">` tags.
 2. The answer must cite `[D1]`, and every number in it must be in the rows
    (20.00 may be written 20, 10.50 may be 10,5) or in the question.
 3. The relevance check of AL-2 runs as for documents.
@@ -51,10 +51,9 @@ column names, types, comments; never rows) and replies with
    turn while the budget allows (AL-2 limits). An answer that fails a
    check is never shown.
 
-Choosing, writing, answering and checking cost 4 model steps: with the
-default budget (4) there is no room for a repair or, after a refused data
-answer, for the documents. Owners and admins can raise the budget (up to
-8) when the measurement says it pays.
+Choosing, writing, answering and checking cost 4 model steps, and a
+repair one more: the default budget is 5 (AL-4h). Owners and admins can
+set 1 to 8.
 
 Customer text (connection names, table comments, values) cannot close the
 tags around it or fill a prompt placeholder. The prompts say it is data.

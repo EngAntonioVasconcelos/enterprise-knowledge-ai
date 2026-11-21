@@ -46,7 +46,7 @@ class OrganizationResponse(BaseModel):
     # Days each person's questions are kept; 0 keeps none.
     history_retention_days: int = 90
     # Limits of the agent for one answer: model calls and tool calls.
-    agent_max_steps: int = 4
+    agent_max_steps: int = 5
     agent_max_tool_calls: int = 6
 
     model_config = ConfigDict(from_attributes=True)

@@ -58,7 +58,7 @@ DATA_FIX_PROMPT = ("data_fix", "v1")
 # PostgreSQL error classes worth one repair: syntax or access rule (42) and
 # data exceptions such as a bad date (22). Not timeouts or anything else.
 REPAIRABLE_SQLSTATE = ("42", "22")
-DATA_ANSWER_PROMPT = ("data_answer", "v2")
+DATA_ANSWER_PROMPT = ("data_answer", "v3")
 # The route's reply: its first word. Anything else means documents, the
 # safe side: a policy question answered from rows is a wrong answer.
 DATA_ROUTE_WORDS = frozenset({"DATA", "DADOS", "DONNEES"})
@@ -166,7 +166,7 @@ class DataAnswer:
 class AgentLimits:
     """How much one answer may spend (per organization, AL-2)."""
 
-    max_steps: int = 4
+    max_steps: int = 5
     max_tool_calls: int = 6
 
 
@@ -632,6 +632,34 @@ def answer_question(
     return finish(last or no_answer([], None, [], None))
 
 
+def tidy_sql(sql: str) -> str:
+    """The query without a stray semicolon before its LIMIT.
+
+    Small models write "... WHERE status = 'pendente';\nLIMIT 50": one
+    statement with a misplaced semicolon, which PostgreSQL refuses. Only
+    that shape is changed; anything else is sent as written, and the
+    gateway still refuses a second statement.
+    """
+    query = sql.strip().rstrip(";").rstrip()
+    cut = _semicolon_outside_text(query)
+    if cut is None:
+        return query
+    rest = query[cut + 1:]
+    if re.fullmatch(r"\s*(LIMIT\s+\d+)?\s*", rest, flags=re.I):
+        return (query[:cut].rstrip() + ("\n" + rest.strip() if rest.strip() else "")).strip()
+    return query
+
+
+def _semicolon_outside_text(sql: str) -> int | None:
+    quoted = False
+    for index, char in enumerate(sql):
+        if char == "'":
+            quoted = not quoted
+        elif char == ";" and not quoted:
+            return index
+    return None
+
+
 def parse_data_query(reply: str, databases: int) -> tuple[int, str] | None:
     """(database number, SQL) from the model's reply, or None for NONE or
     anything that does not follow the form. The gateway, not this parser,
@@ -647,6 +675,7 @@ def parse_data_query(reply: str, databases: int) -> tuple[int, str] | None:
     fenced = re.fullmatch(r"```(?:sql)?\s*(.+?)\s*```", sql, flags=re.S | re.I)
     if fenced:
         sql = fenced.group(1).strip()
+    sql = tidy_sql(sql)
     if not 1 <= number <= databases or not sql:
         return None
     return number, sql

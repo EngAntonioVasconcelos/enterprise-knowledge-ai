@@ -105,8 +105,8 @@ class Organization(Base):
     # calls and tool calls.
     agent_max_steps: Mapped[int] = mapped_column(
         Integer,
-        default=4,
-        server_default=text("4"),
+        default=5,
+        server_default=text("5"),
         nullable=False,
     )
     agent_max_tool_calls: Mapped[int] = mapped_column(
