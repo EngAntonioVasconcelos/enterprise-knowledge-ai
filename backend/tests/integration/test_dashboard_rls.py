@@ -98,3 +98,36 @@ def test_the_worker_deletes_counts_older_than_a_year(perm_db, world):
     _refused(db, select(AnswerEvent), "permission denied")
     assert dashboard_service.purge_old_events(db) >= 1
     assert _visible(db, world.owner) == 1
+
+
+def test_gaps_hold_only_ids_and_a_known_reason(perm_db, world):
+    db = perm_db
+    _as_runtime(db, world.ana)
+    document = uuid.uuid4()
+    dashboard_service.record_event(
+        db,
+        organization_id=world.organization,
+        abstained=True,
+        verified=True,
+        language="pt",
+        cited_document_ids=[],
+        consulted_document_ids=[document],
+        gap_reason="not_found",
+    )
+    row = dict(
+        id=uuid.uuid4(),
+        organization_id=world.organization,
+        abstained=False,
+        verified=True,
+        language="pt",
+        cited_document_ids=[],
+    )
+    _refused(db, insert(AnswerEvent).values(**row, gap_reason="not_found"), "ck_answer_events_gap_reason")
+    _refused(
+        db,
+        insert(AnswerEvent).values(**{**row, "abstained": True}, gap_reason="secret"),
+        "ck_answer_events_gap_reason",
+    )
+    _as_runtime(db, world.owner)
+    gaps = dashboard_service.build_gaps(db, organization_id=world.organization)
+    assert gaps["reasons"]["not_found"] == 1 and gaps["hidden_documents"] == 0

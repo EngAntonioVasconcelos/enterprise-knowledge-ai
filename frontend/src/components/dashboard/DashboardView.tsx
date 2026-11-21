@@ -47,8 +47,8 @@ export function DashboardView({ organizationId, data }: { organizationId: string
       {data.unanswered ? (
         <p className="mt-6 max-w-[40rem] border-l-2 border-caution pl-4 text-body text-ink text-pretty">
           {t.gapHint}{" "}
-          <Link href={`/documentos${query}`} className="font-medium text-cobalt underline underline-offset-4">
-            {t.addDocuments}
+          <Link href={`/lacunas${query}`} className="font-medium text-cobalt underline underline-offset-4">
+            {t.seeGaps}
           </Link>
         </p>
       ) : null}

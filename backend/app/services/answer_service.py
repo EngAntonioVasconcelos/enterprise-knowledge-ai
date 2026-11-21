@@ -127,6 +127,24 @@ class AgentLimits:
     max_tool_calls: int = 6
 
 
+# Why there was no safe answer, for the Gaps screen (AL-3).
+GAP_REASONS = ("no_sources", "not_found", "checks", "not_relevant")
+
+
+def gap_reason(result) -> str | None:
+    """Why the answer was "no reliable answer": nothing found to read, the
+    documents read did not hold the answer, the checks refused the text, or
+    it answered another question. None when there was an answer."""
+    if not result.abstained:
+        return None
+    if not result.sources:
+        return "no_sources"
+    issues = getattr(result, "issues", None) or []
+    if NOT_RELEVANT in issues:
+        return "not_relevant"
+    return "checks" if issues else "not_found"
+
+
 # Called after every tool call: tool, step, number of results, milliseconds.
 ToolRecorder = Callable[[str, int, int, float], None]
 

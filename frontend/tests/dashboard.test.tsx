@@ -43,9 +43,9 @@ describe("DashboardView", () => {
     expect(screen.getByText("3 cita\u00e7\u00f5es")).toBeInTheDocument();
   });
 
-  it("points to Documents when questions go unanswered", () => {
+  it("points to Gaps when questions go unanswered", () => {
     render(<DashboardView organizationId={ORG} data={data} />);
-    expect(screen.getByRole("link", { name: "Adicionar documentos" })).toHaveAttribute("href", `/documentos?org=${ORG}`);
+    expect(screen.getByRole("link", { name: "Ver as lacunas" })).toHaveAttribute("href", `/lacunas?org=${ORG}`);
   });
 
   it("has the days as a table too", async () => {
@@ -65,7 +65,7 @@ describe("DashboardView", () => {
     );
     expect(screen.getByText("Ainda n\u00e3o houve perguntas nestes 30 dias.")).toBeInTheDocument();
     expect(screen.getByText("Ainda nenhuma resposta citou documentos.")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Adicionar documentos" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Ver as lacunas" })).toBeNull();
   });
 
   it("is in the menu only for owners and admins", () => {
