@@ -6,6 +6,7 @@ import {
   History,
   type LucideIcon,
   MessageSquareText,
+  SearchX,
   Settings,
   Users,
 } from "lucide-react";
@@ -43,6 +44,7 @@ export function AppNav({
   const admin: Item[] = manages
     ? [
         { href: "/painel", label: t.nav.dashboard, icon: ChartColumn },
+        { href: "/lacunas", label: t.nav.gaps, icon: SearchX },
         { href: "/pessoas", label: t.nav.people, icon: Users },
         { href: "/definicoes", label: t.nav.settings, icon: Settings },
       ]

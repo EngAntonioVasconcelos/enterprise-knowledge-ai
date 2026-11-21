@@ -10,7 +10,7 @@ from app.api.dependencies.authorization import require_roles
 from app.db.session import get_db
 from app.models.membership import OrganizationMembership
 from app.schemas.answer import AnswerRequest, AnswerResponse, AnswerSourceResponse
-from app.services.answer_service import AgentLimits, ToolRecorder, answer_question
+from app.services.answer_service import AgentLimits, ToolRecorder, answer_question, gap_reason
 from app.services.dashboard_service import record_event
 from app.services.history_service import record_answer
 
@@ -74,7 +74,7 @@ def answer(
         timings_ms=result.timings_ms,
     )
     _keep_in_history(db, member, response)
-    _count_for_dashboard(db, member, response)
+    _count_for_dashboard(db, member, response, gap_reason(result))
     return response
 
 
@@ -108,7 +108,10 @@ def _tool_recorder(db: Session, organization_id: uuid.UUID) -> ToolRecorder | No
 
 
 def _count_for_dashboard(
-    db: Session, member: OrganizationMembership, response: AnswerResponse
+    db: Session,
+    member: OrganizationMembership,
+    response: AnswerResponse,
+    reason: str | None,
 ) -> None:
     """Counts the answer for the dashboard: no person, no text. A failure
     here never costs the person their answer."""
@@ -122,6 +125,11 @@ def _count_for_dashboard(
             cited_document_ids=[
                 source.document_id for source in response.sources if source.cited
             ],
+            # Only for "no reliable answer": where people looked (AL-3).
+            consulted_document_ids=(
+                [source.document_id for source in response.sources] if reason else []
+            ),
+            gap_reason=reason,
         )
         db.commit()
     except SQLAlchemyError as error:

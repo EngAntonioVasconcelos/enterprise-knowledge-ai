@@ -150,3 +150,16 @@ export type DashboardData = {
   documents: Record<string, number>;
   members: number;
 };
+
+export type GapReason = "no_sources" | "not_found" | "checks" | "not_relevant";
+
+/** Why and where questions found no safe answer (AL-3). No people, no text. */
+export type GapsData = {
+  days: number;
+  unanswered: number;
+  reasons: Record<GapReason, number>;
+  /** Only documents the viewer can open, read by at least min_questions. */
+  documents: { document_id: string; title: string; questions: number }[];
+  hidden_documents: number;
+  min_questions: number;
+};

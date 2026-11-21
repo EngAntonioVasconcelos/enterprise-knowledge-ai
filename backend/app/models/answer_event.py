@@ -22,6 +22,11 @@ class AnswerEvent(Base):
             "language IN ('pt', 'en', 'fr')",
             name="ck_answer_events_language",
         ),
+        CheckConstraint(
+            "gap_reason IS NULL OR (abstained AND gap_reason IN "
+            "('no_sources', 'not_found', 'checks', 'not_relevant'))",
+            name="ck_answer_events_gap_reason",
+        ),
         Index(
             "ix_answer_events_organization_day",
             "organization_id",
@@ -53,3 +58,11 @@ class AnswerEvent(Base):
         default=list,
         nullable=False,
     )
+    # AL-3, only when there was no safe answer: the documents given to the
+    # model (ids only) and why there was no answer. Older rows have none.
+    consulted_document_ids: Mapped[list] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        default=list,
+        nullable=False,
+    )
+    gap_reason: Mapped[str | None] = mapped_column(String(16), nullable=True)
