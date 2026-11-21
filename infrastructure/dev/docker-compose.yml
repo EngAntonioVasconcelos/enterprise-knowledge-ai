@@ -36,6 +36,8 @@ services:
     image: eka-backend:dev
     volumes:
       - ../../backend:/app/backend
+      # The demo sales data, which the agent's red-team tests load (AL-5).
+      - ../../infrastructure/demo-db/init:/app/infrastructure/demo-db/init:ro
     environment:
       # The disposable test database on the host (throwaway credentials).
       EKA_TEST_ADMIN_DATABASE_URL: postgresql+psycopg://eka_test_admin:local-test-admin-only@host.docker.internal:1999/eka_test
