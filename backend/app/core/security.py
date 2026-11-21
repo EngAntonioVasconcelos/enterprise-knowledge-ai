@@ -49,6 +49,7 @@ def verify_access_token(token: str) -> dict:
         algorithms=ALLOWED_ALGORITHMS,
         issuer=settings.OIDC_ISSUER,
         audience=settings.OIDC_AUDIENCE,
+        leeway=settings.OIDC_CLOCK_SKEW_SECONDS,
         options={
             "require": ["exp", "iss", "aud", "sub"],
         },

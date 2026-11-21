@@ -49,6 +49,9 @@ logger = logging.getLogger("eka.answers")
 
 PROMPT_NAME = "answer"
 RELEVANCE_PROMPT = ("relevance", "v1")
+# The relevance check's reply: its first word, without accents or marks.
+RELEVANT_WORDS = frozenset({"YES", "SIM", "OUI"})
+NOT_RELEVANT_WORDS = frozenset({"NO", "NAO", "NON"})
 DATA_QUERY_PROMPT = ("data_query", "v2")
 DATA_FIX_PROMPT = ("data_fix", "v1")
 # PostgreSQL error classes worth one repair: syntax or access rule (42) and
@@ -662,8 +665,10 @@ def responds_to_question(model, question: str, answer: str) -> bool:
     """The model's yes or no: does the answer respond to the question?
 
     The answer holds text from the documents, so it is passed as data
-    between tags; the reply can only be YES or NO, and anything else counts
-    as NO. When the check cannot run, the answer is not shown.
+    between tags. The reply's first word decides: YES, or its Portuguese
+    or French form (small models answer in the question's language), is a
+    yes; anything else counts as NO. When the check cannot run, the answer
+    is not shown. The log says only which kind of word came back.
     """
     prompt = load_prompt(*RELEVANCE_PROMPT)
     try:
@@ -676,9 +681,14 @@ def responds_to_question(model, question: str, answer: str) -> bool:
             max_tokens=3,
         )
     except LLMUnavailableError:
+        logger.info("relevance verdict=unavailable")
         return False
-    word = re.sub(r"[^A-Za-z]", "", (completion.text.strip().split() or [""])[0]).upper()
-    return word == "YES"
+    first = (completion.text.strip().split() or [""])[0]
+    plain = unicodedata.normalize("NFD", first)
+    word = re.sub(r"[^A-Za-z]", "", "".join(c for c in plain if not unicodedata.combining(c))).upper()
+    verdict = "yes" if word in RELEVANT_WORDS else "no" if word in NOT_RELEVANT_WORDS else "other"
+    logger.info("relevance verdict=%s", verdict)
+    return verdict == "yes"
 
 
 def _untagged(text: str) -> str:
