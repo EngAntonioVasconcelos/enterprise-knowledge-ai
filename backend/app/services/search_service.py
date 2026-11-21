@@ -90,6 +90,9 @@ essa esse mais muito muita ja ate the an of to in on at for by with from and or
 is are was were be been do does did can could should would will how what when
 where who whom which why my your our their i you we they it its this that these
 those me us there here if about into than then so not no yes get got have has
+le la les un une des du au aux est sont quel quelle quels quelles comment combien
+je mon ma mes vous votre vos il elle pour dans avec sur pas ne ai puis dois peut
+faut ce cette ces leur
 """.split())
 TOKEN = re.compile(r"[0-9a-z]+(?:[-./][0-9a-z]+)*")
 ADVANCED = re.compile(r'"|(^|\s)-\S|\sor\s', re.IGNORECASE)

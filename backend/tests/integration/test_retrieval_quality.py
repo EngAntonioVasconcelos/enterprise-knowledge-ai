@@ -17,18 +17,21 @@ perm_db = permissions.perm_db
 
 # Floors measured with the stand-ins (hashing only knows shared words, the
 # overlap reranker only counts them), dataset version 2 (60 questions,
-# mostly cross-language, which the stand-ins cannot do). They catch
+# mostly cross-language, which the stand-ins cannot do). Version 3 adds 10
+# French questions about Portuguese and English documents, which the
+# stand-ins cannot find either: the "all" floors are the version 2 floors
+# times 60/70, so a regression on the other 60 still fails. They catch
 # regressions in chunking, search by words, fusion, reranking plumbing and
 # permissions. The real models are measured with scripts/evaluate_retrieval.
 FLOORS = {
-    ("keyword", "all"): 0.5,
+    ("keyword", "all"): 0.42,
     ("keyword", "pt-words"): 1.0,
     ("keyword", "en-words"): 0.8,
     ("keyword", "exact-code"): 1.0,
-    ("hybrid", "all"): 0.45,
+    ("hybrid", "all"): 0.38,
     ("hybrid", "pt-words"): 1.0,
     ("hybrid", "exact-code"): 1.0,
-    ("hybrid-rrf", "all"): 0.55,
+    ("hybrid-rrf", "all"): 0.47,
     ("hybrid+rerank", "exact-code"): 1.0,
     ("rerank-10-short", "exact-code"): 1.0,
 }

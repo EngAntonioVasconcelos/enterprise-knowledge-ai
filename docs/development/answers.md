@@ -148,3 +148,93 @@ questions whose answer is in an English document: the search does not bring
 the passage (AJ-2, question translation). The 95th percentile (12.4 s) is
 below the average because one or two answers took much longer, most likely
 the first ones while the model was loaded into memory.
+
+## AJ-3: French (dataset version 3)
+
+The answers already follow the language of the question (rule 6 of the
+prompt), not the language of the interface. What French lacked was outside
+the prompt:
+
+- the language of a question is told from its small words, now for
+  Portuguese, English and French (accents removed; words two languages
+  share, like "de" or "que", count for neither); the no-answer message has
+  a French version;
+- French small words are left out of the search by words, like the
+  Portuguese and English ones;
+- 10 French questions (6 about Portuguese documents, 4 about English ones),
+  and a new count in the report: answers not written in the language of the
+  question ("other language").
+
+No prompt change: v3 stays the default. Rule, fixed before measuring, on the
+large library with seed 0: French at least 8 of 10 correct and 0 wrong;
+"other language" at most 2 of all 64 answered questions, each one read by
+hand (the small-word test can misjudge a short answer that quotes a
+Portuguese phrase); the other 54 questions at least 52 correct (53 before,
+one of margin for the model), 0 wrong; leaks 0.
+
+### AJ-3 measured (20 November 2026, seed 0, prompt v3)
+
+Small library (the library of every earlier measurement): 62 of 64 correct,
+0 wrong, 2 no-answers (the usual forklift question, one French question),
+0 leaks, French 9 of 10. But 32 answers were not in the language of the
+question: reading them, gemma3:4b answers in Portuguese almost always,
+English documents included ("Tens 80 percent of dental treatment
+coverage"). Rule 6 of v3 asks for the language of the question; the small
+model does not follow a general rule placed far from the question. (The
+large library, measured first by mistake, gave 51 correct and 3 wrong: its
+400 distractors bring the wrong passage for Portuguese questions on English
+documents, as measured in AJ-2a; it is not comparable with the reference.)
+
+## AJ-4: prompt v4, the language decided by the code
+
+- The service decides the language of the answer: from the small words of
+  the question, or, when it has none ("minimum password length",
+  "EXP-22"), from the language of the interface, which the web app sends
+  (`interface_language`); then Portuguese.
+- Prompt v4 ends the request with "Answer in: <language>" and its rule 6
+  says to write the whole answer in it, translating the sources. The
+  "tu"/"vous" form goes with the language name.
+- The response says which language the answer is in (`language`), so the
+  page can mark it for screen readers.
+- The evaluation asks each question as if from an interface in the
+  question's language.
+
+Rule, fixed before measuring v4 on the small library with seed 0: "other
+language" at most 2 of 64, each read by hand; at least 61 of 64 correct
+(v3: 62, one of margin); 0 wrong; at most 1 refused by the checks; 0
+NAO_SEI mixed; 0 leaks. If it passes, v4 becomes the default in a separate
+change.
+
+### AJ-4 measured (20 November 2026, small library, seed 0)
+
+| | v3 | v4 |
+|---|---|---|
+| correct (of 64) | 62 | 61 |
+| wrong | 0 | 0 |
+| no-answer | 2 | 1 |
+| refused by the checks | 0 | 2 |
+| other language | 32 | 0 |
+| average per answer | 19.0 s | 13.9 s |
+
+v4 fixes the language and fails one condition: two refused answers, both
+the hotel limit (Portuguese and French): the model wrote 120, the right
+number, but cited a source without it, so the answer was not shown. v3
+stays the default. Read by hand, the translations also lose qualifiers
+("25 days of paid vacation" for 25 dias uteis, "jours de conges payes"
+without "ouvres") and leave terms untranslated ("the director financeiro").
+
+## AJ-4b: prompt v5, and the refused drafts in the report
+
+- v5 is v4 plus: cite the source where each number is written; translate
+  job titles and common terms; keep every qualifier of a number ("dias
+  uteis" are working days, not days or paid days).
+- When the checks refuse an answer, the model's text is kept in the
+  evaluation report ("refused draft"), to see which source it cited. It is
+  never sent to the person and never logged.
+
+Rule, fixed before measuring v4 and v5 together (small library, seed 0):
+the AJ-4 rule (other language at most 2; at least 61 of 64 correct; 0
+wrong; at most 1 refused; 0 NAO_SEI mixed; 0 leaks), plus: the English and
+French vacation questions say "working days" or "jours ouvres". The best
+version that passes becomes the default in a separate change; if none
+does, v3 stays.

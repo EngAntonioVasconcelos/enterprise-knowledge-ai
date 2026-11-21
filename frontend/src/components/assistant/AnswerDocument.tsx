@@ -31,7 +31,7 @@ export function AnswerDocument({ answer }: { answer: Answer }) {
           </div>
         ) : (
           <>
-            <div className="mt-6 space-y-5 font-reading text-answer text-ink">
+            <div lang={answer.language} className="mt-6 space-y-5 font-reading text-answer text-ink">
               {paragraphs(answer.answer).map((paragraph, index) => (
                 <p key={index}>
                   {splitAnswer(paragraph).map((piece, pieceIndex) =>

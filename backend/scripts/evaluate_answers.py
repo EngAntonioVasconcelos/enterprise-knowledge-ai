@@ -110,6 +110,8 @@ def main() -> int:
             print(f"\n  [{sample['outcome']}] {sample['query']}\n  -> {sample['answer']}")
             for issue in sample["issues"]:
                 print(f"     check: {issue}")
+            if sample.get("draft"):
+                print(f"     refused draft: {sample['draft']}")
 
     out = Path("var/eval")
     out.mkdir(parents=True, exist_ok=True)

@@ -27,13 +27,13 @@ describe("POST /api/answers", () => {
     const backend = vi.fn().mockResolvedValue(new Response(JSON.stringify({ answer: "ok" }), { status: 200 }));
     vi.stubGlobal("fetch", backend);
 
-    const response = await call({ organizationId: ORG, question: "  Quantos dias?  " });
+    const response = await call({ organizationId: ORG, question: "  Quantos dias?  ", language: "fr" });
 
     expect(response.status).toBe(200);
     const [url, init] = backend.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`http://backend.test:8000/api/v1/organizations/${ORG}/answers/`);
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer secret-token");
-    expect(init.body).toBe(JSON.stringify({ question: "Quantos dias?" }));
+    expect(init.body).toBe(JSON.stringify({ question: "Quantos dias?", interface_language: "fr" }));
   });
 
   it("refuses bad input before calling the backend", async () => {

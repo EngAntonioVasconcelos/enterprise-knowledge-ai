@@ -19,7 +19,9 @@ Per question group:
   invents;
 - leaks: confidential documents among the sources or citations (must be 0);
 - NAO_SEI mixed into answers: the model wrote the no-answer marker next to
-  an answer (it is removed before showing; fewer is better).
+  an answer (it is removed before showing; fewer is better);
+- other language: answers (correct or wrong) not written in the language
+  of the question, by the same small-word test the service uses.
 Plus the average and 95th percentile time per answer.
 
 There is no language model judging the answers: the checks are plain and
@@ -29,7 +31,7 @@ repeatable. They do not judge style or completeness; read a sample.
 import time
 from collections import defaultdict
 
-from app.services.answer_service import answer_question, numbers_in
+from app.services.answer_service import answer_question, numbers_in, question_language
 from tests.integration.retrieval_harness import _as_runtime, _passages, _plain
 
 
@@ -47,6 +49,8 @@ def evaluate_answers(
             organization_id=world.organization,
             question=question["query"],
             prompt_version=prompt_version,
+            # As if asked in an interface in the language of the question.
+            interface_language=question["lang"],
         )
         mixed += result.mixed_abstain
         times.append(time.perf_counter() - started)
@@ -69,6 +73,9 @@ def evaluate_answers(
             )
             numbers_ok = numbers_in(question["expect_phrase"]) <= numbers_in(result.answer)
             outcome = "correct" if from_passage and numbers_ok else "wrong"
+            if question_language(result.answer) != question["lang"]:
+                for group in (question["category"], "all"):
+                    groups[group]["other language"] += 1
         for group in {question["category"], "all" if question["category"] != "permission" else "permission"}:
             groups[group][outcome] += 1
             groups[group]["n"] += 1
@@ -80,6 +87,7 @@ def evaluate_answers(
                     "outcome": outcome,
                     "answer": result.answer,
                     "issues": result.issues,
+                    "draft": result.draft,
                 }
             )
     # To read: the answers that were not correct first, then a few correct.
@@ -98,13 +106,13 @@ def evaluate_answers(
 
 
 def format_answer_report(result: dict) -> str:
-    columns = ("correct", "wrong", "abstained", "unverified", "answered")
+    columns = ("correct", "wrong", "abstained", "unverified", "answered", "other language")
     lines = ["Answers per question group (counts); leaks must be 0", ""]
-    header = f"{'group':<12}{'n':>5}" + "".join(f"{c:>12}" for c in columns)
+    header = f"{'group':<12}{'n':>5}" + "".join(f"{c:>15}" for c in columns)
     lines += [header, "-" * len(header)]
     for group, counts in result["groups"].items():
         lines.append(
-            f"{group:<12}{counts['n']:>5}" + "".join(f"{counts.get(c, 0):>12}" for c in columns)
+            f"{group:<12}{counts['n']:>5}" + "".join(f"{counts.get(c, 0):>15}" for c in columns)
         )
     lines.append("-" * len(header))
     lines.append(

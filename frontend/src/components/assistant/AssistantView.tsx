@@ -18,13 +18,14 @@ export async function requestAnswer(
   organizationId: string,
   question: string,
   signal?: AbortSignal,
+  language?: string,
 ): Promise<{ answer: Answer } | { error: AnswerErrorKind }> {
   let response: Response;
   try {
     response = await fetch("/api/answers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId, question }),
+      body: JSON.stringify({ organizationId, question, language }),
       signal,
     });
   } catch {
@@ -43,7 +44,8 @@ export function AssistantView({
   organizationId: string;
   organizationName: string;
 }) {
-  const t = useI18n().t.assistant;
+  const { locale, t: all } = useI18n();
+  const t = all.assistant;
   const [state, setState] = useState<State>({ status: "idle" });
   const controller = useRef<AbortController | null>(null);
 
@@ -54,7 +56,8 @@ export function AssistantView({
     const current = new AbortController();
     controller.current = current;
     setState({ status: "asking", question, startedAt: Date.now() });
-    const result = await requestAnswer(organizationId, question, current.signal);
+    // The interface language helps only when the question does not show its own.
+    const result = await requestAnswer(organizationId, question, current.signal, locale.slice(0, 2));
     if (current.signal.aborted) return;
     setState(
       "answer" in result
