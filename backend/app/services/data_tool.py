@@ -78,13 +78,16 @@ def render_catalog(connections: list[DataConnectionInfo]) -> str:
     for number, connection in enumerate(connections, start=1):
         lines = [f'<database id="{number}" name="{_clean(connection.name)[:100]}">']
         for table in (connection.catalog or {}).get("tables", []):
-            columns = ", ".join(
-                f"{_clean(column.get('name'))} {_clean(column.get('type'))}"
-                for column in table.get("columns", [])[:MAX_TABLE_COLUMNS]
-            )
+            # One line per column, with its comment: comments often say the
+            # values a column holds ("paga, pendente or anulada"), which a
+            # model cannot guess (AL-4g).
             comment = _clean(table.get("comment"))[:150]
-            line = f"{_clean(table.get('schema'))}.{_clean(table.get('name'))}({columns})"
-            lines.append(line + (f" -- {comment}" if comment else ""))
+            name = f"{_clean(table.get('schema'))}.{_clean(table.get('name'))}"
+            lines.append(name + (f" -- {comment}" if comment else ""))
+            for column in table.get("columns", [])[:MAX_TABLE_COLUMNS]:
+                note = _clean(column.get("comment"))[:150]
+                line = f"  {_clean(column.get('name'))} {_clean(column.get('type'))}"
+                lines.append(line + (f" -- {note}" if note else ""))
         lines.append("</database>")
         block = "\n".join(lines)
         if parts and used + len(block) > MAX_CATALOG_CHARS:
