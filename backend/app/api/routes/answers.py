@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.models.membership import OrganizationMembership
 from app.schemas.answer import AnswerRequest, AnswerResponse, AnswerSourceResponse
 from app.services.answer_service import answer_question
+from app.services.dashboard_service import record_event
 from app.services.history_service import record_answer
 
 
@@ -66,7 +67,30 @@ def answer(
         timings_ms=result.timings_ms,
     )
     _keep_in_history(db, member, response)
+    _count_for_dashboard(db, member, response)
     return response
+
+
+def _count_for_dashboard(
+    db: Session, member: OrganizationMembership, response: AnswerResponse
+) -> None:
+    """Counts the answer for the dashboard: no person, no text. A failure
+    here never costs the person their answer."""
+    try:
+        record_event(
+            db,
+            organization_id=member.organization_id,
+            abstained=response.abstained,
+            verified=response.verified,
+            language=response.language,
+            cited_document_ids=[
+                source.document_id for source in response.sources if source.cited
+            ],
+        )
+        db.commit()
+    except SQLAlchemyError as error:
+        db.rollback()
+        logger.warning("answer not counted: %s", type(error).__name__)
 
 
 def _keep_in_history(

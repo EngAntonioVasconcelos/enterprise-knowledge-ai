@@ -138,3 +138,15 @@ export type DocumentItem = {
   last_synced_at: string | null;
   updated_at: string;
 };
+
+export type DashboardData = {
+  days: { date: string; questions: number; unanswered: number }[];
+  questions: number;
+  /** Answered with "no safe answer": where the documents fall short. */
+  unanswered: number;
+  languages: Record<string, number>;
+  /** Only documents the viewer can open. */
+  top_documents: { document_id: string; title: string; citations: number }[];
+  documents: Record<string, number>;
+  members: number;
+};

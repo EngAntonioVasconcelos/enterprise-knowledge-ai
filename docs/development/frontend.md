@@ -117,6 +117,10 @@ behind it. The design follows from that.
   again" asks it at once. Owners and admins have Settings: the
   organization's name and how long questions are kept (0, 30, 90 or 365
   days). See question-history.md.
+- **Dashboard (AK-7).** Owners and admins see the last 30 days in
+  numbers: questions per day (answered and "no safe answer"), the most
+  cited documents they can open, languages, documents and members. Never
+  who asked or what. See dashboard.md.
 - **Quality floor.** Keyboard first (Enter asks, Shift+Enter breaks a
   line, visible focus), screen-reader labels and live regions, works down
   to a phone, and the only self-running motion stops for people who ask

@@ -19,10 +19,11 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.services.dashboard_service import purge_old_events
 from app.services.history_service import purge_expired
 from app.services.worker import WORKER_ROLE, run_once
 
-# Old questions are deleted once an hour (and at start).
+# Old questions and dashboard counts are deleted once an hour (and at start).
 PURGE_EVERY_SECONDS = 3600
 
 
@@ -30,6 +31,8 @@ def purge_questions(engine) -> int:
     with Session(engine) as db:
         db.execute(text(f"SET LOCAL ROLE {WORKER_ROLE}"))
         removed = purge_expired(db)
+        # Dashboard counts older than a year go too.
+        purge_old_events(db)
         db.commit()
     return removed
 

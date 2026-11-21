@@ -27,6 +27,7 @@ export function AppNav({
     { href: "/historico", label: t.nav.history },
     ...(current && managed.includes(current)
       ? [
+          { href: "/painel", label: t.nav.dashboard },
           { href: "/pessoas", label: t.nav.people },
           { href: "/definicoes", label: t.nav.settings },
         ]

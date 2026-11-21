@@ -9,6 +9,7 @@ from starlette.responses import JSONResponse
 from app.api.routes.answers import router as answers_router
 from app.api.routes.audit import router as audit_router
 from app.api.routes.connections import router as connections_router
+from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.directory import router as directory_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.google_oauth import router as google_oauth_router
@@ -58,6 +59,7 @@ app.include_router(google_oauth_router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")
 app.include_router(answers_router, prefix="/api/v1")
 app.include_router(history_router, prefix="/api/v1")
+app.include_router(dashboard_router, prefix="/api/v1")
 
 app.add_exception_handler(DBAPIError, database_error_handler)
 app.add_exception_handler(DomainError, domain_error_handler)
