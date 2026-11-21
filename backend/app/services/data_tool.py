@@ -32,7 +32,17 @@ MAX_DATA_CHARS = 6000
 
 
 class DataToolError(RuntimeError):
-    """The query was refused, failed or the gateway is unreachable."""
+    """The query was refused, failed or the gateway is unreachable.
+
+    For a query the database refused, message is its error (customer
+    text: given to the model to repair the query, never logged) and
+    sqlstate its code (a category, safe to log).
+    """
+
+    def __init__(self, message: str, *, sqlstate: str | None = None, database_message: str | None = None):
+        super().__init__(message)
+        self.sqlstate = sqlstate
+        self.database_message = database_message
 
 
 @dataclass(frozen=True)
@@ -124,10 +134,16 @@ class GatewayDataTool:
             raise DataToolError(f"data gateway unreachable: {type(exc).__name__}") from None
         if response.status_code != 200:
             try:
-                detail = str(response.json().get("detail", ""))[:300]
+                detail = response.json().get("detail", "")
             except ValueError:
                 detail = ""
-            raise DataToolError(f"data gateway {response.status_code}: {detail}")
+            if isinstance(detail, dict):
+                raise DataToolError(
+                    f"data gateway {response.status_code}",
+                    sqlstate=detail.get("sqlstate"),
+                    database_message=str(detail.get("message", ""))[:300],
+                )
+            raise DataToolError(f"data gateway {response.status_code}: {str(detail)[:300]}")
         return response.json()
 
     def connections(self) -> list[DataConnectionInfo]:

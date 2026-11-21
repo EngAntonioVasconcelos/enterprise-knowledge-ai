@@ -157,7 +157,9 @@ def query(body: QueryRequest, db: Session = Depends(get_session)):
     except postgresql.DatabaseQueryError as exc:
         # The customer database refused or failed the query: the agent
         # gives no answer. The query itself is never logged.
-        raise HTTPException(422, str(exc)[:300]) from None
+        raise HTTPException(
+            422, {"message": str(exc)[:300], "sqlstate": getattr(exc, "sqlstate", None)}
+        ) from None
     except (ConnectorError, DomainError) as exc:
         logger.warning("data query on %s failed: %s", connection.id, type(exc).__name__)
         raise HTTPException(502, "The database could not be reached") from None

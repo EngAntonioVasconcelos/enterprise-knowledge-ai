@@ -672,3 +672,58 @@ def test_the_route_shows_the_data_only_with_an_answer(client, world, monkeypatch
     ).json()
     assert body["data"]["connection_name"] == "Vendas" and body["data"]["rows"] == [["35.75"]]
     assert body["data"]["sql"].startswith("SELECT") and body["sources"] == []
+
+
+class RepairingData(FakeData):
+    """Refuses the first query as the database would, then answers."""
+
+    def __init__(self, sqlstate="42703"):
+        super().__init__()
+        self.sqlstate = sqlstate
+
+    def query(self, connection_id, sql):
+        self.queries.append((connection_id, sql))
+        if len(self.queries) == 1:
+            raise DataToolError(
+                "data gateway 422",
+                sqlstate=self.sqlstate,
+                database_message='The query failed: column "valor" does not exist',
+            )
+        return self.result
+
+
+class FixingModel(DataModel):
+    def complete(self, system, user, *, max_tokens):
+        if "<error>" in user:
+            self.calls.append(("fix", user))
+            return Completion("DATABASE: 1\nSQL: SELECT sum(amount) AS total FROM sales.invoices", "fake-1")
+        return super().complete(system, user, max_tokens=max_tokens)
+
+
+def test_a_query_the_database_refuses_gets_one_repair(world, caplog):
+    caplog.set_level("INFO", logger="eka.answers")
+    data, model = RepairingData(), FixingModel()
+    result = _ask_data(data, model, world)
+    assert not result.abstained and result.data.sql.endswith("FROM sales.invoices")
+    assert [kind for kind, _ in model.calls] == ["query", "fix", "data", "relevance"]
+    fix_prompt = dict(model.calls)["fix"]
+    assert '<error>The query failed: column "valor" does not exist</error>' in fix_prompt
+    assert (result.steps, result.tool_calls) == (4, 2) and result.data_outcome == "answered+repaired"
+    # The log says how it went, never the query, the error text or the rows.
+    assert "data=answered+repaired" in caplog.text
+    assert "valor" not in caplog.text and "SELECT" not in caplog.text and "35" not in caplog.text
+
+
+def test_a_timeout_is_not_repaired(world):
+    model = FixingModel()
+    result = _ask_data(RepairingData(sqlstate="57014"), model, world, question="quantos dias de ferias tenho?")
+    assert "fix" not in [kind for kind, _ in model.calls]
+    assert result.data is None and result.data_outcome == "failed:57014"
+
+
+def test_the_query_prompt_knows_today(world):
+    model = DataModel()
+    _ask_data(FakeData(), model, world)
+    today = __import__("datetime").date.today().isoformat()
+    assert f"Today is {today}." in dict(model.calls)["query"]
+    assert "{{" not in answer_service.load_prompt(*answer_service.DATA_QUERY_PROMPT).system

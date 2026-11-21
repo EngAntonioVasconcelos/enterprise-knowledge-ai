@@ -55,7 +55,15 @@ class DatabaseConnectorError(ConnectorError):
 
 
 class DatabaseQueryError(InvalidInputError):
-    """The question's query was refused or failed."""
+    """The question's query was refused or failed.
+
+    sqlstate is PostgreSQL's error code (42703: undefined column, 42601:
+    syntax error...), a category that holds no data, so it can be logged.
+    """
+
+    def __init__(self, message: str, sqlstate: str | None = None):
+        super().__init__(message)
+        self.sqlstate = sqlstate
 
 
 class UnsafeHostError(InvalidInputError):
@@ -236,11 +244,14 @@ def run_read_only_query(
                 columns = tuple(column.name for column in cursor.description)
             except psycopg.errors.QueryCanceled:
                 raise DatabaseQueryError(
-                    f"The query took longer than {statement_timeout_ms / 1000:g} seconds"
+                    f"The query took longer than {statement_timeout_ms / 1000:g} seconds",
+                    sqlstate="57014",
                 ) from None
             except psycopg.Error as exc:
                 first_line = str(exc).strip().splitlines()[0] if str(exc).strip() else ""
-                raise DatabaseQueryError(f"The query failed: {first_line[:300]}") from None
+                raise DatabaseQueryError(
+                    f"The query failed: {first_line[:300]}", sqlstate=exc.sqlstate
+                ) from None
     finally:
         connection.rollback()
         connection.close()
