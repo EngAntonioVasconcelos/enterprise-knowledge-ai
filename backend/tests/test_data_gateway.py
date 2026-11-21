@@ -164,3 +164,42 @@ def test_an_unreachable_gateway_leaves_the_documents(monkeypatch):
     assert tool.connections() == []
     with pytest.raises(data_tool.DataToolError):
         tool.query(uuid.uuid4(), "SELECT 1")
+
+
+def test_a_refused_query_says_its_category(gateway, monkeypatch):
+    client, connections = gateway
+    monkeypatch.setattr(data_gateway, "load_credentials", lambda db, **kw: {"username": "u", "password": "p"})
+
+    def refuse(*args, **kwargs):
+        raise postgresql.DatabaseQueryError("The query failed: column x does not exist", sqlstate="42703")
+
+    monkeypatch.setattr(postgresql, "run_read_only_query", refuse)
+    response = client.post(
+        "/v1/query",
+        json={
+            "organization_id": str(ORG),
+            "role": "member",
+            "connection_id": str(connections[0].id),
+            "sql": "SELECT x FROM t",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == {
+        "message": "The query failed: column x does not exist",
+        "sqlstate": "42703",
+    }
+
+
+def test_the_api_side_reads_the_category(monkeypatch):
+    import httpx
+
+    def handler(request):
+        return httpx.Response(422, json={"detail": {"message": "bad date", "sqlstate": "22007"}})
+
+    monkeypatch.setattr(settings, "DATA_GATEWAY_URL", "http://data-gateway:8100")
+    monkeypatch.setattr(settings, "DATA_GATEWAY_TOKEN", "t")
+    tool = data_tool.data_tool_for(organization_id=ORG, role="member")
+    tool._client = httpx.Client(base_url="http://data-gateway:8100", transport=httpx.MockTransport(handler))
+    with pytest.raises(data_tool.DataToolError) as error:
+        tool.query(uuid.uuid4(), "SELECT 1")
+    assert (error.value.sqlstate, error.value.database_message) == ("22007", "bad date")

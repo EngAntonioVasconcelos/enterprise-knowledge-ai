@@ -18,6 +18,7 @@ Nothing is stored here: the question and the answer are not logged, only
 their measurements (prompt id, model, sources, times, verified).
 """
 
+import datetime as dt
 import logging
 import re
 import time
@@ -48,7 +49,11 @@ logger = logging.getLogger("eka.answers")
 
 PROMPT_NAME = "answer"
 RELEVANCE_PROMPT = ("relevance", "v1")
-DATA_QUERY_PROMPT = ("data_query", "v1")
+DATA_QUERY_PROMPT = ("data_query", "v2")
+DATA_FIX_PROMPT = ("data_fix", "v1")
+# PostgreSQL error classes worth one repair: syntax or access rule (42) and
+# data exceptions such as a bad date (22). Not timeouts or anything else.
+REPAIRABLE_SQLSTATE = ("42", "22")
 DATA_ANSWER_PROMPT = ("data_answer", "v1")
 DATA_CITATION = re.compile(r"\[D1\]")
 # Writing a query, answering from its rows, and the relevance check.
@@ -134,6 +139,9 @@ class AnswerResult:
     # The database answer (AL-4): which connection, the query and the rows
     # read. Shown to the person; never logged or kept.
     data: "DataAnswer | None" = None
+    # How the data tool went, for the log only: skipped, none, failed:<sqlstate>,
+    # empty, refused or answered (with +repaired after a repair).
+    data_outcome: str | None = None
 
 
 @dataclass
@@ -359,6 +367,7 @@ def answer_question(
         timings[key] = round(timings.get(key, 0.0) + 1000 * (time.perf_counter() - started), 1)
 
     def finish(result: AnswerResult) -> AnswerResult:
+        result.data_outcome = data_outcome["value"] if data_tool is not None else None
         result.steps = spent["steps"]
         result.tool_calls = spent["tool_calls"]
         result.timings_ms = timings
@@ -409,8 +418,15 @@ def answer_question(
                 tool, spent["tool_calls"], results, 1000 * (time.perf_counter() - started), **extra
             )
 
+    data_outcome = {"value": None}
+
     def from_data() -> AnswerResult | None:
-        """One attempt with the data tool; None to go on to the documents."""
+        """One attempt with the data tool; None to go on to the documents.
+
+        A query the database refuses for its SQL (an unknown column, a bad
+        date) gets one repair: the model sees its query and the database's
+        error, as data, and writes another, when the budget allows.
+        """
         nonlocal last
         steps_needed = DATA_STEPS if check else DATA_STEPS - 1
         if data_tool is None or spent["steps"] + steps_needed > limits.max_steps:
@@ -421,27 +437,57 @@ def answer_question(
         if not connections:
             return None
         asked = with_context(question, previous)
+        catalog = render_catalog(connections)
+        today = dt.date.today().isoformat()
         reply = complete(
             load_prompt(*DATA_QUERY_PROMPT),
             MAX_OUTPUT_TOKENS,
-            catalog=render_catalog(connections),
+            catalog=catalog,
             question=_untagged(asked),
+            today=today,
         )
         choice = parse_data_query(reply.text, len(connections))
         if choice is None:
+            data_outcome["value"] = "none"
             return None
-        connection = connections[choice[0] - 1]
-        started = time.perf_counter()
-        try:
-            rows = data_tool.query(connection.connection_id, choice[1])
-        except DataToolError as exc:
-            logger.info("data query refused or failed: %s", type(exc).__name__)
-            record(DATA_TOOL, 0, started, connection_id=connection.connection_id)
-            return None
+        repaired = False
+        while True:
+            connection = connections[choice[0] - 1]
+            started = time.perf_counter()
+            try:
+                rows = data_tool.query(connection.connection_id, choice[1])
+                break
+            except DataToolError as exc:
+                record(DATA_TOOL, 0, started, connection_id=connection.connection_id)
+                data_outcome["value"] = f"failed:{exc.sqlstate or 'gateway'}"
+                can_repair = (
+                    not repaired
+                    and (exc.sqlstate or "")[:2] in REPAIRABLE_SQLSTATE
+                    and spent["steps"] + steps_needed <= limits.max_steps
+                    and spent["tool_calls"] < limits.max_tool_calls
+                )
+                if not can_repair:
+                    return None
+                repaired = True
+                reply = complete(
+                    load_prompt(*DATA_FIX_PROMPT),
+                    MAX_OUTPUT_TOKENS,
+                    catalog=catalog,
+                    question=_untagged(asked),
+                    today=today,
+                    query=_untagged(choice[1]),
+                    error=_untagged(exc.database_message or ""),
+                )
+                choice = parse_data_query(reply.text, len(connections))
+                if choice is None:
+                    return None
         add_time("data", started)
         record(DATA_TOOL, len(rows.rows), started, connection_id=connection.connection_id)
+        suffix = "+repaired" if repaired else ""
         if not rows.rows:
+            data_outcome["value"] = "empty" + suffix
             return None
+        data_outcome["value"] = "refused" + suffix
         data = DataAnswer(connection.connection_id, connection.name, choice[1], rows)
 
         completion = complete(
@@ -486,6 +532,7 @@ def answer_question(
             data=data,
         )
         result.mixed_abstain = mixed
+        data_outcome["value"] = "answered" + suffix
         return result
 
     answered = from_data()
@@ -643,7 +690,7 @@ def _log(result: AnswerResult) -> None:
     # Measurements only: never the question, the passages or the answer.
     logger.info(
         "answer prompt=%s model=%s sources=%d cited=%s abstained=%s verified=%s "
-        "relevant=%s steps=%d tools=%d ms=%s",
+        "relevant=%s steps=%d tools=%d data=%s issues=%d ms=%s",
         result.prompt_id,
         result.model,
         len(result.sources),
@@ -653,5 +700,7 @@ def _log(result: AnswerResult) -> None:
         result.relevant,
         result.steps,
         result.tool_calls,
+        result.data_outcome,
+        len(result.issues),
         result.timings_ms,
     )

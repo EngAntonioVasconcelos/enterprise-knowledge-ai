@@ -1,5 +1,7 @@
 
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -27,6 +29,17 @@ from app.api.routes.users import router as users_router
 from app.db.session import engine
 
 from app.core.config import settings
+
+
+# The application's own measurements (loggers eka.*) at INFO: they never
+# hold a question, a passage, a query or a row, only counts, times, ids and
+# error categories. The server shows only warnings without this.
+_measurements = logging.getLogger("eka")
+if not _measurements.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    _measurements.addHandler(_handler)
+    _measurements.setLevel(logging.INFO)
 
 
 app = FastAPI(

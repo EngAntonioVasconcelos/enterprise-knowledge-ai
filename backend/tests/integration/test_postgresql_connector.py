@@ -156,3 +156,13 @@ def test_wrong_credentials_are_a_connection_error(demo):
     with pytest.raises(postgresql.DatabaseConnectorError) as error:
         postgresql.introspect(wrong)
     assert "wrong" not in str(error.value)
+
+
+def test_a_refused_query_carries_its_category(demo):
+    schema, target = demo
+    with pytest.raises(postgresql.DatabaseQueryError) as error:
+        postgresql.run_read_only_query(target, f"SELECT valor FROM {schema}.orders")
+    assert error.value.sqlstate == "42703"
+    with pytest.raises(postgresql.DatabaseQueryError) as error:
+        postgresql.run_read_only_query(target, f"SELECT * FROM {schema}.orders WHERE id = 'x'")
+    assert error.value.sqlstate == "22P02"
