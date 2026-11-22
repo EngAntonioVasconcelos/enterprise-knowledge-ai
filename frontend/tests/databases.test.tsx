@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("server-only", () => ({}));
@@ -149,7 +149,9 @@ describe("DatabasesPanel", () => {
     vi.useFakeTimers();
     render(<DatabasesPanel organizationId={ORG} databases={[{ ...SALES, catalog: null, catalogUpdatedAt: null }]} />);
     expect(screen.getByText("A ler as tabelas\u2026")).toBeInTheDocument();
-    vi.advanceTimersByTime(4000);
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     expect(refresh).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });

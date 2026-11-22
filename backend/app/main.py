@@ -18,6 +18,7 @@ from app.api.routes.google_oauth import router as google_oauth_router
 from app.api.routes.history import router as history_router
 from app.api.routes.search import router as search_router
 from app.api.routes.uploads import router as uploads_router
+from app.api.routes.uploads import sources_router as upload_source_router
 from app.core.database_errors import database_error_handler
 from app.core.errors import DomainError, domain_error_handler
 from app.api.routes.invitations import (
@@ -68,6 +69,7 @@ app.include_router(audit_router, prefix="/api/v1")
 app.include_router(connections_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(uploads_router, prefix="/api/v1")
+app.include_router(upload_source_router, prefix="/api/v1")
 app.include_router(google_oauth_router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")
 app.include_router(answers_router, prefix="/api/v1")

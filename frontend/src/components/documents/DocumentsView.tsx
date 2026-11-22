@@ -7,7 +7,14 @@ import { type DragEvent, useEffect, useRef, useState } from "react";
 import { SourcesPanel } from "@/components/documents/SourcesPanel";
 import { useI18n } from "@/i18n/client";
 import type { Connection, DocumentItem, Upload } from "@/lib/api-types";
-import { ACCEPTED_EXTENSIONS, checkFile, documentKind, type UploadErrorKind } from "@/lib/uploads";
+import {
+  ACCEPTED_EXTENSIONS,
+  checkFile,
+  documentKind,
+  type UploadErrorKind,
+  VISIBILITIES,
+  type Visibility,
+} from "@/lib/uploads";
 
 const REFRESH_MS = 4000;
 
@@ -15,6 +22,8 @@ type Props = {
   organizationId: string;
   documents: DocumentItem[];
   canManage: boolean;
+  /** Owners, admins and members send files; viewers only read. */
+  canUpload?: boolean;
   waiting: Upload[];
   lastError: string | null;
   drive?: Connection | null;
@@ -34,10 +43,12 @@ export async function sendFile(
   organizationId: string,
   sourceName: string,
   file: File,
+  visibility: Visibility,
 ): Promise<UploadErrorKind | null> {
   const body = new FormData();
   body.set("organizationId", organizationId);
   body.set("sourceName", sourceName);
+  body.set("visibility", visibility);
   body.set("file", file);
   try {
     const response = await fetch("/api/uploads", { method: "POST", body });
@@ -53,6 +64,7 @@ export function DocumentsView({
   organizationId,
   documents,
   canManage,
+  canUpload = canManage,
   waiting,
   lastError,
   drive = null,
@@ -66,6 +78,8 @@ export function DocumentsView({
   const [sending, setSending] = useState<string | null>(null);
   const [failures, setFailures] = useState<string[]>([]);
   const [sent, setSent] = useState(0);
+  // Members share with the whole organization only when they choose to.
+  const [visibility, setVisibility] = useState<Visibility>(canManage ? "organization" : "private");
 
   const rows: Row[] = [
     ...waiting.map((upload) => ({
@@ -107,7 +121,7 @@ export function DocumentsView({
         continue;
       }
       setSending(file.name);
-      const error = await sendFile(organizationId, t.sourceName, file);
+      const error = await sendFile(organizationId, t.sourceName, file, visibility);
       if (error) problems.push(t.failedFile(file.name, t.errors[error]));
       else done += 1;
     }
@@ -141,7 +155,37 @@ export function DocumentsView({
         </p>
       ) : null}
 
-      {canManage ? (
+      {canUpload ? (
+        <fieldset className="mt-8">
+          <legend className="font-medium text-ink">{t.visibilityLabel}</legend>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {VISIBILITIES.map((option) => (
+              <label
+                key={option}
+                className={
+                  "flex cursor-pointer items-start gap-2.5 rounded-control border px-3.5 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-cobalt " +
+                  (visibility === option ? "border-cobalt bg-cobalt-wash" : "border-line-strong bg-surface hover:border-ink-soft")
+                }
+              >
+                <input
+                  type="radio"
+                  name="visibility"
+                  value={option}
+                  checked={visibility === option}
+                  onChange={() => setVisibility(option)}
+                  className="mt-1 accent-[var(--color-cobalt)]"
+                />
+                <span>
+                  <span className="block text-body text-ink">{t.visibility[option]}</span>
+                  <span className="block text-meta text-ink-soft text-pretty">{t.visibilityHint[option]}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {canUpload ? (
         <section
           aria-label={t.drop}
           onDragOver={(event) => {
@@ -151,7 +195,7 @@ export function DocumentsView({
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           className={
-            "mt-8 flex flex-col items-start gap-4 rounded-panel border px-6 py-6 transition-colors sm:flex-row sm:items-center " +
+            "mt-4 flex flex-col items-start gap-4 rounded-panel border px-6 py-6 transition-colors sm:flex-row sm:items-center " +
             (dragging ? "border-cobalt bg-cobalt-wash" : "border-line-strong bg-surface")
           }
         >
@@ -237,7 +281,7 @@ export function DocumentsView({
       ) : (
         <section className="mt-12 max-w-[36rem]">
           <h2 className="text-lead font-semibold">{t.emptyTitle}</h2>
-          <p className="mt-2 text-ink-soft text-pretty">{canManage ? t.emptyBody : t.emptyReadOnly}</p>
+          <p className="mt-2 text-ink-soft text-pretty">{canUpload ? t.emptyBody : t.emptyReadOnly}</p>
         </section>
       )}
     </div>

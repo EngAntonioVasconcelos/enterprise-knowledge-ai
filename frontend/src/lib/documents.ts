@@ -6,8 +6,10 @@ import { DRIVE_PROVIDER, UPLOAD_PROVIDER } from "@/lib/uploads";
 
 export type DocumentsData = {
   documents: DocumentItem[];
-  /** Owners and admins add and manage documents; others read the list. */
+  /** Owners and admins manage sources; members also send files. */
   canManage: boolean;
+  /** Owners, admins and members send files; viewers only read. */
+  canUpload: boolean;
   /** Files sent but not yet read by the worker. */
   waiting: Upload[];
   lastError: string | null;
@@ -36,23 +38,34 @@ export async function loadDocuments(organizationId: string): Promise<DocumentsDa
   );
 
   if (!connectionsResponse.ok) {
-    return { documents, canManage: false, waiting: [], lastError: null, drive: null };
+    // Not a manager. A member may still send files: their own waiting
+    // uploads come from the upload source, if there is one yet.
+    const own = await backendFetch(`/organizations/${organizationId}/upload-source`);
+    const canUpload = own.ok || own.status === 404;
+    const base = { documents, canManage: false, canUpload, waiting: [], lastError: null, drive: null };
+    if (!own.ok) return base;
+    return { ...base, ...(await waitingUploads(organizationId, (await own.json()) as Connection)) };
   }
   const connections = (await connectionsResponse.json()) as Connection[];
   const drive = driveSource(connections) ?? null;
   const source = uploadSource(connections);
-  if (!source) return { documents, canManage: true, waiting: [], lastError: null, drive };
+  const manager = { documents, canManage: true, canUpload: true, waiting: [], lastError: null, drive };
+  if (!source) return manager;
+  return { ...manager, ...(await waitingUploads(organizationId, source)) };
+}
 
+/** The caller's own files not yet read, and the source's last failure. */
+async function waitingUploads(
+  organizationId: string,
+  source: Connection,
+): Promise<Pick<DocumentsData, "waiting" | "lastError">> {
   const uploadsResponse = await backendFetch(
     `/organizations/${organizationId}/connections/${source.id}/uploads/`,
   );
   const uploads = uploadsResponse.ok ? ((await uploadsResponse.json()) as Upload[]) : [];
   const syncedAt = source.last_synced_at ? Date.parse(source.last_synced_at) : 0;
   return {
-    documents,
-    canManage: true,
     waiting: uploads.filter((upload) => Date.parse(upload.created_at) > syncedAt),
     lastError: source.last_error,
-    drive,
   };
 }
