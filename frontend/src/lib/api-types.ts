@@ -130,6 +130,8 @@ export type Connection = {
   last_synced_at: string | null;
   last_error: string | null;
   disconnected_at: string | null;
+  /** Not secret: for a database, where it is (never the login). */
+  settings?: Record<string, unknown>;
 };
 
 export type Upload = {
@@ -175,3 +177,25 @@ export type GapsData = {
   hidden_documents: number;
   min_questions: number;
 };
+
+/** What the worker read from a connected database: names, never rows. */
+export type DatabaseColumn = { name: string; type: string; nullable: boolean; comment: string | null };
+
+export type DatabaseTable = {
+  schema: string;
+  name: string;
+  kind: "table" | "view";
+  rows_estimate: number | null;
+  comment: string | null;
+  columns: DatabaseColumn[];
+};
+
+export type DatabaseCatalog = { schemas: string[]; tables: DatabaseTable[]; truncated: boolean };
+
+export type DatabaseSource = Connection & {
+  catalog: DatabaseCatalog | null;
+  catalogUpdatedAt: string | null;
+};
+
+export const SSL_MODES = ["require", "verify-ca", "verify-full", "disable"] as const;
+export type SslMode = (typeof SSL_MODES)[number];

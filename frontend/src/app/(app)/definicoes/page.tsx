@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { DatabasesPanel } from "@/components/settings/DatabasesPanel";
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { AccessProblem } from "@/components/shell/AccessProblem";
 import { getMessages } from "@/i18n/server";
+import { loadDatabases } from "@/lib/databases";
 import { loadOrganizations } from "@/lib/organizations";
 import { managesPeople } from "@/lib/roles";
 
@@ -22,6 +24,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   // Members and viewers have no settings screen.
   if (!managesPeople(active.role)) redirect(`/assistente?org=${active.id}`);
 
+  const databases = await loadDatabases(active.id);
+
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
       <SettingsForm
@@ -30,6 +34,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         name={active.name}
         retentionDays={active.history_retention_days ?? 90}
       />
+      {databases ? <DatabasesPanel organizationId={active.id} databases={databases} /> : null}
     </div>
   );
 }
