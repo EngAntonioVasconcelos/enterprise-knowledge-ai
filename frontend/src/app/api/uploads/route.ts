@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { Connection } from "@/lib/api-types";
 import { backendFetch, SignedOutError } from "@/lib/backend";
 import { uploadSource } from "@/lib/documents";
-import { checkFile, UPLOAD_PROVIDER, uploadErrorFromStatus } from "@/lib/uploads";
+import { checkFile, UPLOAD_PROVIDER, uploadErrorFromStatus, VISIBILITIES } from "@/lib/uploads";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -24,6 +24,9 @@ export async function POST(request: Request) {
   const organizationId = form.get("organizationId");
   const sourceName = String(form.get("sourceName") ?? "").slice(0, 200) || "Uploaded files";
   const file = form.get("file");
+  // Who reads the file: what the person chose; when unsaid, only them.
+  const chosen = String(form.get("visibility") ?? "");
+  const visibility = (VISIBILITIES as readonly string[]).includes(chosen) ? chosen : "private";
   if (typeof organizationId !== "string" || !UUID.test(organizationId)) return failed("unavailable", 400);
   if (!(file instanceof File)) return failed("unsupported", 400);
   const problem = checkFile(file);
@@ -32,8 +35,19 @@ export async function POST(request: Request) {
   try {
     const base = `/organizations/${organizationId}/connections/`;
     const list = await backendFetch(base);
-    if (!list.ok) return failed(uploadErrorFromStatus(list.status), list.status);
-    let source = uploadSource((await list.json()) as Connection[]);
+    let source: Connection | undefined;
+    if (list.status === 403) {
+      // Members may upload but not list connections: they ask for the
+      // source itself, which an owner or admin created with the first file.
+      const own = await backendFetch(`/organizations/${organizationId}/upload-source`);
+      if (own.status === 404) return failed("noSource", 409);
+      if (!own.ok) return failed(uploadErrorFromStatus(own.status), own.status);
+      source = (await own.json()) as Connection;
+    } else if (!list.ok) {
+      return failed(uploadErrorFromStatus(list.status), list.status);
+    } else {
+      source = uploadSource((await list.json()) as Connection[]);
+    }
     if (!source) {
       const created = await backendFetch(base, {
         method: "POST",
@@ -46,7 +60,7 @@ export async function POST(request: Request) {
 
     const body = new FormData();
     body.set("file", file, file.name);
-    body.set("visibility", "organization");
+    body.set("visibility", visibility);
     const response = await backendFetch(`${base}${source.id}/uploads/`, { method: "POST", body });
     if (!response.ok) return failed(uploadErrorFromStatus(response.status), response.status);
     return NextResponse.json(await response.json(), { status: 201 });

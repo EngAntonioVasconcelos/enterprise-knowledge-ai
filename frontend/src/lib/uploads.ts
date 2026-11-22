@@ -6,12 +6,17 @@ export const UPLOAD_PROVIDER = "file_upload";
 export const DRIVE_PROVIDER = "google_drive";
 
 export type UploadErrorKind =
+  | "noSource"
   | "tooLarge"
   | "unsupported"
   | "empty"
   | "forbidden"
   | "signedOut"
   | "unavailable";
+
+/** Who may read a file once it is sent. */
+export const VISIBILITIES = ["organization", "private"] as const;
+export type Visibility = (typeof VISIBILITIES)[number];
 
 export function checkFile(file: { name: string; size: number }): UploadErrorKind | null {
   const name = file.name.toLowerCase();

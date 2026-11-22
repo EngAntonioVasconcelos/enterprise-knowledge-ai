@@ -38,3 +38,12 @@ removal work exactly as for Google Drive. Migration `d4a1e7b3c8f2`.
 
 `python-multipart` (form uploads), `pypdf` (PDF), `python-docx` (Word),
 pinned in `requirements.txt`.
+
+## Finding the upload source (AL-8a)
+
+`GET /api/v1/organizations/{organization_id}/upload-source`, for owners,
+admins and members (viewers: 403): the organization's upload connection
+(`id`, `name`, `status`, `last_synced_at`, `last_error`), or 404 when no
+owner or admin has created it yet. Members need it because they cannot
+list connections; the database already lets them see upload connections
+of their own organization (policy `data_connections_member_upload_policy`).

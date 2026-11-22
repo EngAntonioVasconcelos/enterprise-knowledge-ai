@@ -29,9 +29,10 @@ function backend(...responses: Response[]) {
   return fetchMock;
 }
 
-function uploadRequest(name: string, content = "Ferias: 25 dias.") {
+function uploadRequest(name: string, content = "Ferias: 25 dias.", visibility = "organization") {
   const form = new FormData();
   form.set("organizationId", ORG);
+  form.set("visibility", visibility);
   form.set("sourceName", "Ficheiros enviados");
   form.set("file", new File([content], name, { type: "text/plain" }));
   return new Request("http://localhost/api/uploads", { method: "POST", body: form });
@@ -70,7 +71,32 @@ describe("POST /api/uploads", () => {
   });
 
   it("says when the person may not add documents", async () => {
-    backend(json({}, 403));
+    backend(json({}, 403), json({}, 403));
     expect(await (await POST(uploadRequest("manual.txt"))).json()).toEqual({ error: "forbidden" });
+  });
+
+  it("sends a member's file to the source they may use, private when they say so", async () => {
+    const fetchMock = backend(json({}, 403), json(SOURCE), json({ id: "u1" }, 201));
+    expect((await POST(uploadRequest("notas.txt", "x", "private"))).status).toBe(201);
+    expect(fetchMock.mock.calls[1]?.[0]).toContain(`/organizations/${ORG}/upload-source`);
+    const [url, send] = fetchMock.mock.calls[2] as [string, RequestInit];
+    expect(url).toContain(`/connections/${SOURCE.id}/uploads/`);
+    expect((send.body as FormData).get("visibility")).toBe("private");
+  });
+
+  it("says plainly when nobody has opened the uploads yet", async () => {
+    backend(json({}, 403), json({}, 404));
+    const response = await POST(uploadRequest("notas.txt"));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "noSource" });
+  });
+
+  it("keeps a file private when no choice arrives", async () => {
+    const form = new FormData();
+    form.set("organizationId", ORG);
+    form.set("file", new File(["x"], "a.txt", { type: "text/plain" }));
+    const fetchMock = backend(json([SOURCE]), json({ id: "u1" }, 201));
+    await POST(new Request("http://localhost/api/uploads", { method: "POST", body: form }));
+    expect(((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as FormData).get("visibility")).toBe("private");
   });
 });

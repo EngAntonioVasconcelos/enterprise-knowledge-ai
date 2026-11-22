@@ -187,3 +187,16 @@ why they could not be read. "Ver tabelas" lists the tables and columns
 the assistant may query: names only, never rows. While the tables are
 being read the page looks again every 4 s, for about a minute.
 "Desligar" asks first, in the page: disconnecting is final.
+
+## Files sent by members (AL-8a)
+
+Owners, admins and members send files in **Documentos**; viewers only
+read. Before sending, the person chooses who can see the files: **Toda a
+organizacao** or **So eu**. Members start on "So eu", so sharing with
+everyone is a choice they make; owners and admins start on the whole
+organization. The choice goes to the backend as `visibility`
+(`organization` or `private`), and a file sent without one stays private.
+Members cannot list connections, so the upload route asks
+`GET /organizations/{id}/upload-source` for where files go; if no owner
+or admin has sent the first file yet, it says so (`noSource`). A member
+sees their own files waiting to be read, never anyone else's.

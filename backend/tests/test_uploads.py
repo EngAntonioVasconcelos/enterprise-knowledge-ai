@@ -203,3 +203,51 @@ def test_uploads_need_an_upload_connection(client):
     )
 
     assert _upload(client, url, "a.txt", b"x").status_code == 400
+
+
+def _member(db_session, organization_id, role):
+    person = User(
+        email=f"{role}-{uuid.uuid4().hex[:8]}@example.com",
+        full_name=role.title(),
+        is_active=True,
+    )
+    db_session.add(person)
+    db_session.flush()
+    db_session.add(
+        OrganizationMembership(
+            organization_id=uuid.UUID(organization_id),
+            user_id=person.id,
+            role=role,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    return person
+
+
+def test_members_find_the_upload_source_and_viewers_do_not(
+    client, client_for_user, db_session, uploads_url
+):
+    organization_id, connection_id = uploads_url.split("/")[4], uploads_url.split("/")[6]
+    url = f"/api/v1/organizations/{organization_id}/upload-source"
+
+    with client_for_user(_member(db_session, organization_id, "member")) as member:
+        response = member.get(url)
+        assert response.status_code == 200
+        assert response.json()["id"] == connection_id
+        # Finding it lets a member upload, without listing connections.
+        assert member.get(f"/api/v1/organizations/{organization_id}/connections/").status_code == 403
+        assert _upload(member, uploads_url, "mine.txt", b"x", "private").status_code == 201
+
+    with client_for_user(_member(db_session, organization_id, "viewer")) as viewer:
+        assert viewer.get(url).status_code == 403
+
+
+def test_no_upload_source_yet_is_said_plainly(client):
+    unique = uuid.uuid4().hex[:8]
+    organization = client.post(
+        "/api/v1/organizations/",
+        json={"name": f"Empty Org {unique}", "slug": f"empty-{unique}"},
+    ).json()
+    response = client.get(f"/api/v1/organizations/{organization['id']}/upload-source")
+    assert response.status_code == 404

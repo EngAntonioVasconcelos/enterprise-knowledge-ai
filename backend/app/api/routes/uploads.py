@@ -9,15 +9,17 @@ from fastapi import (
     UploadFile,
     status,
 )
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.authentication import get_current_user
 from app.api.dependencies.authorization import require_roles
-from app.core.errors import DomainError
+from app.core.errors import DomainError, NotFoundError
 from app.db.session import get_db
+from app.models.data_connection import DataConnection
 from app.models.membership import OrganizationMembership
 from app.models.user import User
-from app.schemas.upload import UploadResponse
+from app.schemas.upload import UploadResponse, UploadSourceResponse
 from app.services.connection_service import get_connection
 from app.services.text_extraction import MAX_FILE_BYTES
 from app.services.upload_service import (
@@ -122,3 +124,33 @@ def remove(
         raise
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# Members may upload but not list connections: this tells them, and only
+# them, where the organization's uploaded files go (AL-8a). Owners and
+# admins create the source with the first upload.
+sources_router = APIRouter(
+    prefix="/organizations/{organization_id}/upload-source",
+    tags=["Uploads"],
+)
+
+
+@sources_router.get("", response_model=UploadSourceResponse)
+def upload_source(
+    organization_id: uuid.UUID,
+    member: OrganizationMembership = Depends(UPLOADERS),
+    db: Session = Depends(get_db),
+):
+    source = db.scalar(
+        select(DataConnection)
+        .where(
+            DataConnection.organization_id == organization_id,
+            DataConnection.provider == "file_upload",
+            DataConnection.status != "disconnected",
+        )
+        .order_by(DataConnection.created_at)
+        .limit(1)
+    )
+    if source is None:
+        raise NotFoundError("This organization has no upload source yet")
+    return source

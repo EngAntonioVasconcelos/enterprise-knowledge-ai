@@ -54,14 +54,28 @@ describe("loadDocuments", () => {
   });
 
   it("reads the list without managing it when the connections are not allowed", async () => {
-    backend(json([]), json({}, 403));
+    backend(json([]), json({}, 403), json({}, 403));
     expect(await loadDocuments(ORG)).toEqual({
       documents: [],
       canManage: false,
+      canUpload: false,
       waiting: [],
       lastError: null,
       drive: null,
     });
+  });
+
+  it("lets a member send files and see their own waiting ones", async () => {
+    const fetchMock = backend(
+      json([]),
+      json({}, 403),
+      json(SOURCE),
+      json([{ id: "u-new", connection_id: SOURCE.id, filename: "Mine.pdf", mime_type: "application/pdf", size_bytes: 3, created_at: "2026-11-20T11:00:00Z" }]),
+    );
+    const data = await loadDocuments(ORG);
+    expect(fetchMock.mock.calls[2]?.[0]).toContain(`/organizations/${ORG}/upload-source`);
+    expect(data).toMatchObject({ canManage: false, canUpload: true });
+    expect(data?.waiting.map((upload) => upload.id)).toEqual(["u-new"]);
   });
 });
 
@@ -77,9 +91,9 @@ describe("DocumentsView", () => {
     expect(screen.getByRole("row", { name: /Notas\.txt.*N\u00e3o foi poss\u00edvel ler/ })).toBeInTheDocument();
   });
 
-  it("tells a reader that only managers add documents", () => {
+  it("tells a viewer that they read documents but do not add them", () => {
     render(<DocumentsView organizationId={ORG} documents={[]} canManage={false} waiting={[]} lastError={null} />);
-    expect(screen.getByText(/S\u00f3 propriet\u00e1rios e administradores/)).toBeInTheDocument();
+    expect(screen.getByText(/Com a fun\u00e7\u00e3o de leitor/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /escolhe no computador/ })).not.toBeInTheDocument();
   });
 
@@ -88,5 +102,28 @@ describe("DocumentsView", () => {
     const input = document.querySelector("input[type=file]") as HTMLInputElement;
     await userEvent.upload(input, new File(["x"], "foto.png", { type: "image/png" }), { applyAccept: false });
     expect(await screen.findByRole("alert")).toHaveTextContent("foto.png: n\u00e3o \u00e9 PDF, Word (.docx) nem texto.");
+  });
+});
+
+describe("who can see a sent file", () => {
+  it("is only the member, unless they choose the whole organization", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ id: "u1" }, 201));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<DocumentsView organizationId={ORG} documents={[]} canManage={false} canUpload waiting={[]} lastError={null} />);
+    expect(screen.getByRole("radio", { name: /S\u00f3 eu/ })).toBeChecked();
+
+    const input = document.querySelector("input[type=file]") as HTMLInputElement;
+    await userEvent.upload(input, new File(["x"], "notas.txt", { type: "text/plain" }));
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).body).toBeInstanceOf(FormData);
+    expect(((fetchMock.mock.calls[0]?.[1] as RequestInit).body as FormData).get("visibility")).toBe("private");
+
+    await userEvent.click(screen.getByRole("radio", { name: /Toda a organiza\u00e7\u00e3o/ }));
+    await userEvent.upload(input, new File(["y"], "manual.txt", { type: "text/plain" }));
+    expect(((fetchMock.mock.calls[1]?.[1] as RequestInit).body as FormData).get("visibility")).toBe("organization");
+  });
+
+  it("is the whole organization by default for owners and admins", () => {
+    render(<DocumentsView organizationId={ORG} documents={[]} canManage waiting={[]} lastError={null} />);
+    expect(screen.getByRole("radio", { name: /Toda a organiza\u00e7\u00e3o/ })).toBeChecked();
   });
 });
