@@ -200,3 +200,9 @@ Members cannot list connections, so the upload route asks
 `GET /organizations/{id}/upload-source` for where files go; if no owner
 or admin has sent the first file yet, it says so (`noSource`). A member
 sees their own files waiting to be read, never anyone else's.
+
+The third choice, **Pessoas escolhidas** (AL-8b), lists the active
+colleagues from the directory (names and roles, no e-mail), with a search
+box past eight people. Nothing is sent until at least one person is
+chosen; the route refuses an empty or malformed choice (`noReaders`)
+before calling the backend.

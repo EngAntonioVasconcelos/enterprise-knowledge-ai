@@ -47,3 +47,18 @@ admins and members (viewers: 403): the organization's upload connection
 owner or admin has created it yet. Members need it because they cannot
 list connections; the database already lets them see upload connections
 of their own organization (policy `data_connections_member_upload_policy`).
+
+## Sharing with chosen people (AL-8b)
+
+`visibility` can also be `people`: the uploader and the members they
+choose read the file. The upload form sends `readers` (1 to 50 user ids,
+only with `people`). The service checks them against the organization's
+directory before storing anything, then
+`app_private.add_upload_readers(upload_id, user_ids)` (migration
+`c2f8e5a1d7b3`) checks again inside the database: the caller must have
+sent the file, and every reader must be an active member. It keeps each
+reader's e-mail in `file_upload_readers`, which only the worker reads, so
+the connector grants one `user` permission per reader without reading
+users. Nobody else learns who was chosen. A reader who leaves the
+organization loses access at once, as for any document. Downgrade is
+refused while any upload uses `people`.

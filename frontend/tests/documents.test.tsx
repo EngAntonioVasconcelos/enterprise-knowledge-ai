@@ -11,6 +11,7 @@ import { auth0 } from "@/lib/auth0";
 import { loadDocuments } from "@/lib/documents";
 
 const ORG = "11111111-1111-4111-8111-111111111111";
+const RUI = "33333333-3333-4333-8333-333333333333";
 const SOURCE = {
   id: "22222222-2222-4222-8222-222222222222",
   provider: "file_upload",
@@ -47,6 +48,7 @@ describe("loadDocuments", () => {
         { id: "u-new", connection_id: SOURCE.id, filename: "New.pdf", mime_type: "application/pdf", size_bytes: 3, created_at: "2026-11-20T11:00:00Z" },
         { id: "u-old", connection_id: SOURCE.id, filename: "Old.pdf", mime_type: "application/pdf", size_bytes: 3, created_at: "2026-11-20T09:00:00Z" },
       ]),
+      json([]),
     );
     const data = await loadDocuments(ORG);
     expect(data?.canManage).toBe(true);
@@ -59,6 +61,7 @@ describe("loadDocuments", () => {
       documents: [],
       canManage: false,
       canUpload: false,
+      colleagues: [],
       waiting: [],
       lastError: null,
       drive: null,
@@ -71,8 +74,10 @@ describe("loadDocuments", () => {
       json({}, 403),
       json(SOURCE),
       json([{ id: "u-new", connection_id: SOURCE.id, filename: "Mine.pdf", mime_type: "application/pdf", size_bytes: 3, created_at: "2026-11-20T11:00:00Z" }]),
+      json([{ user_id: RUI, full_name: "Rui Costa", role: "member" }]),
     );
     const data = await loadDocuments(ORG);
+    expect(data?.colleagues.map((colleague) => colleague.full_name)).toEqual(["Rui Costa"]);
     expect(fetchMock.mock.calls[2]?.[0]).toContain(`/organizations/${ORG}/upload-source`);
     expect(data).toMatchObject({ canManage: false, canUpload: true });
     expect(data?.waiting.map((upload) => upload.id)).toEqual(["u-new"]);
@@ -125,5 +130,31 @@ describe("who can see a sent file", () => {
   it("is the whole organization by default for owners and admins", () => {
     render(<DocumentsView organizationId={ORG} documents={[]} canManage waiting={[]} lastError={null} />);
     expect(screen.getByRole("radio", { name: /Toda a organiza\u00e7\u00e3o/ })).toBeChecked();
+  });
+});
+
+describe("sharing with chosen people", () => {
+  const colleagues = [
+    { user_id: RUI, full_name: "Rui Costa", role: "member" as const },
+    { user_id: "44444444-4444-4444-8444-444444444444", full_name: "Ana Lopes", role: "admin" as const },
+  ];
+
+  it("sends only after someone is chosen, and sends who", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ id: "u1" }, 201));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<DocumentsView organizationId={ORG} documents={[]} canManage={false} canUpload colleagues={colleagues} waiting={[]} lastError={null} />);
+
+    await userEvent.click(screen.getByRole("radio", { name: /Pessoas escolhidas/ }));
+    expect(screen.getByText("Escolhe pelo menos uma pessoa antes de enviar.")).toBeInTheDocument();
+    const input = document.querySelector("input[type=file]") as HTMLInputElement;
+    await userEvent.upload(input, new File(["x"], "plano.txt", { type: "text/plain" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /Rui Costa/ }));
+    expect(screen.getByText("1 pessoa escolhida")).toBeInTheDocument();
+    await userEvent.upload(input, new File(["x"], "plano.txt", { type: "text/plain" }));
+    const body = (fetchMock.mock.calls[0]?.[1] as RequestInit).body as FormData;
+    expect(body.get("visibility")).toBe("people");
+    expect(body.getAll("readers")).toEqual([RUI]);
   });
 });

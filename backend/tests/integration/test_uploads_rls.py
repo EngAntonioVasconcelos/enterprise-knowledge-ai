@@ -1,11 +1,12 @@
 import uuid
 
 import pytest
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
 
 from app.db.context import set_organization_context
-from app.models import Document, FileUpload
+from app.core.errors import InvalidInputError
+from app.models import Document, FileUpload, FileUploadReader
 from app.services.connection_service import create_connection, get_connection
 from app.services.job_queue import enqueue_job
 from app.services.object_storage import LocalObjectStorage
@@ -38,7 +39,7 @@ def world(perm_db):
     return world
 
 
-def _upload_as(db, world, user_id, email, name, visibility, storage):
+def _upload_as(db, world, user_id, email, name, visibility, storage, readers=None):
     _as_runtime(db, user_id)
     connection = get_connection(
         db, organization_id=world.organization, connection_id=world.uploads
@@ -52,6 +53,7 @@ def _upload_as(db, world, user_id, email, name, visibility, storage):
         data=f"contents of {name}".encode(),
         visibility=visibility,
         storage=storage,
+        readers=readers,
     )
     db.flush()
     return upload.id
@@ -141,3 +143,51 @@ def test_members_queue_syncs_of_upload_connections_only(perm_db, world):
             with pytest.raises(DBAPIError) as error:
                 queue()
             assert "row-level security" in str(error.value.orig)
+
+
+def test_people_shares_with_the_chosen_and_nobody_else(perm_db, world, tmp_path):
+    db = perm_db
+    storage = LocalObjectStorage(tmp_path)
+    ana = f"ana@{world.domain}"
+    _upload_as(db, world, world.ana, ana, "plan.txt", "people", storage, readers=[world.rui])
+
+    _as_worker(db, world.organization)
+    sync_connection(db, connection_id=world.uploads, storage=storage)
+    db.flush()
+
+    def titles(user_id):
+        _as_runtime(db, user_id)
+        return sorted(db.scalars(select(Document.title)).all())
+
+    assert titles(world.ana) == ["plan.txt"]
+    assert titles(world.rui) == ["plan.txt"]
+    # Not chosen: the owner does not see it either.
+    assert titles(world.owner) == []
+
+
+def test_only_members_can_be_chosen_and_only_by_the_uploader(perm_db, world, tmp_path):
+    db = perm_db
+    storage = LocalObjectStorage(tmp_path)
+    ana = f"ana@{world.domain}"
+
+    with pytest.raises(InvalidInputError):
+        with db.begin_nested():
+            _upload_as(db, world, world.ana, ana, "x.txt", "people", storage, readers=[world.outsider])
+    with pytest.raises(InvalidInputError):
+        with db.begin_nested():
+            _upload_as(db, world, world.ana, ana, "x.txt", "people", storage, readers=[])
+
+    upload_id = _upload_as(db, world, world.ana, ana, "y.txt", "people", storage, readers=[world.rui])
+    # Rui cannot add himself or anyone else to Ana's file.
+    _as_runtime(db, world.rui)
+    with pytest.raises(DBAPIError) as error:
+        with db.begin_nested():
+            db.execute(
+                text("SELECT app_private.add_upload_readers(:upload, :users)"),
+                {"upload": upload_id, "users": [world.owner]},
+            )
+    assert "not an upload of the caller" in str(error.value.orig)
+    # Nobody but the worker reads who was chosen.
+    with pytest.raises(DBAPIError):
+        with db.begin_nested():
+            db.execute(select(FileUploadReader))

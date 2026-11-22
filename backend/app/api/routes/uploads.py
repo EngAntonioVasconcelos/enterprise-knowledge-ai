@@ -49,6 +49,8 @@ async def upload(
     connection_id: uuid.UUID,
     file: UploadFile = File(...),
     visibility: str = Form("organization"),
+    # With visibility "people": who else may read the file (AL-8b).
+    readers: list[uuid.UUID] = Form(default_factory=list),
     member: OrganizationMembership = Depends(UPLOADERS),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -71,6 +73,7 @@ async def upload(
             data=data,
             visibility=visibility,
             uploader_role=member.role,
+            readers=readers,
         )
         db.commit()
     except DomainError:

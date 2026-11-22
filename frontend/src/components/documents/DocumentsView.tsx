@@ -6,11 +6,12 @@ import { type DragEvent, useEffect, useRef, useState } from "react";
 
 import { SourcesPanel } from "@/components/documents/SourcesPanel";
 import { useI18n } from "@/i18n/client";
-import type { Connection, DocumentItem, Upload } from "@/lib/api-types";
+import type { Colleague, Connection, DocumentItem, Upload } from "@/lib/api-types";
 import {
   ACCEPTED_EXTENSIONS,
   checkFile,
   documentKind,
+  MAX_READERS,
   type UploadErrorKind,
   VISIBILITIES,
   type Visibility,
@@ -24,6 +25,8 @@ type Props = {
   canManage: boolean;
   /** Owners, admins and members send files; viewers only read. */
   canUpload?: boolean;
+  /** Who a file can be shared with, for "Pessoas escolhidas". */
+  colleagues?: Colleague[];
   waiting: Upload[];
   lastError: string | null;
   drive?: Connection | null;
@@ -44,11 +47,13 @@ export async function sendFile(
   sourceName: string,
   file: File,
   visibility: Visibility,
+  readers: string[] = [],
 ): Promise<UploadErrorKind | null> {
   const body = new FormData();
   body.set("organizationId", organizationId);
   body.set("sourceName", sourceName);
   body.set("visibility", visibility);
+  if (visibility === "people") for (const reader of readers) body.append("readers", reader);
   body.set("file", file);
   try {
     const response = await fetch("/api/uploads", { method: "POST", body });
@@ -65,6 +70,7 @@ export function DocumentsView({
   documents,
   canManage,
   canUpload = canManage,
+  colleagues = [],
   waiting,
   lastError,
   drive = null,
@@ -80,6 +86,23 @@ export function DocumentsView({
   const [sent, setSent] = useState(0);
   // Members share with the whole organization only when they choose to.
   const [visibility, setVisibility] = useState<Visibility>(canManage ? "organization" : "private");
+  const [readers, setReaders] = useState<string[]>([]);
+  const [filter, setFilter] = useState("");
+  // Sharing with chosen people needs at least one person chosen.
+  const blocked = visibility === "people" && !readers.length;
+  const shown = colleagues.filter((colleague) =>
+    colleague.full_name.toLocaleLowerCase(locale).includes(filter.trim().toLocaleLowerCase(locale)),
+  );
+
+  function toggle(userId: string) {
+    setReaders((chosen) =>
+      chosen.includes(userId)
+        ? chosen.filter((id) => id !== userId)
+        : chosen.length < MAX_READERS
+          ? [...chosen, userId]
+          : chosen,
+    );
+  }
 
   const rows: Row[] = [
     ...waiting.map((upload) => ({
@@ -111,7 +134,7 @@ export function DocumentsView({
   }, [busy, router]);
 
   async function upload(files: File[]) {
-    if (!files.length || sending) return;
+    if (!files.length || sending || blocked) return;
     const problems: string[] = [];
     let done = 0;
     for (const file of files) {
@@ -121,7 +144,7 @@ export function DocumentsView({
         continue;
       }
       setSending(file.name);
-      const error = await sendFile(organizationId, t.sourceName, file, visibility);
+      const error = await sendFile(organizationId, t.sourceName, file, visibility, readers);
       if (error) problems.push(t.failedFile(file.name, t.errors[error]));
       else done += 1;
     }
@@ -158,7 +181,7 @@ export function DocumentsView({
       {canUpload ? (
         <fieldset className="mt-8">
           <legend className="font-medium text-ink">{t.visibilityLabel}</legend>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {VISIBILITIES.map((option) => (
               <label
                 key={option}
@@ -182,6 +205,43 @@ export function DocumentsView({
               </label>
             ))}
           </div>
+          {visibility === "people" ? (
+            <div className="mt-3 rounded-control border border-line-strong bg-surface px-3.5 py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-meta text-ink-soft">{t.chosen(readers.length)}</p>
+                {colleagues.length > 8 ? (
+                  <input
+                    type="search"
+                    value={filter}
+                    onChange={(event) => setFilter(event.target.value)}
+                    placeholder={t.findPerson}
+                    aria-label={t.findPerson}
+                    className="h-9 w-full max-w-xs rounded-control border border-line-strong bg-surface px-3 text-body text-ink outline-none focus:border-cobalt"
+                  />
+                ) : null}
+              </div>
+              {colleagues.length ? (
+                <ul className="mt-2 grid max-h-64 gap-1 overflow-y-auto sm:grid-cols-2">
+                  {shown.map((colleague) => (
+                    <li key={colleague.user_id}>
+                      <label className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 hover:bg-cobalt-wash">
+                        <input
+                          type="checkbox"
+                          checked={readers.includes(colleague.user_id)}
+                          onChange={() => toggle(colleague.user_id)}
+                          className="accent-[var(--color-cobalt)]"
+                        />
+                        <span className="min-w-0 truncate text-body text-ink">{colleague.full_name}</span>
+                        <span className="text-meta text-ink-faint">{all.people.roles[colleague.role]}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-meta text-ink-soft">{t.noColleagues}</p>
+              )}
+            </div>
+          ) : null}
         </fieldset>
       ) : null}
 
@@ -206,13 +266,14 @@ export function DocumentsView({
               <button
                 type="button"
                 onClick={() => input.current?.click()}
-                disabled={Boolean(sending)}
+                disabled={Boolean(sending) || blocked}
                 className="font-medium text-cobalt underline underline-offset-4 hover:text-cobalt-deep disabled:opacity-60"
               >
                 {t.choose}
               </button>
             </p>
             <p className="mt-1 text-meta text-ink-faint">{t.formats}</p>
+            {blocked ? <p className="mt-1 text-meta text-caution">{t.chooseFirst}</p> : null}
           </div>
           <input
             ref={input}
