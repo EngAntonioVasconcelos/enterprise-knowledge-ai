@@ -169,3 +169,21 @@ passage. A refused answer never shows rows. The margin keeps at least
 Numbers in the table are written as in the interface's language and
 aligned to the right; codes with a leading zero and text stay as they
 came (AL-6, `lib/data-cells.ts`).
+
+## Databases in the settings (AL-7)
+
+Owners and admins connect a PostgreSQL database in **Definicoes ->
+Bases de dados** (`components/settings/DatabasesPanel.tsx`), instead of
+the development script. The form asks for the name, server, port,
+database, schemas, encryption, user and password, and says to use a login
+that can only read. Connecting is three calls to the API
+(`docs/development/postgresql-connector.md`): create the connection, seal
+the login (sent once, never returned, never in the settings), and ask the
+worker to read the tables. If the login cannot be stored, the new
+connection is disconnected again, so no connection is left without one.
+
+Each database shows where it is, how many tables were read and when, or
+why they could not be read. "Ver tabelas" lists the tables and columns
+the assistant may query: names only, never rows. While the tables are
+being read the page looks again every 4 s, for about a minute.
+"Desligar" asks first, in the page: disconnecting is final.
