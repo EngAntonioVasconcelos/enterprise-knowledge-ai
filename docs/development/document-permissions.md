@@ -68,3 +68,14 @@ permissions for the caller's own readable documents only:
 
 Names and the number of people are never returned, so nobody learns
 whom a colleague shared a file with. Downgrade drops the function.
+
+## A page per document (AL-10)
+
+`GET /organizations/{id}/documents/{document_id}/page` gives one document
+the caller can open: the same fields as the list (with `source` and
+`audience`), `read_at` (when its current version was read), `passages`
+(how many the assistant searches), `excerpt` (the first three, each cut at
+700 characters) and `failure` (why the newest reading failed, if it did).
+Row-level security decides: a document the caller cannot open is a 404,
+the same as one that does not exist. The page never says which questions
+used the document; those belong to other people's private history.

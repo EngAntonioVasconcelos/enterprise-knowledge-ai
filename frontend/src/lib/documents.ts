@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Colleague, Connection, DocumentItem, Upload } from "@/lib/api-types";
+import type { Colleague, Connection, DocumentItem, DocumentPage, Upload } from "@/lib/api-types";
 import { backendFetch } from "@/lib/backend";
 import { DRIVE_PROVIDER, UPLOAD_PROVIDER } from "@/lib/uploads";
 
@@ -82,4 +82,19 @@ async function waitingUploads(
     waiting: uploads.filter((upload) => Date.parse(upload.created_at) > syncedAt),
     lastError: source.last_error,
   };
+}
+
+/** A document for its page, "missing" when the caller cannot open it (or it
+ *  does not exist: they look the same), null when the backend is down. */
+export async function loadDocumentPage(
+  organizationId: string,
+  documentId: string,
+): Promise<DocumentPage | "missing" | null> {
+  try {
+    const response = await backendFetch(`/organizations/${organizationId}/documents/${documentId}/page`);
+    if (response.status === 404 || response.status === 422) return "missing";
+    return response.ok ? ((await response.json()) as DocumentPage) : null;
+  } catch {
+    return null;
+  }
 }

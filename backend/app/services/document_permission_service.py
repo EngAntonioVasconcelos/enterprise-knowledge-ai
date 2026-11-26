@@ -180,3 +180,69 @@ def document_audiences(db: Session, *, organization_id: uuid.UUID) -> dict[uuid.
         }
         for row in rows
     }
+
+
+EXCERPT_PASSAGES = 3
+EXCERPT_CHARACTERS = 700
+
+
+def document_page(db: Session, *, organization_id: uuid.UUID, document_id: uuid.UUID) -> dict | None:
+    """A readable document with its first passages, or None: not found and
+    not allowed look the same. Row-level security decides what is read."""
+    from app.models.document import Document, DocumentVersion
+    from app.models.document_chunk import DocumentChunk
+
+    document = db.scalar(
+        select(Document).where(
+            Document.id == document_id,
+            Document.organization_id == organization_id,
+            Document.status != "removed",
+        )
+    )
+    if document is None:
+        return None
+    audience = document_audiences(db, organization_id=organization_id).get(document.id, {})
+
+    read_at = None
+    passages = 0
+    excerpt: list[dict] = []
+    if document.current_version_id is not None:
+        version = db.get(DocumentVersion, document.current_version_id)
+        read_at = version.ready_at if version else None
+        passages = db.scalar(
+            select(func.count())
+            .select_from(DocumentChunk)
+            .where(DocumentChunk.version_id == document.current_version_id)
+        ) or 0
+        for chunk in db.scalars(
+            select(DocumentChunk)
+            .where(DocumentChunk.version_id == document.current_version_id)
+            .order_by(DocumentChunk.ordinal)
+            .limit(EXCERPT_PASSAGES)
+        ):
+            text_ = chunk.content.strip()
+            if len(text_) > EXCERPT_CHARACTERS:
+                text_ = text_[:EXCERPT_CHARACTERS].rsplit(" ", 1)[0] + "\u2026"
+            excerpt.append({"heading": chunk.heading, "content": text_})
+
+    newest = db.scalar(
+        select(DocumentVersion)
+        .where(DocumentVersion.document_id == document.id)
+        .order_by(DocumentVersion.created_at.desc())
+        .limit(1)
+    )
+    failure = newest.error if newest is not None and newest.status == "failed" else None
+
+    return {
+        "document": {**_as_response(document), **audience},
+        "read_at": read_at,
+        "passages": passages,
+        "excerpt": excerpt,
+        "failure": failure,
+    }
+
+
+def _as_response(document) -> dict:
+    from app.schemas.document import DocumentResponse
+
+    return DocumentResponse.model_validate(document).model_dump(exclude={"source", "audience"})

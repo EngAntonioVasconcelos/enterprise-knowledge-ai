@@ -206,3 +206,13 @@ colleagues from the directory (names and roles, no e-mail), with a search
 box past eight people. Nothing is sent until at least one person is
 chosen; the route refuses an empty or malformed choice (`noReaders`)
 before calling the backend.
+
+## Document page (AL-10)
+
+Each document in Documentos links to `/documentos/<id>`
+(`components/documents/DocumentPageView.tsx`): type, source, who sees it,
+status, when it was last read, why the last reading failed, and "Como o
+assistente o leu", the first passages the assistant answers from, so a
+badly read file is noticed. Files still waiting to be read have no page
+yet. A document the person cannot open shows "Documento nao encontrado",
+the same as one that never existed.

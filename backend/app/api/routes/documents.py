@@ -7,9 +7,10 @@ from app.api.dependencies.authorization import require_roles
 from app.db.session import get_db
 from app.models.document import Document
 from app.models.membership import OrganizationMembership
-from app.schemas.document import DocumentResponse, DocumentStatistics
+from app.schemas.document import DocumentPage, DocumentResponse, DocumentStatistics
 from app.services.document_permission_service import (
     document_audiences,
+    document_page,
     document_statistics,
     list_documents,
 )
@@ -70,3 +71,18 @@ def get_readable(
         )
 
     return document
+
+
+@router.get("/{document_id}/page", response_model=DocumentPage)
+def page(
+    organization_id: uuid.UUID,
+    document_id: uuid.UUID,
+    member: OrganizationMembership = Depends(MEMBERS),
+    db: Session = Depends(get_db),
+):
+    """One document for its own page: never one the caller cannot open."""
+    found = document_page(db, organization_id=organization_id, document_id=document_id)
+    # Not found and not allowed look the same: no hint that it exists.
+    if found is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    return found
