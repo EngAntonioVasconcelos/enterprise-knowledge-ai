@@ -6,6 +6,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.db.context import set_organization_context
 from app.core.errors import InvalidInputError
+from app.services.document_permission_service import document_page
 from app.models import Document, FileUpload, FileUploadReader
 from app.services.connection_service import create_connection, get_connection
 from app.services.job_queue import enqueue_job
@@ -226,3 +227,24 @@ def test_the_list_says_the_kind_of_sharing_never_who(perm_db, world, tmp_path):
         ("all.txt", "file_upload", "organization"),
         ("team.txt", "file_upload", "people"),
     ]
+
+
+def test_a_document_page_only_for_who_can_open_it(perm_db, world, tmp_path):
+    db = perm_db
+    storage = LocalObjectStorage(tmp_path)
+    ana = f"ana@{world.domain}"
+    _upload_as(db, world, world.ana, ana, "mine.txt", "private", storage)
+    _as_worker(db, world.organization)
+    sync_connection(db, connection_id=world.uploads, storage=storage)
+    db.flush()
+
+    _as_runtime(db, world.ana)
+    document_id = db.scalar(select(Document.id).where(Document.title == "mine.txt"))
+    page = document_page(db, organization_id=world.organization, document_id=document_id)
+    assert page["document"]["title"] == "mine.txt"
+    assert page["document"]["audience"] == "only_you"
+    assert page["document"]["source"]["provider"] == "file_upload"
+
+    # Rui cannot open it: the page is not found, as if it did not exist.
+    _as_runtime(db, world.rui)
+    assert document_page(db, organization_id=world.organization, document_id=document_id) is None

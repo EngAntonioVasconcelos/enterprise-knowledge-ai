@@ -180,3 +180,19 @@ describe("where a document comes from and who sees it", () => {
     expect(screen.getAllByText("Ficheiros enviados")).toHaveLength(2);
   });
 });
+
+describe("each document opens its own page", () => {
+  it("links documents, not files still waiting", () => {
+    render(
+      <DocumentsView
+        organizationId={ORG}
+        canManage
+        waiting={[{ id: "w1", connection_id: "c", filename: "A caminho.txt", mime_type: "text/plain", size_bytes: 1, created_at: "2026-11-26T10:00:00Z" }]}
+        lastError={null}
+        documents={[{ id: "d9", connection_id: "c", title: "Manual.pdf", mime_type: "application/pdf", status: "active", last_synced_at: null, updated_at: "2026-11-20T09:00:00Z" }]}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Manual.pdf" })).toHaveAttribute("href", `/documentos/d9?org=${ORG}`);
+    expect(screen.queryByRole("link", { name: "A caminho.txt" })).not.toBeInTheDocument();
+  });
+});

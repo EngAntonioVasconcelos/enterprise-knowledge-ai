@@ -140,3 +140,48 @@ def test_an_unknown_document_is_not_found(client, organization):
     )
 
     assert response.status_code == 404
+
+
+def test_a_document_page_shows_the_first_passages_and_a_failed_reading(
+    client, db_session, organization
+):
+    from app.models.document_chunk import DocumentChunk
+
+    organization_id, connection = organization
+    document = _document(db_session, connection, external_id="p", title="Manual")
+    version = documents.add_version(db_session, document=document, content_hash="h1")
+    documents.mark_version_ready(db_session, version)
+    documents.activate_version(db_session, document=document, version=version)
+    long = "word " * 400
+    for ordinal, content in enumerate(["Ferias: 25 dias.", long, "Terceiro.", "Quarto."]):
+        db_session.add(
+            DocumentChunk(
+                organization_id=document.organization_id,
+                document_id=document.id,
+                version_id=version.id,
+                ordinal=ordinal,
+                heading="1. Ferias" if ordinal == 0 else None,
+                content=content,
+                start_char=0,
+                end_char=len(content),
+                token_estimate=1,
+            )
+        )
+    newer = documents.add_version(db_session, document=document, content_hash="h2")
+    documents.fail_version(db_session, newer, error="The PDF could not be read")
+    db_session.commit()
+
+    base = f"/api/v1/organizations/{organization_id}/documents/{document.id}/page"
+    page = client.get(base).json()
+    assert page["document"]["title"] == "Manual"
+    assert page["passages"] == 4
+    assert [p["content"] for p in page["excerpt"]][0] == "Ferias: 25 dias."
+    assert page["excerpt"][0]["heading"] == "1. Ferias"
+    # Three passages at most, each cut short.
+    assert len(page["excerpt"]) == 3
+    assert len(page["excerpt"][1]["content"]) <= 701
+    assert page["failure"] == "The PDF could not be read"
+    assert page["read_at"] is not None
+
+    unknown = f"/api/v1/organizations/{organization_id}/documents/{uuid.uuid4()}/page"
+    assert client.get(unknown).status_code == 404

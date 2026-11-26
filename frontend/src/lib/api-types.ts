@@ -209,3 +209,12 @@ export type SslMode = (typeof SSL_MODES)[number];
 
 /** A colleague as other members see them: name and role, no e-mail. */
 export type Colleague = { user_id: string; full_name: string; role: "owner" | "admin" | "member" | "viewer" };
+
+/** One document for its own page (AL-10): never one the caller cannot open. */
+export type DocumentPage = {
+  document: DocumentItem;
+  read_at: string | null;
+  passages: number;
+  excerpt: { heading: string | null; content: string }[];
+  failure: string | null;
+};

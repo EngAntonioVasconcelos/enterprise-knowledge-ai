@@ -32,3 +32,20 @@ class DocumentStatistics(BaseModel):
     by_status: dict[str, int]
 
     model_config = ConfigDict(extra="forbid")
+
+
+class DocumentExcerpt(BaseModel):
+    heading: str | None = None
+    content: str
+
+
+class DocumentPage(BaseModel):
+    """One document for its own page (AL-10): what it is, where it comes
+    from, the kind of sharing, when it was last read, the first passages
+    the assistant answers from, and why the last reading failed, if it did."""
+
+    document: DocumentResponse
+    read_at: datetime | None = None
+    passages: int = 0
+    excerpt: list[DocumentExcerpt] = []
+    failure: str | None = None

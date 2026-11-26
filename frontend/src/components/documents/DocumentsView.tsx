@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FileUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type DragEvent, useEffect, useRef, useState } from "react";
@@ -42,6 +43,8 @@ type Row = {
   at: string;
   source: string | null;
   audience: Audience | null;
+  /** Its own page, once it is a document (not a file still waiting). */
+  href: string | null;
 };
 
 // A file still waiting to be read is shared as it was sent.
@@ -118,6 +121,7 @@ export function DocumentsView({
       at: upload.created_at,
       source: t.origins.file_upload,
       audience: upload.visibility ? (SENT_AS[upload.visibility] ?? null) : null,
+      href: null,
     })),
     ...documents.map((document) => ({
       key: document.id,
@@ -131,6 +135,7 @@ export function DocumentsView({
         ? (t.origins[document.source.provider as keyof typeof t.origins] ?? document.source.name)
         : null,
       audience: document.audience ?? null,
+      href: `/documentos/${document.id}?org=${encodeURIComponent(organizationId)}`,
     })),
   ];
   // The first reading of a new source counts as work in progress too.
@@ -336,9 +341,19 @@ export function DocumentsView({
             {rows.map((row) => (
               <tr key={row.key} className="border-b border-line align-baseline">
                 <td className="py-3 pr-4">
-                  <span className="block truncate text-ink" title={row.title}>
-                    {row.title}
-                  </span>
+                  {row.href ? (
+                    <Link
+                      href={row.href}
+                      title={row.title}
+                      className="block truncate text-ink underline-offset-4 hover:text-cobalt-deep hover:underline"
+                    >
+                      {row.title}
+                    </Link>
+                  ) : (
+                    <span className="block truncate text-ink" title={row.title}>
+                      {row.title}
+                    </span>
+                  )}
                   {row.source ? <span className="mt-0.5 block truncate text-meta text-ink-faint">{row.source}</span> : null}
                 </td>
                 <td className="hidden py-3 pr-4 text-meta text-ink-soft sm:table-cell">{t.kinds[row.kind]}</td>
