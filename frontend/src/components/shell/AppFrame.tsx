@@ -60,6 +60,14 @@ export function AppFrame({
       <div className="flex min-w-0 flex-col">
         {/* Wide screens: the organization and the command bar. */}
         <header aria-label={t.nav.topbar} className="hidden h-15 items-center gap-4 border-b border-line px-7 lg:flex">
+          {/* The product's name, beside its mark in the rail. */}
+          <a
+            href="/assistente"
+            className="text-[0.9375rem] font-semibold tracking-[-0.015em] whitespace-nowrap text-ink hover:text-signal-deep"
+          >
+            {t.product}
+          </a>
+          {organizations.length ? <span aria-hidden className="h-6 w-px bg-line-strong" /> : null}
           {organizations.length ? (
             <div className="min-w-0 max-w-xs">
               <Suspense>

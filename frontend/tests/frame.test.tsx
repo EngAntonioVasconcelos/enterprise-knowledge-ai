@@ -40,6 +40,7 @@ describe("the frame", () => {
     expect(within(rail).getByRole("link", { name: "Enterprise Knowledge AI" })).toHaveAttribute("href", "/assistente");
     // The organization being worked in sits in the top bar, beside the commands.
     const [top] = screen.getAllByRole("banner", { name: "Organiza\u00e7\u00e3o e comandos" });
+    expect(within(top!).getByRole("link", { name: "Enterprise Knowledge AI" })).toHaveAttribute("href", "/assistente");
     expect(within(top!).getByText("Atl\u00e2ntico Seguros")).toBeInTheDocument();
     expect(within(top!).getByText("Propriet\u00e1rio")).toBeInTheDocument();
     expect(within(top!).getByRole("button", { name: /Perguntar, procurar ou ir para/ })).toBeInTheDocument();
