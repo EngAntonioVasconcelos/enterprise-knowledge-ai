@@ -158,3 +158,25 @@ describe("sharing with chosen people", () => {
     expect(body.getAll("readers")).toEqual([RUI]);
   });
 });
+
+describe("where a document comes from and who sees it", () => {
+  it("shows the source and the kind of sharing, never who", () => {
+    render(
+      <DocumentsView
+        organizationId={ORG}
+        canManage={false}
+        waiting={[{ id: "w1", connection_id: "c", filename: "Plano.txt", mime_type: "text/plain", size_bytes: 1, visibility: "people", created_at: "2026-11-26T10:00:00Z" }]}
+        lastError={null}
+        documents={[
+          { id: "d1", connection_id: "c", title: "Manual.pdf", mime_type: "application/pdf", status: "active", last_synced_at: null, updated_at: "2026-11-20T09:00:00Z", source: { provider: "google_drive", name: "Drive" }, audience: "source" },
+          { id: "d2", connection_id: "c", title: "Notas.txt", mime_type: "text/plain", status: "active", last_synced_at: null, updated_at: "2026-11-20T09:00:00Z", source: { provider: "file_upload", name: "Ficheiros" }, audience: "only_you" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Google Drive")).toBeInTheDocument();
+    expect(screen.getByText("Como na origem")).toBeInTheDocument();
+    expect(screen.getByText("S\u00f3 tu")).toBeInTheDocument();
+    expect(screen.getByText("Tu e pessoas escolhidas")).toBeInTheDocument();
+    expect(screen.getAllByText("Ficheiros enviados")).toHaveLength(2);
+  });
+});

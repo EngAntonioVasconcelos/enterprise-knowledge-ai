@@ -140,6 +140,7 @@ export type Upload = {
   filename: string;
   mime_type: string;
   size_bytes: number;
+  visibility?: "organization" | "private" | "people";
   created_at: string;
 };
 
@@ -151,7 +152,13 @@ export type DocumentItem = {
   status: "pending" | "active" | "failed" | "removed" | string;
   last_synced_at: string | null;
   updated_at: string;
+  /** Where it comes from and the kind of sharing, never who (AL-9). */
+  source?: { provider: string; name: string } | null;
+  audience?: Audience | null;
 };
+
+export const AUDIENCES = ["organization", "only_you", "people", "source"] as const;
+export type Audience = (typeof AUDIENCES)[number];
 
 export type DashboardData = {
   days: { date: string; questions: number; unanswered: number }[];

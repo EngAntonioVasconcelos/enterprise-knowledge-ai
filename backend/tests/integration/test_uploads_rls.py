@@ -191,3 +191,38 @@ def test_only_members_can_be_chosen_and_only_by_the_uploader(perm_db, world, tmp
     with pytest.raises(DBAPIError):
         with db.begin_nested():
             db.execute(select(FileUploadReader))
+
+
+def test_the_list_says_the_kind_of_sharing_never_who(perm_db, world, tmp_path):
+    db = perm_db
+    storage = LocalObjectStorage(tmp_path)
+    ana = f"ana@{world.domain}"
+    _upload_as(db, world, world.ana, ana, "all.txt", "organization", storage)
+    _upload_as(db, world, world.ana, ana, "mine.txt", "private", storage)
+    _upload_as(db, world, world.ana, ana, "team.txt", "people", storage, readers=[world.rui])
+    _as_worker(db, world.organization)
+    sync_connection(db, connection_id=world.uploads, storage=storage)
+    db.flush()
+
+    def audiences(user_id):
+        _as_runtime(db, user_id)
+        rows = db.execute(
+            text(
+                "SELECT d.title, a.provider, a.audience"
+                " FROM app_private.document_audiences(:organization) AS a"
+                " JOIN documents AS d ON d.id = a.document_id"
+            ),
+            {"organization": world.organization},
+        )
+        return sorted(tuple(row) for row in rows)
+
+    assert audiences(world.ana) == [
+        ("all.txt", "file_upload", "organization"),
+        ("mine.txt", "file_upload", "only_you"),
+        ("team.txt", "file_upload", "people"),
+    ]
+    # Rui gets only what he can open, and no names.
+    assert audiences(world.rui) == [
+        ("all.txt", "file_upload", "organization"),
+        ("team.txt", "file_upload", "people"),
+    ]
