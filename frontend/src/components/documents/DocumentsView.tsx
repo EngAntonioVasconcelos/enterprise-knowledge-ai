@@ -6,7 +6,7 @@ import { type DragEvent, useEffect, useRef, useState } from "react";
 
 import { SourcesPanel } from "@/components/documents/SourcesPanel";
 import { useI18n } from "@/i18n/client";
-import type { Colleague, Connection, DocumentItem, Upload } from "@/lib/api-types";
+import type { Audience, Colleague, Connection, DocumentItem, Upload } from "@/lib/api-types";
 import {
   ACCEPTED_EXTENSIONS,
   checkFile,
@@ -40,7 +40,12 @@ type Row = {
   kind: ReturnType<typeof documentKind>;
   status: "waiting" | "pending" | "active" | "failed";
   at: string;
+  source: string | null;
+  audience: Audience | null;
 };
+
+// A file still waiting to be read is shared as it was sent.
+const SENT_AS: Record<string, Audience> = { organization: "organization", private: "only_you", people: "people" };
 
 export async function sendFile(
   organizationId: string,
@@ -111,6 +116,8 @@ export function DocumentsView({
       kind: documentKind(upload.mime_type),
       status: "waiting" as const,
       at: upload.created_at,
+      source: t.origins.file_upload,
+      audience: upload.visibility ? (SENT_AS[upload.visibility] ?? null) : null,
     })),
     ...documents.map((document) => ({
       key: document.id,
@@ -120,6 +127,10 @@ export function DocumentsView({
         ? document.status
         : "pending") as Row["status"],
       at: document.updated_at,
+      source: document.source
+        ? (t.origins[document.source.provider as keyof typeof t.origins] ?? document.source.name)
+        : null,
+      audience: document.audience ?? null,
     })),
   ];
   // The first reading of a new source counts as work in progress too.
@@ -316,6 +327,7 @@ export function DocumentsView({
             <tr className="border-b border-line text-meta text-ink-faint">
               <th scope="col" className="py-2 pr-4 font-medium">{t.columns.name}</th>
               <th scope="col" className="hidden w-24 py-2 pr-4 font-medium sm:table-cell">{t.columns.kind}</th>
+              <th scope="col" className="hidden w-48 py-2 pr-4 font-medium lg:table-cell">{t.columns.audience}</th>
               <th scope="col" className="w-36 py-2 pr-4 font-medium sm:w-44">{t.columns.status}</th>
               <th scope="col" className="hidden w-44 py-2 font-medium md:table-cell">{t.columns.updated}</th>
             </tr>
@@ -327,8 +339,12 @@ export function DocumentsView({
                   <span className="block truncate text-ink" title={row.title}>
                     {row.title}
                   </span>
+                  {row.source ? <span className="mt-0.5 block truncate text-meta text-ink-faint">{row.source}</span> : null}
                 </td>
                 <td className="hidden py-3 pr-4 text-meta text-ink-soft sm:table-cell">{t.kinds[row.kind]}</td>
+                <td className="hidden py-3 pr-4 text-meta text-ink-soft lg:table-cell">
+                  {row.audience ? t.audiences[row.audience] : null}
+                </td>
                 <td className="py-3 pr-4">
                   <Status status={row.status} label={t.status[row.status]} />
                 </td>

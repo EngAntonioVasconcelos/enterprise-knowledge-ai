@@ -50,3 +50,21 @@ Under `/api/v1/organizations/{organization_id}/documents`:
 | GET | `/` | any member | the documents the caller may read |
 | GET | `/{id}` | any member | one of them; not found and not allowed look the same |
 | GET | `/statistics` | owners, admins | `{"total", "by_status"}`, no titles |
+
+## Source and kind of sharing in the list (AL-9)
+
+`GET /organizations/{id}/documents/` also gives, for each document, its
+`source` (`provider` and connection `name`) and its `audience`: the kind
+of sharing, never who. Migration `d9a3f6c2e8b1` adds
+`app_private.document_audiences(organization_id)`, which reads the
+permissions for the caller's own readable documents only:
+
+| audience | when |
+|---|---|
+| `organization` | an `organization` grant, or `anyone` where link sharing counts for the organization |
+| `only_you` | exactly one person and no group, domain or link grant: the caller |
+| `people` | an upload shared with chosen people |
+| `source` | anything else from a source such as Drive: as shared there |
+
+Names and the number of people are never returned, so nobody learns
+whom a colleague shared a file with. Downgrade drops the function.

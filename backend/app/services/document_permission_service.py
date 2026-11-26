@@ -162,3 +162,21 @@ def document_statistics(
 
     by_status = {status: int(count) for status, count in rows}
     return {"total": sum(by_status.values()), "by_status": by_status}
+
+
+def document_audiences(db: Session, *, organization_id: uuid.UUID) -> dict[uuid.UUID, dict]:
+    """For each document the caller can open: its source and the kind of
+    sharing, from app_private.document_audiences. Never who."""
+    if db.get_bind().dialect.name != "postgresql":
+        return {}
+    rows = db.execute(
+        text("SELECT * FROM app_private.document_audiences(:organization_id)"),
+        {"organization_id": organization_id},
+    )
+    return {
+        row.document_id: {
+            "source": {"provider": row.provider, "name": row.connection_name},
+            "audience": row.audience,
+        }
+        for row in rows
+    }

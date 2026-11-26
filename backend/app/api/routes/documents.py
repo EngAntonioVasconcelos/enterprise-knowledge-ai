@@ -9,6 +9,7 @@ from app.models.document import Document
 from app.models.membership import OrganizationMembership
 from app.schemas.document import DocumentResponse, DocumentStatistics
 from app.services.document_permission_service import (
+    document_audiences,
     document_statistics,
     list_documents,
 )
@@ -29,8 +30,18 @@ def list_readable(
     member: OrganizationMembership = Depends(MEMBERS),
     db: Session = Depends(get_db),
 ):
-    """Only the documents the caller could open at the source."""
-    return list_documents(db, organization_id=organization_id)
+    """Only the documents the caller could open at the source, each with
+    where it comes from and the kind of sharing (never who)."""
+    audiences = document_audiences(db, organization_id=organization_id)
+    return [
+        DocumentResponse(
+            **DocumentResponse.model_validate(document).model_dump(
+                exclude={"source", "audience"}
+            ),
+            **audiences.get(document.id, {}),
+        )
+        for document in list_documents(db, organization_id=organization_id)
+    ]
 
 
 @router.get("/statistics", response_model=DocumentStatistics)
