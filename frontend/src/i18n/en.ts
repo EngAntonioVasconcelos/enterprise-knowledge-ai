@@ -42,6 +42,15 @@ export const en: Messages = {
     saved: "Language changed",
   },
   assistant: {
+    evidence: {
+      title: "Evidence",
+      hint: "where the answer comes from",
+      idle: "When you ask, the passages and the data the answer comes from appear here, so you can check every sentence.",
+      asking: "Searching the documents and data you can access\u2026",
+      none: "No evidence to show: there was no safe answer.",
+      onlyYours: "Only evidence from documents and databases you can open is shown.",
+    },
+    inConversationCount: (count: number) => (count === 1 ? "1 question in this conversation" : `${count} questions in this conversation`),
     title: "Assistant",
     placeholder: "Type your question, for example: how many days of holiday do I get a year?",
     ask: "Ask",

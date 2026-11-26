@@ -52,7 +52,7 @@ export default async function AssistantPage({
   const firstName = session?.user.given_name ?? session?.user.name?.split(/\s+/)[0] ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
+    <div className="w-full">
       <AssistantView
         key={active.id}
         organizationId={active.id}

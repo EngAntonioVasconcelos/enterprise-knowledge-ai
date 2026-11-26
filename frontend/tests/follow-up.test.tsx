@@ -49,12 +49,14 @@ describe("follow-up questions", () => {
     await userEvent.type(box, "Quantos dias de ferias tenho?{Enter}");
     await screen.findByRole("heading", { name: "Quantos dias de ferias tenho?" });
     expect(sent(fetchMock, 0).previous).toBeUndefined();
-    expect(screen.getByText("Nesta conversa:")).toBeInTheDocument();
+    expect(screen.getByText("1 pergunta nesta conversa")).toBeInTheDocument();
 
     await userEvent.clear(box);
     await userEvent.type(box, "e os estagiarios?{Enter}");
     await screen.findByRole("heading", { name: "e os estagiarios?" });
     expect(sent(fetchMock, 1).previous).toEqual(["Quantos dias de ferias tenho?"]);
+    // The earlier question stays in view, quieter, above the current answer.
+    expect(screen.getByRole("list", { name: "Nesta conversa:" })).toHaveTextContent("Quantos dias de ferias tenho?");
     expect(JSON.stringify(sent(fetchMock, 1))).not.toContain("Tens 25 dias");
 
     await userEvent.clear(box);
@@ -76,7 +78,7 @@ describe("follow-up questions", () => {
     await screen.findByRole("heading", { name: "Quantos dias?" });
 
     await userEvent.click(screen.getByRole("button", { name: "Nova conversa" }));
-    expect(screen.queryByText("Nesta conversa:")).toBeNull();
+    expect(screen.queryByText("1 pergunta nesta conversa")).toBeNull();
     expect(screen.getByRole("textbox")).toHaveValue("");
     await userEvent.type(screen.getByRole("textbox"), "Outra coisa?{Enter}");
     await screen.findByRole("heading", { name: "Outra coisa?" });
