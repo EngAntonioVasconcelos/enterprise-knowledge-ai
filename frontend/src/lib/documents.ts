@@ -14,6 +14,8 @@ export type DocumentsData = {
   colleagues: Colleague[];
   /** Files sent but not yet read by the worker. */
   waiting: Upload[];
+  /** The caller's own files, read or not: what "Replace" can take out. */
+  ownFiles: Upload[];
   lastError: string | null;
   /** The Google Drive source, for owners and admins; null when not connected. */
   drive: Connection | null;
@@ -56,23 +58,23 @@ async function loadSources(organizationId: string): Promise<Omit<DocumentsData, 
     // uploads come from the upload source, if there is one yet.
     const own = await backendFetch(`/organizations/${organizationId}/upload-source`);
     const canUpload = own.ok || own.status === 404;
-    const base = { documents, canManage: false, canUpload, waiting: [], lastError: null, drive: null };
+    const base = { documents, canManage: false, canUpload, waiting: [], ownFiles: [], lastError: null, drive: null };
     if (!own.ok) return base;
     return { ...base, ...(await waitingUploads(organizationId, (await own.json()) as Connection)) };
   }
   const connections = (await connectionsResponse.json()) as Connection[];
   const drive = driveSource(connections) ?? null;
   const source = uploadSource(connections);
-  const manager = { documents, canManage: true, canUpload: true, waiting: [], lastError: null, drive };
+  const manager = { documents, canManage: true, canUpload: true, waiting: [], ownFiles: [], lastError: null, drive };
   if (!source) return manager;
   return { ...manager, ...(await waitingUploads(organizationId, source)) };
 }
 
-/** The caller's own files not yet read, and the source's last failure. */
+/** The caller's own files (all, and those not yet read) and the source's last failure. */
 async function waitingUploads(
   organizationId: string,
   source: Connection,
-): Promise<Pick<DocumentsData, "waiting" | "lastError">> {
+): Promise<Pick<DocumentsData, "waiting" | "ownFiles" | "lastError">> {
   const uploadsResponse = await backendFetch(
     `/organizations/${organizationId}/connections/${source.id}/uploads/`,
   );
@@ -80,6 +82,7 @@ async function waitingUploads(
   const syncedAt = source.last_synced_at ? Date.parse(source.last_synced_at) : 0;
   return {
     waiting: uploads.filter((upload) => Date.parse(upload.created_at) > syncedAt),
+    ownFiles: uploads,
     lastError: source.last_error,
   };
 }

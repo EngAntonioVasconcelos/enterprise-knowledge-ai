@@ -26,7 +26,7 @@ export function AppNav({
   managed?: string[];
   /** The organization screens open on when none is chosen. */
   fallback?: string | null;
-  /** "rail": icons in the dark rail of wide screens; "bar": a row on small ones. */
+  /** "rail": icons with their names in the dark rail of wide screens; "bar": a row on small ones. */
   variant?: "rail" | "bar";
 }) {
   const pathname = usePathname();
@@ -56,26 +56,20 @@ export function AppNav({
   function railLink(item: Item) {
     const active = pathname.startsWith(item.href);
     const Icon = item.icon;
+    // The name stays under the icon: a screen is found by reading, not by guessing.
     return (
-      <li key={item.href} className="relative">
+      <li key={item.href}>
         <Link
           href={`${item.href}${query}`}
-          aria-label={item.label}
           aria-current={active ? "page" : undefined}
           className={
-            "peer flex size-11 items-center justify-center rounded-control transition-colors " +
+            "flex w-[4.5rem] flex-col items-center gap-1 rounded-control px-1 pt-2 pb-1.5 text-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white " +
             (active ? "bg-rail-raised text-white" : "text-rail-ink hover:bg-rail-raised/60 hover:text-white")
           }
         >
           <Icon aria-hidden className="size-5" strokeWidth={1.8} />
+          <span className="text-[0.6875rem] leading-tight font-medium text-balance">{item.label}</span>
         </Link>
-        {/* The name, shown beside the icon on hover and on keyboard focus. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute top-1/2 left-full z-40 ml-3 -translate-y-1/2 rounded-control bg-rail px-2.5 py-1.5 text-meta font-medium whitespace-nowrap text-white opacity-0 shadow-lg transition-opacity peer-hover:opacity-100 peer-focus-visible:opacity-100"
-        >
-          {item.label}
-        </span>
       </li>
     );
   }
@@ -103,11 +97,11 @@ export function AppNav({
   if (variant === "rail") {
     return (
       <nav aria-label={t.nav.main} className="flex flex-col items-center gap-1.5">
-        <ul className="flex flex-col gap-1.5">{work.map(railLink)}</ul>
+        <ul className="flex flex-col gap-1">{work.map(railLink)}</ul>
         {admin.length ? (
-          <div className="mt-2.5 flex flex-col items-center gap-1.5 border-t border-rail-raised pt-2.5">
+          <div className="mt-2 flex w-full flex-col items-center gap-1 border-t border-rail-raised pt-2">
             <p className="sr-only">{t.nav.admin}</p>
-            <ul className="flex flex-col gap-1.5">{admin.map(railLink)}</ul>
+            <ul className="flex flex-col gap-1">{admin.map(railLink)}</ul>
           </div>
         ) : null}
       </nav>

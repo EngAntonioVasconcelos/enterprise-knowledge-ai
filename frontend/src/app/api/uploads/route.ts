@@ -74,3 +74,26 @@ export async function POST(request: Request) {
     return failed("unavailable", 502);
   }
 }
+
+// "Replace": takes out one of the person's own files once its new version is
+// sent. The backend only finds files the caller sent, so nobody can take out
+// another person's file. A JSON body (never a plain form) keeps other sites
+// from sending this request in the person's name.
+export async function DELETE(request: Request) {
+  if (!request.headers.get("content-type")?.startsWith("application/json")) return failed("unsupported", 415);
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const ids = [body?.organizationId, body?.connectionId, body?.uploadId];
+  if (!ids.every((id) => typeof id === "string" && UUID.test(id))) return failed("unavailable", 400);
+  const [organizationId, connectionId, uploadId] = ids as string[];
+  try {
+    const response = await backendFetch(
+      `/organizations/${organizationId}/connections/${connectionId}/uploads/${uploadId}`,
+      { method: "DELETE" },
+    );
+    if (response.ok) return new NextResponse(null, { status: 204 });
+    return failed(uploadErrorFromStatus(response.status), response.status);
+  } catch (error) {
+    if (error instanceof SignedOutError) return failed("signedOut", 401);
+    return failed("unavailable", 502);
+  }
+}

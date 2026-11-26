@@ -3,7 +3,7 @@
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth0", () => ({ auth0: { getAccessToken: vi.fn() } }));
 
-import { POST } from "@/app/api/uploads/route";
+import { DELETE, POST } from "@/app/api/uploads/route";
 import { auth0 } from "@/lib/auth0";
 
 const ORG = "11111111-1111-4111-8111-111111111111";
@@ -125,6 +125,35 @@ describe("POST /api/uploads with chosen people", () => {
     const fetchMock = backend();
     expect(await (await POST(peopleRequest([]))).json()).toEqual({ error: "noReaders" });
     expect(await (await POST(peopleRequest(["everyone"]))).json()).toEqual({ error: "noReaders" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /api/uploads", () => {
+  const UPLOAD = "55555555-5555-4555-8555-555555555555";
+
+  function removal(body: unknown, type = "application/json") {
+    return new Request("http://localhost/api/uploads", {
+      method: "DELETE",
+      headers: { "Content-Type": type },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    });
+  }
+
+  it("takes out the caller's own file through the backend", async () => {
+    const fetchMock = backend(new Response(null, { status: 204 }));
+    const response = await DELETE(removal({ organizationId: ORG, connectionId: SOURCE.id, uploadId: UPLOAD }));
+
+    expect(response.status).toBe(204);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain(`/organizations/${ORG}/connections/${SOURCE.id}/uploads/${UPLOAD}`);
+    expect(init.method).toBe("DELETE");
+  });
+
+  it("refuses a plain form and ids that are not ids", async () => {
+    const fetchMock = backend();
+    expect((await DELETE(removal("uploadId=x", "application/x-www-form-urlencoded"))).status).toBe(415);
+    expect((await DELETE(removal({ organizationId: ORG, connectionId: SOURCE.id, uploadId: "../x" }))).status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

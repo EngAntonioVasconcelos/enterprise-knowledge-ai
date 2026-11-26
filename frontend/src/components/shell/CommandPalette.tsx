@@ -18,6 +18,7 @@ import { type KeyboardEvent, useEffect, useMemo, useState } from "react";
 
 import { useI18n } from "@/i18n/client";
 import type { Organization } from "@/lib/api-types";
+import { plain } from "@/lib/text";
 
 /** Asks the one palette on the page to open (from any trigger button). */
 export const OPEN_COMMANDS = "eka:commands";
@@ -28,10 +29,6 @@ export function openCommands() {
 
 type Command = { id: string; group: "ask" | "go" | "organizations"; label: string; hint?: string; icon: LucideIcon; run: () => void };
 
-// Accents and case do not matter when searching: "ferias" finds "Ferias" written with an accent.
-function plain(text: string): string {
-  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
-}
 
 /**
  * One place to ask, go to a screen or change organization, from the
