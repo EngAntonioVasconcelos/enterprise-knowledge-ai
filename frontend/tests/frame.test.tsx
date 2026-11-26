@@ -36,11 +36,11 @@ function frame(managed = [ORG]) {
 describe("the frame", () => {
   it("names the product, the organization and the person's role", () => {
     frame();
-    const rail = screen.getByRole("complementary");
-    expect(within(rail).getByRole("link", { name: "Enterprise Knowledge AI" })).toHaveAttribute("href", "/assistente");
-    // The organization being worked in sits in the top bar, beside the commands.
+    // The product, the organization being worked in and the commands sit
+    // across the top; the screens in the rail below.
     const [top] = screen.getAllByRole("banner", { name: "Organiza\u00e7\u00e3o e comandos" });
     expect(within(top!).getByRole("link", { name: "Enterprise Knowledge AI" })).toHaveAttribute("href", "/assistente");
+    expect(within(screen.getByRole("complementary")).getByRole("link", { name: "Assistente" })).toBeInTheDocument();
     expect(within(top!).getByText("Atl\u00e2ntico Seguros")).toBeInTheDocument();
     expect(within(top!).getByText("Propriet\u00e1rio")).toBeInTheDocument();
     expect(within(top!).getByRole("button", { name: /Perguntar, procurar ou ir para/ })).toBeInTheDocument();
