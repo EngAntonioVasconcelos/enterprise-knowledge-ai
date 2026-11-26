@@ -276,3 +276,19 @@ replace, the new file is sent first and only then is the old one taken
 out (`DELETE /api/uploads`, a JSON body so another site cannot send it in
 the person's name; the backend only finds files the caller sent). If the
 old one cannot be taken out, the person is told that both are kept.
+
+## History and one rule for buttons (redesign, part 4)
+
+The history groups questions under the day they were asked ("Today",
+"Yesterday", then the date) and shows only the time on each row. With six
+questions or more, a search box finds them (accents and case do not
+matter); when some had no safe answer, one choice shows only those, to ask
+them again. The page passes the time it was made (`now`), so "Today" is
+the same on the server and in the browser.
+
+The other screens (Dashboard, Gaps, People, Settings, the entry page)
+already use the Bancada tokens and layout, and stay as they are.
+
+One rule for buttons: the main action of a screen is ink (`bg-ink`,
+darkening to `signal-deep` on hover); `signal` keeps its one meaning,
+evidence and the current place. "Add files" and "Continue" now follow it.

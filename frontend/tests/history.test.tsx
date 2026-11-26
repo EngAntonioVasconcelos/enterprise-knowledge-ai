@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("server-only", () => ({}));
@@ -113,6 +113,39 @@ describe("HistoryList", () => {
   it("explains when the organization keeps no history", () => {
     render(<HistoryList organizationId={ORG} retentionDays={0} items={[]} />);
     expect(screen.getByText("A tua organiza\u00e7\u00e3o n\u00e3o guarda o hist\u00f3rico de perguntas.")).toBeInTheDocument();
+  });
+  it("groups the questions by day and finds them, without minding accents", async () => {
+    const q = (n: number, question: string, created_at: string, abstained = false) => ({
+      id: `11111111-1111-4111-8111-00000000000${n}`,
+      question,
+      abstained,
+      created_at,
+    });
+    render(
+      <HistoryList
+        organizationId={ORG}
+        retentionDays={90}
+        now="2026-11-26T15:00:00Z"
+        items={[
+          q(1, "Quantos dias de f\u00e9rias tenho?", "2026-11-26T12:00:00Z"),
+          q(2, "Qual \u00e9 o limite do hotel?", "2026-11-26T10:00:00Z", true),
+          q(3, "Quem aprova despesas?", "2026-11-25T12:00:00Z"),
+          q(4, "Onde est\u00e1 o manual?", "2026-11-20T12:00:00Z"),
+          q(5, "Como pe\u00e7o um port\u00e1til?", "2026-11-20T11:00:00Z"),
+          q(6, "Qual \u00e9 o hor\u00e1rio?", "2026-11-19T12:00:00Z"),
+        ]}
+      />,
+    );
+    expect(within(screen.getByRole("region", { name: "Hoje" })).getAllByRole("link")).toHaveLength(2);
+    expect(within(screen.getByRole("region", { name: "Ontem" })).getAllByRole("link")).toHaveLength(1);
+
+    await userEvent.type(screen.getByRole("searchbox", { name: "Procurar nas perguntas" }), "ferias");
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    await userEvent.clear(screen.getByRole("searchbox", { name: "Procurar nas perguntas" }));
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /S\u00f3 sem resposta segura/ }));
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: /limite do hotel/ })).toBeInTheDocument();
   });
 });
 

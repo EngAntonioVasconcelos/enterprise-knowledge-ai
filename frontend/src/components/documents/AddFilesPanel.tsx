@@ -325,7 +325,7 @@ export function AddFilesPanel({
                   <button
                     type="button"
                     onClick={() => void send(review.clean, review.duplicates)}
-                    className="h-10 rounded-control bg-signal px-4 font-medium text-white hover:bg-signal-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+                    className="h-10 rounded-control bg-ink px-4 font-medium text-white transition-colors hover:bg-signal-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
                   >
                     {d.send}
                   </button>
