@@ -7,6 +7,7 @@ export const DRIVE_PROVIDER = "google_drive";
 
 export type UploadErrorKind =
   | "noSource"
+  | "noReaders"
   | "tooLarge"
   | "unsupported"
   | "empty"
@@ -15,7 +16,9 @@ export type UploadErrorKind =
   | "unavailable";
 
 /** Who may read a file once it is sent. */
-export const VISIBILITIES = ["organization", "private"] as const;
+export const VISIBILITIES = ["organization", "private", "people"] as const;
+/** How many people a file can be shared with, as the backend allows. */
+export const MAX_READERS = 50;
 export type Visibility = (typeof VISIBILITIES)[number];
 
 export function checkFile(file: { name: string; size: number }): UploadErrorKind | null {

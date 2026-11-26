@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Connection, DocumentItem, Upload } from "@/lib/api-types";
+import type { Colleague, Connection, DocumentItem, Upload } from "@/lib/api-types";
 import { backendFetch } from "@/lib/backend";
 import { DRIVE_PROVIDER, UPLOAD_PROVIDER } from "@/lib/uploads";
 
@@ -10,6 +10,8 @@ export type DocumentsData = {
   canManage: boolean;
   /** Owners, admins and members send files; viewers only read. */
   canUpload: boolean;
+  /** Who a file can be shared with: active colleagues, names only. */
+  colleagues: Colleague[];
   /** Files sent but not yet read by the worker. */
   waiting: Upload[];
   lastError: string | null;
@@ -27,7 +29,19 @@ export function driveSource(connections: Connection[]): Connection | undefined {
   return connections.find((c) => c.provider === DRIVE_PROVIDER && !c.disconnected_at);
 }
 
+/** Colleagues a file can be shared with; empty for viewers. */
+async function loadColleagues(organizationId: string): Promise<Colleague[]> {
+  const response = await backendFetch(`/organizations/${organizationId}/directory/?limit=100`);
+  return response.ok ? ((await response.json()) as Colleague[]) : [];
+}
+
 export async function loadDocuments(organizationId: string): Promise<DocumentsData | null> {
+  const data = await loadSources(organizationId);
+  if (!data) return null;
+  return { ...data, colleagues: data.canUpload ? await loadColleagues(organizationId) : [] };
+}
+
+async function loadSources(organizationId: string): Promise<Omit<DocumentsData, "colleagues"> | null> {
   const [documentsResponse, connectionsResponse] = await Promise.all([
     backendFetch(`/organizations/${organizationId}/documents/`),
     backendFetch(`/organizations/${organizationId}/connections/`),

@@ -6,6 +6,8 @@ leaves retrieval), with the upload's SHA-256 as revision: an unchanged
 file is never read or parsed again.
 """
 
+import uuid
+
 from sqlalchemy import select
 
 from app.connectors.base import (
@@ -14,16 +16,22 @@ from app.connectors.base import (
     SourceItem,
     register_connector,
 )
-from app.models.file_upload import FileUpload
+from app.models.file_upload import FileUpload, FileUploadReader
 from app.services.document_permission_service import SourcePermission
 from app.services.object_storage import get_object_storage
 from app.services.text_extraction import extract_text
 
 
-def _permissions(upload: FileUpload) -> tuple[SourcePermission, ...]:
+def _permissions(
+    upload: FileUpload, readers: tuple[str, ...] = ()
+) -> tuple[SourcePermission, ...]:
     if upload.visibility == "organization":
         return (SourcePermission("organization"),)
-    return (SourcePermission("user", upload.uploader_email, "owner"),)
+    owner = (SourcePermission("user", upload.uploader_email, "owner"),)
+    if upload.visibility == "people":
+        # The chosen people read it too; "private" is the uploader alone.
+        return owner + tuple(SourcePermission("user", email, "reader") for email in readers)
+    return owner
 
 
 class FileUploadConnector:
@@ -42,6 +50,14 @@ class FileUploadConnector:
             )
         ).all()
 
+        chosen: dict[uuid.UUID, list[str]] = {}
+        shared = [upload.id for upload in uploads if upload.visibility == "people"]
+        if shared:
+            for reader in self.context.db.scalars(
+                select(FileUploadReader).where(FileUploadReader.upload_id.in_(shared))
+            ):
+                chosen.setdefault(reader.upload_id, []).append(reader.reader_email)
+
         items = []
         for upload in uploads:
             self._keys[str(upload.id)] = upload.original_object_key
@@ -52,7 +68,7 @@ class FileUploadConnector:
                     mime_type=upload.mime_type,
                     revision=upload.sha256,
                     modified_at=upload.created_at,
-                    permissions=_permissions(upload),
+                    permissions=_permissions(upload, tuple(sorted(chosen.get(upload.id, [])))),
                 )
             )
 

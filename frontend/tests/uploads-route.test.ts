@@ -100,3 +100,31 @@ describe("POST /api/uploads", () => {
     expect(((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as FormData).get("visibility")).toBe("private");
   });
 });
+
+describe("POST /api/uploads with chosen people", () => {
+  const RUI = "33333333-3333-4333-8333-333333333333";
+
+  function peopleRequest(readers: string[]) {
+    const form = new FormData();
+    form.set("organizationId", ORG);
+    form.set("visibility", "people");
+    for (const reader of readers) form.append("readers", reader);
+    form.set("file", new File(["x"], "plano.txt", { type: "text/plain" }));
+    return new Request("http://localhost/api/uploads", { method: "POST", body: form });
+  }
+
+  it("passes the chosen people on", async () => {
+    const fetchMock = backend(json([SOURCE]), json({ id: "u1" }, 201));
+    expect((await POST(peopleRequest([RUI, RUI]))).status).toBe(201);
+    const body = (fetchMock.mock.calls[1] as [string, RequestInit])[1].body as FormData;
+    expect(body.get("visibility")).toBe("people");
+    expect(body.getAll("readers")).toEqual([RUI]);
+  });
+
+  it("refuses nobody chosen, or something that is not a person, before calling the backend", async () => {
+    const fetchMock = backend();
+    expect(await (await POST(peopleRequest([]))).json()).toEqual({ error: "noReaders" });
+    expect(await (await POST(peopleRequest(["everyone"]))).json()).toEqual({ error: "noReaders" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

@@ -199,3 +199,6 @@ export type DatabaseSource = Connection & {
 
 export const SSL_MODES = ["require", "verify-ca", "verify-full", "disable"] as const;
 export type SslMode = (typeof SSL_MODES)[number];
+
+/** A colleague as other members see them: name and role, no e-mail. */
+export type Colleague = { user_id: string; full_name: string; role: "owner" | "admin" | "member" | "viewer" };

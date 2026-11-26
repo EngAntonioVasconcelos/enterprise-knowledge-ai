@@ -8,7 +8,7 @@ connector, so a heavy or hostile file never slows down a request.
 import hashlib
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.errors import (
@@ -45,6 +45,10 @@ class UploadNotFoundError(NotFoundError):
     pass
 
 
+VISIBILITIES = ("organization", "private", "people")
+MAX_READERS = 50
+
+
 def _clean_filename(filename: str | None) -> str:
     name = (filename or "").replace("\\", "/").split("/")[-1].strip()
     name = "".join(ch for ch in name if ch.isprintable())
@@ -62,6 +66,7 @@ def create_upload(
     visibility: str,
     storage: ObjectStorage | None = None,
     uploader_role: str | None = None,
+    readers: list[uuid.UUID] | None = None,
 ) -> FileUpload:
     if connection.provider != "file_upload":
         raise NotAnUploadConnectionError(
@@ -71,8 +76,26 @@ def create_upload(
     if uploader_role is not None and roles and uploader_role not in roles:
         # The file would be invisible to the person who uploaded it.
         raise ForbiddenError("Your role does not use this connection")
-    if visibility not in ("organization", "private"):
-        raise InvalidInputError("visibility must be organization or private")
+    if visibility not in VISIBILITIES:
+        raise InvalidInputError("visibility must be organization, private or people")
+    chosen = sorted(set(readers or []))
+    if visibility == "people":
+        if not 1 <= len(chosen) <= MAX_READERS:
+            raise InvalidInputError(f"choose from 1 to {MAX_READERS} people")
+        # Checked before storing, so a wrong choice leaves nothing behind;
+        # add_upload_readers checks again inside the database.
+        colleagues = set(
+            db.scalars(
+                text(
+                    "SELECT user_id FROM app_private.organization_directory(:organization_id)"
+                ),
+                {"organization_id": connection.organization_id},
+            )
+        )
+        if not set(chosen) <= colleagues:
+            raise InvalidInputError("every person must be an active member")
+    elif chosen:
+        raise InvalidInputError("people are chosen only with visibility people")
     if len(data) > MAX_FILE_BYTES:
         raise UploadTooLargeError("The file is larger than 20 MB")
     if not data:
@@ -112,6 +135,11 @@ def create_upload(
     )
     db.add(upload)
     db.flush()
+    if visibility == "people":
+        db.execute(
+            text("SELECT app_private.add_upload_readers(:upload_id, :user_ids)"),
+            {"upload_id": upload.id, "user_ids": chosen},
+        )
 
     request_sync(db, connection=connection, actor_user_id=user_id)
     return upload

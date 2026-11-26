@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     BigInteger,
+    PrimaryKeyConstraint,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -23,14 +24,15 @@ class FileUpload(Base):
     The original is in object storage; the sync engine reads it through the
     file_upload connector like any other source. Only the uploader sees the
     record (its file name can be telling); the document follows the chosen
-    visibility (migration d4a1e7b3c8f2).
+    visibility (migration d4a1e7b3c8f2): the whole organization, only the
+    uploader, or the uploader and chosen people (``people``, AL-8b).
     """
 
     __tablename__ = "file_uploads"
 
     __table_args__ = (
         CheckConstraint(
-            "visibility IN ('organization', 'private')",
+            "visibility IN ('organization', 'private', 'people')",
             name="ck_file_uploads_visibility",
         ),
         CheckConstraint(
@@ -105,3 +107,48 @@ class FileUpload(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+
+class FileUploadReader(Base):
+    """A person the uploader chose to read a ``people`` upload (AL-8b).
+
+    Written only by app_private.add_upload_readers, which checks that the
+    caller uploaded the file and that each reader is an active member of
+    its organization, and keeps the reader's e-mail so the worker grants
+    access without reading users. Only the worker reads these rows.
+    """
+
+    __tablename__ = "file_upload_readers"
+
+    __table_args__ = (
+        PrimaryKeyConstraint("upload_id", "user_id", name="pk_file_upload_readers"),
+    )
+
+    upload_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "file_uploads.id",
+            ondelete="CASCADE",
+            name="fk_file_upload_readers_upload_id_file_uploads",
+        ),
+        nullable=False,
+    )
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "organizations.id",
+            ondelete="CASCADE",
+            name="fk_file_upload_readers_organization_id_organizations",
+        ),
+        nullable=False,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+            name="fk_file_upload_readers_user_id_users",
+        ),
+        nullable=False,
+    )
+
+    reader_email: Mapped[str] = mapped_column(String(320), nullable=False)

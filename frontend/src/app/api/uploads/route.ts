@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { Connection } from "@/lib/api-types";
 import { backendFetch, SignedOutError } from "@/lib/backend";
 import { uploadSource } from "@/lib/documents";
-import { checkFile, UPLOAD_PROVIDER, uploadErrorFromStatus, VISIBILITIES } from "@/lib/uploads";
+import { checkFile, MAX_READERS, UPLOAD_PROVIDER, uploadErrorFromStatus, VISIBILITIES } from "@/lib/uploads";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,6 +27,10 @@ export async function POST(request: Request) {
   // Who reads the file: what the person chose; when unsaid, only them.
   const chosen = String(form.get("visibility") ?? "");
   const visibility = (VISIBILITIES as readonly string[]).includes(chosen) ? chosen : "private";
+  const readers = [...new Set(form.getAll("readers").map(String))];
+  if (visibility === "people" && (!readers.length || readers.length > MAX_READERS || !readers.every((id) => UUID.test(id)))) {
+    return failed("noReaders", 400);
+  }
   if (typeof organizationId !== "string" || !UUID.test(organizationId)) return failed("unavailable", 400);
   if (!(file instanceof File)) return failed("unsupported", 400);
   const problem = checkFile(file);
@@ -61,6 +65,7 @@ export async function POST(request: Request) {
     const body = new FormData();
     body.set("file", file, file.name);
     body.set("visibility", visibility);
+    if (visibility === "people") for (const reader of readers) body.append("readers", reader);
     const response = await backendFetch(`${base}${source.id}/uploads/`, { method: "POST", body });
     if (!response.ok) return failed(uploadErrorFromStatus(response.status), response.status);
     return NextResponse.json(await response.json(), { status: 201 });
