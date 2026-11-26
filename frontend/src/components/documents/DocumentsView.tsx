@@ -1,22 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { FileUp } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type DragEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
+import { AddFilesPanel } from "@/components/documents/AddFilesPanel";
 import { SourcesPanel } from "@/components/documents/SourcesPanel";
 import { useI18n } from "@/i18n/client";
 import type { Audience, Colleague, Connection, DocumentItem, Upload } from "@/lib/api-types";
-import {
-  ACCEPTED_EXTENSIONS,
-  checkFile,
-  documentKind,
-  MAX_READERS,
-  type UploadErrorKind,
-  VISIBILITIES,
-  type Visibility,
-} from "@/lib/uploads";
+import { plain } from "@/lib/text";
+import { documentKind } from "@/lib/uploads";
 
 const REFRESH_MS = 4000;
 
@@ -29,6 +23,8 @@ type Props = {
   /** Who a file can be shared with, for "Pessoas escolhidas". */
   colleagues?: Colleague[];
   waiting: Upload[];
+  /** The person's own files, read or not: what "Substituir" can take out. */
+  ownFiles?: Upload[];
   lastError: string | null;
   drive?: Connection | null;
   /** The outcome of connecting Google Drive, after Google sends the person back. */
@@ -47,31 +43,17 @@ type Row = {
   href: string | null;
 };
 
+type Group = "all" | "ready" | "reading" | "failed";
+const GROUPS: Group[] = ["all", "ready", "reading", "failed"];
+
+function groupOf(status: Row["status"]): Exclude<Group, "all"> {
+  if (status === "active") return "ready";
+  if (status === "failed") return "failed";
+  return "reading";
+}
+
 // A file still waiting to be read is shared as it was sent.
 const SENT_AS: Record<string, Audience> = { organization: "organization", private: "only_you", people: "people" };
-
-export async function sendFile(
-  organizationId: string,
-  sourceName: string,
-  file: File,
-  visibility: Visibility,
-  readers: string[] = [],
-): Promise<UploadErrorKind | null> {
-  const body = new FormData();
-  body.set("organizationId", organizationId);
-  body.set("sourceName", sourceName);
-  body.set("visibility", visibility);
-  if (visibility === "people") for (const reader of readers) body.append("readers", reader);
-  body.set("file", file);
-  try {
-    const response = await fetch("/api/uploads", { method: "POST", body });
-    if (response.ok) return null;
-    const data = (await response.json().catch(() => ({}))) as { error?: UploadErrorKind };
-    return data.error ?? "unavailable";
-  } catch {
-    return "unavailable";
-  }
-}
 
 export function DocumentsView({
   organizationId,
@@ -80,6 +62,7 @@ export function DocumentsView({
   canUpload = canManage,
   colleagues = [],
   waiting,
+  ownFiles = [],
   lastError,
   drive = null,
   notice = null,
@@ -87,30 +70,10 @@ export function DocumentsView({
   const { locale, t: all } = useI18n();
   const t = all.documents;
   const router = useRouter();
-  const input = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
-  const [sending, setSending] = useState<string | null>(null);
-  const [failures, setFailures] = useState<string[]>([]);
-  const [sent, setSent] = useState(0);
-  // Members share with the whole organization only when they choose to.
-  const [visibility, setVisibility] = useState<Visibility>(canManage ? "organization" : "private");
-  const [readers, setReaders] = useState<string[]>([]);
-  const [filter, setFilter] = useState("");
-  // Sharing with chosen people needs at least one person chosen.
-  const blocked = visibility === "people" && !readers.length;
-  const shown = colleagues.filter((colleague) =>
-    colleague.full_name.toLocaleLowerCase(locale).includes(filter.trim().toLocaleLowerCase(locale)),
-  );
-
-  function toggle(userId: string) {
-    setReaders((chosen) =>
-      chosen.includes(userId)
-        ? chosen.filter((id) => id !== userId)
-        : chosen.length < MAX_READERS
-          ? [...chosen, userId]
-          : chosen,
-    );
-  }
+  const [adding, setAdding] = useState(false);
+  const [query, setQuery] = useState("");
+  const [group, setGroup] = useState<Group>("all");
+  const [origin, setOrigin] = useState("");
 
   const rows: Row[] = [
     ...waiting.map((upload) => ({
@@ -149,39 +112,45 @@ export function DocumentsView({
     return () => clearInterval(timer);
   }, [busy, router]);
 
-  async function upload(files: File[]) {
-    if (!files.length || sending || blocked) return;
-    const problems: string[] = [];
-    let done = 0;
-    for (const file of files) {
-      const local = checkFile(file);
-      if (local) {
-        problems.push(t.failedFile(file.name, t.errors[local]));
-        continue;
-      }
-      setSending(file.name);
-      const error = await sendFile(organizationId, t.sourceName, file, visibility, readers);
-      if (error) problems.push(t.failedFile(file.name, t.errors[error]));
-      else done += 1;
-    }
-    setSending(null);
-    setFailures(problems);
-    setSent(done);
-    if (done) router.refresh();
-  }
+  const counts: Record<Group, number> = { all: rows.length, ready: 0, reading: 0, failed: 0 };
+  for (const row of rows) counts[groupOf(row.status)] += 1;
+  const origins = [...new Set(rows.map((row) => row.source).filter((source): source is string => Boolean(source)))];
+  const wanted = plain(query.trim());
+  const shown = rows.filter(
+    (row) =>
+      (group === "all" || groupOf(row.status) === group) &&
+      (!origin || row.source === origin) &&
+      (!wanted || plain(row.title).includes(wanted)),
+  );
+  const filtered = shown.length !== rows.length;
 
-  function onDrop(event: DragEvent<HTMLElement>) {
-    event.preventDefault();
-    setDragging(false);
-    void upload(Array.from(event.dataTransfer.files));
+  function clearFilters() {
+    setQuery("");
+    setGroup("all");
+    setOrigin("");
   }
 
   const date = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
 
   return (
     <div>
-      <h1 className="text-question font-semibold tracking-[-0.02em]">{t.title}</h1>
-      <p className="mt-3 max-w-[40rem] text-lead text-ink-soft text-pretty">{t.lead}</p>
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+        <div className="min-w-0">
+          <h1 className="text-question font-semibold tracking-[-0.02em]">{t.title}</h1>
+          <p className="mt-3 max-w-[40rem] text-lead text-ink-soft text-pretty">{t.lead}</p>
+        </div>
+        {canUpload ? (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-control bg-signal px-4 font-medium text-white hover:bg-signal-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+          >
+            <Plus aria-hidden className="size-4.5" strokeWidth={2} />
+            {t.add}
+          </button>
+        ) : null}
+      </div>
+
       {notice ? (
         <p
           role="status"
@@ -193,189 +162,152 @@ export function DocumentsView({
           {t.notice[notice]}
         </p>
       ) : null}
-
-      {canUpload ? (
-        <fieldset className="mt-8">
-          <legend className="font-medium text-ink">{t.visibilityLabel}</legend>
-          <div className="mt-2 grid gap-2 sm:grid-cols-3">
-            {VISIBILITIES.map((option) => (
-              <label
-                key={option}
-                className={
-                  "flex cursor-pointer items-start gap-2.5 rounded-control border px-3.5 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-signal " +
-                  (visibility === option ? "border-signal bg-signal-wash" : "border-line-strong bg-surface hover:border-ink-soft")
-                }
-              >
-                <input
-                  type="radio"
-                  name="visibility"
-                  value={option}
-                  checked={visibility === option}
-                  onChange={() => setVisibility(option)}
-                  className="mt-1 accent-[var(--color-signal)]"
-                />
-                <span>
-                  <span className="block text-body text-ink">{t.visibility[option]}</span>
-                  <span className="block text-meta text-ink-soft text-pretty">{t.visibilityHint[option]}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {visibility === "people" ? (
-            <div className="mt-3 rounded-control border border-line-strong bg-surface px-3.5 py-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-meta text-ink-soft">{t.chosen(readers.length)}</p>
-                {colleagues.length > 8 ? (
-                  <input
-                    type="search"
-                    value={filter}
-                    onChange={(event) => setFilter(event.target.value)}
-                    placeholder={t.findPerson}
-                    aria-label={t.findPerson}
-                    className="h-9 w-full max-w-xs rounded-control border border-line-strong bg-surface px-3 text-body text-ink outline-none focus:border-signal"
-                  />
-                ) : null}
-              </div>
-              {colleagues.length ? (
-                <ul className="mt-2 grid max-h-64 gap-1 overflow-y-auto sm:grid-cols-2">
-                  {shown.map((colleague) => (
-                    <li key={colleague.user_id}>
-                      <label className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 hover:bg-signal-wash">
-                        <input
-                          type="checkbox"
-                          checked={readers.includes(colleague.user_id)}
-                          onChange={() => toggle(colleague.user_id)}
-                          className="accent-[var(--color-signal)]"
-                        />
-                        <span className="min-w-0 truncate text-body text-ink">{colleague.full_name}</span>
-                        <span className="text-meta text-ink-faint">{all.people.roles[colleague.role]}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-meta text-ink-soft">{t.noColleagues}</p>
-              )}
-            </div>
-          ) : null}
-        </fieldset>
+      {canUpload ? null : <p className="mt-6 border-l-2 border-line pl-4 text-meta text-ink-soft">{t.readOnly}</p>}
+      {lastError ? (
+        <p className="mt-4 text-meta text-caution">
+          {t.lastError} {lastError}
+        </p>
       ) : null}
 
-      {canUpload ? (
-        <section
-          aria-label={t.drop}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          className={
-            "mt-4 flex flex-col items-start gap-4 rounded-panel border px-6 py-6 transition-colors sm:flex-row sm:items-center " +
-            (dragging ? "border-signal bg-signal-wash" : "border-line-strong bg-surface")
-          }
-        >
-          <FileUp aria-hidden className="size-6 shrink-0 text-signal" strokeWidth={1.75} />
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-ink">
-              {dragging ? t.dropActive : t.drop}{" "}
+      {rows.length ? (
+        <>
+          <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line pb-3">
+            <label className="relative w-full sm:w-72">
+              <span className="sr-only">{t.search}</span>
+              <Search
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-faint"
+                strokeWidth={1.75}
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t.search}
+                className="h-9 w-full rounded-control border border-line-strong bg-surface pr-3 pl-9 text-body text-ink outline-none placeholder:text-ink-faint focus:border-signal"
+              />
+            </label>
+            <fieldset className="flex flex-wrap gap-1">
+              <legend className="sr-only">{t.groupsLabel}</legend>
+              {GROUPS.filter((option) => option === "all" || counts[option]).map((option) => (
+                <label
+                  key={option}
+                  className={
+                    "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-control px-3 text-meta font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-signal " +
+                    (group === option ? "bg-ink text-white" : "text-ink-soft hover:bg-surface hover:text-ink")
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="document-group"
+                    className="sr-only"
+                    checked={group === option}
+                    onChange={() => setGroup(option)}
+                  />
+                  {t.groups[option]}
+                  <span className={"tabular-nums " + (group === option ? "text-white/70" : "text-ink-faint")}>
+                    {counts[option]}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            {origins.length > 1 ? (
+              <select
+                aria-label={t.originLabel}
+                value={origin}
+                onChange={(event) => setOrigin(event.target.value)}
+                className="h-9 rounded-control border border-line-strong bg-surface px-2.5 text-meta text-ink outline-none focus:border-signal"
+              >
+                <option value="">{t.originAll}</option>
+                {origins.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <p aria-live="polite" className="text-meta text-ink-faint tabular-nums sm:ml-auto">
+              {filtered ? t.showing(shown.length, rows.length) : t.count(rows.length)}
+            </p>
+          </div>
+
+          {shown.length ? (
+            <table className="w-full table-fixed border-collapse text-left">
+              <thead>
+                <tr className="border-b border-line text-meta text-ink-faint">
+                  <th scope="col" className="py-2 pr-4 font-medium">{t.columns.name}</th>
+                  <th scope="col" className="hidden w-20 py-2 pr-4 font-medium sm:table-cell">{t.columns.kind}</th>
+                  <th scope="col" className="hidden w-48 py-2 pr-4 font-medium lg:table-cell">{t.columns.audience}</th>
+                  <th scope="col" className="w-36 py-2 pr-4 font-medium sm:w-44">{t.columns.status}</th>
+                  <th scope="col" className="hidden w-40 py-2 font-medium md:table-cell">{t.columns.updated}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((row) => (
+                  <tr key={row.key} className="border-b border-line align-baseline hover:bg-surface/70">
+                    <td className="py-2.5 pr-4">
+                      {row.href ? (
+                        <Link
+                          href={row.href}
+                          title={row.title}
+                          className="block truncate text-ink underline-offset-4 hover:text-signal-deep hover:underline"
+                        >
+                          {row.title}
+                        </Link>
+                      ) : (
+                        <span className="block truncate text-ink" title={row.title}>
+                          {row.title}
+                        </span>
+                      )}
+                      {row.source ? <span className="block truncate text-meta text-ink-faint">{row.source}</span> : null}
+                    </td>
+                    <td className="hidden py-2.5 pr-4 text-meta text-ink-soft sm:table-cell">{t.kinds[row.kind]}</td>
+                    <td className="hidden py-2.5 pr-4 text-meta text-ink-soft lg:table-cell">
+                      {row.audience ? t.audiences[row.audience] : null}
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      <Status status={row.status} label={t.status[row.status]} />
+                    </td>
+                    <td className="hidden py-2.5 text-meta text-ink-soft tabular-nums md:table-cell">
+                      {date.format(new Date(row.at))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="py-10">
+              <p className="text-ink-soft">{t.noMatch}</p>
               <button
                 type="button"
-                onClick={() => input.current?.click()}
-                disabled={Boolean(sending) || blocked}
-                className="font-medium text-signal underline underline-offset-4 hover:text-signal-deep disabled:opacity-60"
+                onClick={clearFilters}
+                className="mt-2 font-medium text-signal underline underline-offset-4 hover:text-signal-deep"
               >
-                {t.choose}
+                {t.clearFilters}
               </button>
-            </p>
-            <p className="mt-1 text-meta text-ink-faint">{t.formats}</p>
-            {blocked ? <p className="mt-1 text-meta text-caution">{t.chooseFirst}</p> : null}
-          </div>
-          <input
-            ref={input}
-            type="file"
-            multiple
-            accept={ACCEPTED_EXTENSIONS.join(",")}
-            className="sr-only"
-            tabIndex={-1}
-            aria-hidden
-            onChange={(event) => {
-              void upload(Array.from(event.target.files ?? []));
-              event.target.value = "";
-            }}
-          />
-        </section>
-      ) : (
-        <p className="mt-8 border-l-2 border-line pl-4 text-meta text-ink-soft">{t.readOnly}</p>
-      )}
-
-      <div aria-live="polite" className="mt-4 space-y-1 text-meta">
-        {sending ? <p className="text-ink-soft">{t.sending(sending)}</p> : null}
-        {!sending && sent ? <p className="text-checked">{t.sent(sent)}</p> : null}
-        {failures.map((failure) => (
-          <p key={failure} role="alert" className="text-danger">
-            {failure}
-          </p>
-        ))}
-        {lastError ? (
-          <p className="text-caution">
-            {t.lastError} {lastError}
-          </p>
-        ) : null}
-      </div>
-
-      {canManage ? <SourcesPanel organizationId={organizationId} drive={drive} /> : null}
-
-      {rows.length ? (
-        <table className="mt-10 w-full table-fixed border-collapse text-left">
-          <thead>
-            <tr className="border-b border-line text-meta text-ink-faint">
-              <th scope="col" className="py-2 pr-4 font-medium">{t.columns.name}</th>
-              <th scope="col" className="hidden w-24 py-2 pr-4 font-medium sm:table-cell">{t.columns.kind}</th>
-              <th scope="col" className="hidden w-48 py-2 pr-4 font-medium lg:table-cell">{t.columns.audience}</th>
-              <th scope="col" className="w-36 py-2 pr-4 font-medium sm:w-44">{t.columns.status}</th>
-              <th scope="col" className="hidden w-44 py-2 font-medium md:table-cell">{t.columns.updated}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.key} className="border-b border-line align-baseline">
-                <td className="py-3 pr-4">
-                  {row.href ? (
-                    <Link
-                      href={row.href}
-                      title={row.title}
-                      className="block truncate text-ink underline-offset-4 hover:text-signal-deep hover:underline"
-                    >
-                      {row.title}
-                    </Link>
-                  ) : (
-                    <span className="block truncate text-ink" title={row.title}>
-                      {row.title}
-                    </span>
-                  )}
-                  {row.source ? <span className="mt-0.5 block truncate text-meta text-ink-faint">{row.source}</span> : null}
-                </td>
-                <td className="hidden py-3 pr-4 text-meta text-ink-soft sm:table-cell">{t.kinds[row.kind]}</td>
-                <td className="hidden py-3 pr-4 text-meta text-ink-soft lg:table-cell">
-                  {row.audience ? t.audiences[row.audience] : null}
-                </td>
-                <td className="py-3 pr-4">
-                  <Status status={row.status} label={t.status[row.status]} />
-                </td>
-                <td className="hidden py-3 text-meta text-ink-soft tabular-nums md:table-cell">
-                  {date.format(new Date(row.at))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </div>
+          )}
+        </>
       ) : (
         <section className="mt-12 max-w-[36rem]">
           <h2 className="text-lead font-semibold">{t.emptyTitle}</h2>
           <p className="mt-2 text-ink-soft text-pretty">{canUpload ? t.emptyBody : t.emptyReadOnly}</p>
         </section>
       )}
+
+      {canUpload ? (
+        <AddFilesPanel
+          organizationId={organizationId}
+          open={adding}
+          onOpenChange={setAdding}
+          canManage={canManage}
+          colleagues={colleagues}
+          existingNames={rows.map((row) => row.title)}
+          ownFiles={ownFiles}
+        >
+          {canManage ? <SourcesPanel organizationId={organizationId} drive={drive} /> : null}
+        </AddFilesPanel>
+      ) : null}
     </div>
   );
 }

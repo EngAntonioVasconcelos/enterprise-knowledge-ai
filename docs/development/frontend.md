@@ -220,9 +220,9 @@ the same as one that never existed.
 ## The Bancada frame (redesign, part 1)
 
 The signed-in frame is the "Bancada" (workbench) design, chosen on the
-design canvas: a 64 px dark rail of icons on wide screens (product mark,
-the screens, the account; each icon names itself on hover and on keyboard
-focus), a top bar with the organization being worked in and the command
+design canvas: an 80 px dark rail on wide screens with the screens (each
+icon with its name under it, so nothing has to be guessed) and the
+account, a top bar with the organization being worked in and the command
 bar, and the content in the rest. Small screens keep one top bar with the
 screens in a scrolling row.
 
@@ -255,3 +255,24 @@ keeps. Before an answer the pane says what will appear there; while
 asking, that it is searching; with no evidence, that none was used. It
 ends with the reminder that only evidence the person can open is shown.
 Small screens show the same two parts one after the other.
+
+## Documents (redesign, part 3)
+
+The list is the screen: a search by name (accents and case do not matter),
+the states as one row of choices with their counts (All, Ready, Reading,
+Failed; a state with nothing in it is not shown), the source when there is
+more than one, and the count of what is shown. When nothing matches, one
+button clears the filters.
+
+"Add files" opens a side panel (`AddFilesPanel.tsx`, a Radix dialog: focus
+stays inside, Esc closes) with who can see the files, the place to drop or
+choose them, and, for owners and admins, the sources (Google Drive).
+
+A file whose name is already in the list is not sent at once. The panel
+asks, for each one: Replace, Keep both or Don't send. Replace is offered
+only for the person's own files (`ownFiles`, all their uploads, read or
+not) and is chosen by default; for someone else's file, Keep both is. To
+replace, the new file is sent first and only then is the old one taken
+out (`DELETE /api/uploads`, a JSON body so another site cannot send it in
+the person's name; the backend only finds files the caller sent). If the
+old one cannot be taken out, the person is told that both are kept.

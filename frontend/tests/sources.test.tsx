@@ -85,7 +85,7 @@ describe("SourcesPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sincronizar agora" }));
     expect(await screen.findByText(/Pedido enviado/)).toBeInTheDocument();
     expect((sync.mock.calls[0]?.[1] as FormData).get("connectionId")).toBe(DRIVE.id);
-    expect(refresh).toHaveBeenCalled();
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
   it("asks to authorize again when Google refused", () => {

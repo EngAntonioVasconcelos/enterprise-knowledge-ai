@@ -12,7 +12,7 @@ import type { Organization } from "@/lib/api-types";
 type Account = { name: string | null | undefined; email: string; picture?: string | null };
 
 // The frame of every signed-in page, the Bancada. On wide screens a dark
-// rail of icons that stays in place (the product, the screens, the
+// rail of icons with their names that stays in place (the product, the screens, the
 // account) and a top bar with the organization being worked in and the
 // command bar (Ctrl+K); the content gets the rest. On small screens the
 // same in a top bar. The frame stays quiet: the answer and its evidence
@@ -32,7 +32,7 @@ export function AppFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[4rem_minmax(0,1fr)] lg:grid-rows-[3.75rem_minmax(0,1fr)]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[5rem_minmax(0,1fr)] lg:grid-rows-[3.75rem_minmax(0,1fr)]">
       <a
         href="#content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-3 focus:py-2 focus:text-body focus:shadow"

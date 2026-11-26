@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("server-only", () => ({}));
@@ -137,7 +137,8 @@ describe("HistoryEntryView", () => {
     const action = vi.fn(async () => ({ done: true }));
     render(<HistoryEntryView organizationId={ORG} entry={entry} action={action} />);
     await userEvent.click(screen.getByRole("button", { name: "Apagar" }));
-    expect(push).toHaveBeenCalledWith(`/historico?org=${ORG}`);
+    // The list opens after the action answers, which can come a moment after the click.
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/historico?org=${ORG}`));
   });
 });
 
