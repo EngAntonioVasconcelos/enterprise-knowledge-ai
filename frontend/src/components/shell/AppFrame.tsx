@@ -32,7 +32,7 @@ export function AppFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[4rem_minmax(0,1fr)]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[4rem_minmax(0,1fr)] lg:grid-rows-[3.75rem_minmax(0,1fr)]">
       <a
         href="#content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-3 focus:py-2 focus:text-body focus:shadow"
@@ -40,34 +40,20 @@ export function AppFrame({
         {t.nav.skip}
       </a>
 
-      {/* Wide screens: the rail. */}
-      <aside aria-label={t.nav.rail} className="hidden bg-rail lg:sticky lg:top-0 lg:z-30 lg:flex lg:h-dvh lg:flex-col lg:items-center lg:py-4">
+      {/* Wide screens: the product in a dark corner, then the organization
+          and the command bar, across the top. */}
+      <header
+        aria-label={t.nav.topbar}
+        className="hidden lg:sticky lg:top-0 lg:z-30 lg:col-span-2 lg:flex lg:h-15 lg:bg-paper"
+      >
         <a
           href="/assistente"
-          aria-label={t.product}
-          className="mb-5 flex size-11 items-center justify-center rounded-control"
+          className="flex w-60 shrink-0 items-center gap-3 bg-rail px-4 text-[0.9375rem] font-semibold tracking-[-0.015em] whitespace-nowrap text-white"
         >
           <BrandMark size={32} />
+          {t.product}
         </a>
-        <Suspense>
-          <AppNav managed={managed} fallback={organizations[0]?.id ?? null} variant="rail" />
-        </Suspense>
-        <div className="mt-auto">
-          <AccountMenu {...account} compact side="right" />
-        </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-col">
-        {/* Wide screens: the organization and the command bar. */}
-        <header aria-label={t.nav.topbar} className="hidden h-15 items-center gap-4 border-b border-line px-7 lg:flex">
-          {/* The product's name, beside its mark in the rail. */}
-          <a
-            href="/assistente"
-            className="text-[0.9375rem] font-semibold tracking-[-0.015em] whitespace-nowrap text-ink hover:text-signal-deep"
-          >
-            {t.product}
-          </a>
-          {organizations.length ? <span aria-hidden className="h-6 w-px bg-line-strong" /> : null}
+        <div className="flex min-w-0 flex-1 items-center gap-4 border-b border-line px-7">
           {organizations.length ? (
             <div className="min-w-0 max-w-xs">
               <Suspense>
@@ -77,8 +63,23 @@ export function AppFrame({
           ) : null}
           <div className="flex-1" />
           <CommandTrigger />
-        </header>
+        </div>
+      </header>
 
+      {/* Wide screens: the rail of screens below the corner. */}
+      <aside
+        aria-label={t.nav.rail}
+        className="hidden bg-rail lg:sticky lg:top-15 lg:z-20 lg:flex lg:h-[calc(100dvh-3.75rem)] lg:flex-col lg:items-center lg:pt-3 lg:pb-4"
+      >
+        <Suspense>
+          <AppNav managed={managed} fallback={organizations[0]?.id ?? null} variant="rail" />
+        </Suspense>
+        <div className="mt-auto">
+          <AccountMenu {...account} compact side="right" />
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-col">
         {/* Small screens: one top bar. */}
         <header aria-label={t.nav.topbar} className="sticky top-0 z-20 border-b border-line bg-paper/95 px-4 pt-3 backdrop-blur lg:hidden">
           <div className="flex items-center gap-2">
