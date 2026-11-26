@@ -67,7 +67,7 @@ export function SourcesPanel({
               <button
                 type="submit"
                 disabled={connecting}
-                className="h-9 rounded-control bg-ink px-4 text-body font-medium text-white transition-colors hover:bg-cobalt-deep disabled:cursor-wait disabled:bg-ink-soft"
+                className="h-9 rounded-control bg-ink px-4 text-body font-medium text-white transition-colors hover:bg-signal-deep disabled:cursor-wait disabled:bg-ink-soft"
               >
                 {connecting ? t.connecting : refused ? t.reconnect : t.connect}
               </button>
@@ -79,7 +79,7 @@ export function SourcesPanel({
               <button
                 type="submit"
                 disabled={syncing}
-                className="h-9 rounded-control border border-line-strong bg-surface px-4 text-body font-medium text-ink transition-colors hover:border-cobalt hover:text-cobalt-deep disabled:cursor-wait disabled:opacity-60"
+                className="h-9 rounded-control border border-line-strong bg-surface px-4 text-body font-medium text-ink transition-colors hover:border-signal hover:text-signal-deep disabled:cursor-wait disabled:opacity-60"
               >
                 {t.syncNow}
               </button>

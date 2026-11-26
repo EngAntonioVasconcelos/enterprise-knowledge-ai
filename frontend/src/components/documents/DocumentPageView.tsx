@@ -18,7 +18,7 @@ export function DocumentPageView({ organizationId, page }: { organizationId: str
 
   const nav = (
     <nav className="mb-8 text-meta">
-      <Link href={back} className="font-medium text-cobalt underline-offset-4 hover:underline">
+      <Link href={back} className="font-medium text-signal underline-offset-4 hover:underline">
         {t.back}
       </Link>
     </nav>

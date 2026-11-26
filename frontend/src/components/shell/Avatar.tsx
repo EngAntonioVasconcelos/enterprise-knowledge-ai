@@ -44,7 +44,7 @@ export function Avatar({
   return (
     <span
       aria-hidden
-      className={`${box} inline-flex shrink-0 items-center justify-center rounded-full bg-cobalt-wash font-semibold text-cobalt-deep`}
+      className={`${box} inline-flex shrink-0 items-center justify-center rounded-full bg-signal-wash font-semibold text-signal-deep`}
     >
       {initials(name, email)}
     </span>

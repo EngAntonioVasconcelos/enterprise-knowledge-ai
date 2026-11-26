@@ -52,7 +52,7 @@ describe("AnswerDocument", () => {
 
     await userEvent.tab();
     expect(screen.getByRole("link", { name: "Fonte 1" })).toHaveFocus();
-    expect(passage).toHaveClass("border-cobalt");
+    expect(passage).toHaveClass("border-signal");
   });
 
   it("presents an honest no-answer without a verified mark", () => {

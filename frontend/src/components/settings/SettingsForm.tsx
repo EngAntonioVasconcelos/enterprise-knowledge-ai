@@ -50,7 +50,7 @@ export function SettingsForm({
           autoComplete="organization"
           aria-invalid={state.error === "invalidName" || undefined}
           aria-describedby="organization-name-hint"
-          className="mt-3 h-11 w-full max-w-md rounded-control border border-line-strong bg-surface px-3.5 text-body text-ink outline-none transition-colors focus:border-cobalt"
+          className="mt-3 h-11 w-full max-w-md rounded-control border border-line-strong bg-surface px-3.5 text-body text-ink outline-none transition-colors focus:border-signal"
         />
       </section>
 
@@ -62,8 +62,8 @@ export function SettingsForm({
             <label
               key={days}
               className={
-                "flex cursor-pointer items-center gap-2.5 rounded-control border px-3.5 py-3 text-body transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-cobalt " +
-                (retention === days ? "border-cobalt bg-cobalt-wash text-ink" : "border-line-strong bg-surface text-ink-soft hover:border-ink-soft")
+                "flex cursor-pointer items-center gap-2.5 rounded-control border px-3.5 py-3 text-body transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-signal " +
+                (retention === days ? "border-signal bg-signal-wash text-ink" : "border-line-strong bg-surface text-ink-soft hover:border-ink-soft")
               }
             >
               <input
@@ -72,7 +72,7 @@ export function SettingsForm({
                 value={days}
                 checked={retention === days}
                 onChange={() => setRetention(days)}
-                className="accent-[var(--color-cobalt)]"
+                className="accent-[var(--color-signal)]"
               />
               {t.retention[days as RetentionDays]}
             </label>
@@ -89,7 +89,7 @@ export function SettingsForm({
         <button
           type="submit"
           disabled={pending}
-          className="h-11 rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-cobalt-deep disabled:cursor-wait disabled:bg-ink-soft"
+          className="h-11 rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-signal-deep disabled:cursor-wait disabled:bg-ink-soft"
         >
           {pending ? t.saving : t.save}
         </button>

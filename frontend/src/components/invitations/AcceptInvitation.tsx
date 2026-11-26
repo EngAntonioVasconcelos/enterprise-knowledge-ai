@@ -37,8 +37,8 @@ function forget() {
 }
 
 const button =
-  "mt-8 inline-flex h-11 items-center rounded-control bg-ink px-6 text-body font-medium text-white transition-colors hover:bg-cobalt-deep disabled:cursor-wait disabled:bg-ink-soft";
-const link = "font-medium text-cobalt underline underline-offset-4 hover:text-cobalt-deep";
+  "mt-8 inline-flex h-11 items-center rounded-control bg-ink px-6 text-body font-medium text-white transition-colors hover:bg-signal-deep disabled:cursor-wait disabled:bg-ink-soft";
+const link = "font-medium text-signal underline underline-offset-4 hover:text-signal-deep";
 
 export function AcceptInvitation({
   email,

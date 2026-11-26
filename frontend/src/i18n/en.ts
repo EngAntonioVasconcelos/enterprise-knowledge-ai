@@ -20,6 +20,8 @@ export const en: Messages = {
     passage: "Every employee is entitled to 25 working days of holiday per calendar year.",
   },
   nav: {
+    rail: "Navigation bar",
+    topbar: "Organization and commands",
     main: "Main",
     assistant: "Assistant",
     documents: "Documents",
@@ -172,6 +174,17 @@ export const en: Messages = {
     excerptTitle: "How the assistant read it",
     excerptHint: (count: number) => (count === 1 ? "The start of the text the assistant answers from, out of 1 passage." : `The start of the text the assistant answers from, out of ${count} passages.`),
     noPassages: "No text has been read from this document yet.",
+  },
+  commands: {
+    title: "Commands",
+    open: "Ask, search or go to\u2026",
+    placeholder: "Type a question or the name of a screen",
+    ask: (question: string) => `Ask the assistant: \u201c${question}\u201d`,
+    switchTo: (name: string) => `Switch to ${name}`,
+    groups: { ask: "Ask", go: "Go to", organizations: "Organizations" },
+    nothing: "Nothing found. Type a question to ask the assistant.",
+    keys: "Arrows to choose, Enter to open, Esc to close",
+    onlyYours: "Only what you can open is shown",
   },
   people: {
     title: "People",

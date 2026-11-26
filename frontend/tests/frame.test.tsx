@@ -38,8 +38,11 @@ describe("the frame", () => {
     frame();
     const rail = screen.getByRole("complementary");
     expect(within(rail).getByRole("link", { name: "Enterprise Knowledge AI" })).toHaveAttribute("href", "/assistente");
-    expect(within(rail).getByText("Atl\u00e2ntico Seguros")).toBeInTheDocument();
-    expect(within(rail).getByText("Propriet\u00e1rio")).toBeInTheDocument();
+    // The organization being worked in sits in the top bar, beside the commands.
+    const [top] = screen.getAllByRole("banner", { name: "Organiza\u00e7\u00e3o e comandos" });
+    expect(within(top!).getByText("Atl\u00e2ntico Seguros")).toBeInTheDocument();
+    expect(within(top!).getByText("Propriet\u00e1rio")).toBeInTheDocument();
+    expect(within(top!).getByRole("button", { name: /Perguntar, procurar ou ir para/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Saltar para o conte\u00fado" })).toHaveAttribute("href", "#content");
   });
 
@@ -55,8 +58,8 @@ describe("the frame", () => {
 
   it("switches organization and stays on the same screen", async () => {
     frame();
-    const rail = screen.getByRole("complementary");
-    await userEvent.click(within(rail).getByRole("button", { name: /Mudar de organiza\u00e7\u00e3o/ }));
+    const [top] = screen.getAllByRole("banner", { name: "Organiza\u00e7\u00e3o e comandos" });
+    await userEvent.click(within(top!).getByRole("button", { name: /Mudar de organiza\u00e7\u00e3o/ }));
     await userEvent.click(screen.getByRole("menuitem", { name: /Projeto Norte/ }));
     expect(push).toHaveBeenCalledWith(`/painel?org=${OTHER}`);
   });
@@ -69,6 +72,31 @@ describe("the frame", () => {
     await userEvent.click(screen.getByRole("menuitemradio", { name: "English" }));
     await vi.waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(setLocale).toHaveBeenCalledWith("en");
+  });
+});
+
+describe("the command bar", () => {
+  it("opens with Ctrl+K, finds screens without accents and asks the assistant", async () => {
+    frame();
+    await userEvent.keyboard("{Control>}k{/Control}");
+    const input = await screen.findByRole("combobox");
+    await userEvent.type(input, "defini");
+    expect(screen.getByRole("option", { name: /Defini\u00e7\u00f5es/ })).toBeInTheDocument();
+    await userEvent.clear(input);
+    await userEvent.type(input, "ferias");
+    // The question comes first: Enter asks it.
+    expect(screen.getAllByRole("option")[0]).toHaveTextContent("Perguntar ao assistente: \u00abferias\u00bb");
+    await userEvent.keyboard("{Enter}");
+    expect(push).toHaveBeenCalledWith(`/assistente?org=${ORG}&q=ferias`);
+  });
+
+  it("lists management screens only for managers, and other organizations to switch to", async () => {
+    frame([]);
+    await userEvent.keyboard("{Control>}k{/Control}");
+    await screen.findByRole("combobox");
+    expect(screen.queryByRole("option", { name: "Painel" })).toBeNull();
+    await userEvent.click(screen.getByRole("option", { name: "Mudar para Projeto Norte" }));
+    expect(push).toHaveBeenCalledWith(`/painel?org=${OTHER}`);
   });
 });
 

@@ -202,8 +202,8 @@ export function DocumentsView({
               <label
                 key={option}
                 className={
-                  "flex cursor-pointer items-start gap-2.5 rounded-control border px-3.5 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-cobalt " +
-                  (visibility === option ? "border-cobalt bg-cobalt-wash" : "border-line-strong bg-surface hover:border-ink-soft")
+                  "flex cursor-pointer items-start gap-2.5 rounded-control border px-3.5 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-signal " +
+                  (visibility === option ? "border-signal bg-signal-wash" : "border-line-strong bg-surface hover:border-ink-soft")
                 }
               >
                 <input
@@ -212,7 +212,7 @@ export function DocumentsView({
                   value={option}
                   checked={visibility === option}
                   onChange={() => setVisibility(option)}
-                  className="mt-1 accent-[var(--color-cobalt)]"
+                  className="mt-1 accent-[var(--color-signal)]"
                 />
                 <span>
                   <span className="block text-body text-ink">{t.visibility[option]}</span>
@@ -232,7 +232,7 @@ export function DocumentsView({
                     onChange={(event) => setFilter(event.target.value)}
                     placeholder={t.findPerson}
                     aria-label={t.findPerson}
-                    className="h-9 w-full max-w-xs rounded-control border border-line-strong bg-surface px-3 text-body text-ink outline-none focus:border-cobalt"
+                    className="h-9 w-full max-w-xs rounded-control border border-line-strong bg-surface px-3 text-body text-ink outline-none focus:border-signal"
                   />
                 ) : null}
               </div>
@@ -240,12 +240,12 @@ export function DocumentsView({
                 <ul className="mt-2 grid max-h-64 gap-1 overflow-y-auto sm:grid-cols-2">
                   {shown.map((colleague) => (
                     <li key={colleague.user_id}>
-                      <label className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 hover:bg-cobalt-wash">
+                      <label className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 hover:bg-signal-wash">
                         <input
                           type="checkbox"
                           checked={readers.includes(colleague.user_id)}
                           onChange={() => toggle(colleague.user_id)}
-                          className="accent-[var(--color-cobalt)]"
+                          className="accent-[var(--color-signal)]"
                         />
                         <span className="min-w-0 truncate text-body text-ink">{colleague.full_name}</span>
                         <span className="text-meta text-ink-faint">{all.people.roles[colleague.role]}</span>
@@ -272,10 +272,10 @@ export function DocumentsView({
           onDrop={onDrop}
           className={
             "mt-4 flex flex-col items-start gap-4 rounded-panel border px-6 py-6 transition-colors sm:flex-row sm:items-center " +
-            (dragging ? "border-cobalt bg-cobalt-wash" : "border-line-strong bg-surface")
+            (dragging ? "border-signal bg-signal-wash" : "border-line-strong bg-surface")
           }
         >
-          <FileUp aria-hidden className="size-6 shrink-0 text-cobalt" strokeWidth={1.75} />
+          <FileUp aria-hidden className="size-6 shrink-0 text-signal" strokeWidth={1.75} />
           <div className="min-w-0 flex-1">
             <p className="font-medium text-ink">
               {dragging ? t.dropActive : t.drop}{" "}
@@ -283,7 +283,7 @@ export function DocumentsView({
                 type="button"
                 onClick={() => input.current?.click()}
                 disabled={Boolean(sending) || blocked}
-                className="font-medium text-cobalt underline underline-offset-4 hover:text-cobalt-deep disabled:opacity-60"
+                className="font-medium text-signal underline underline-offset-4 hover:text-signal-deep disabled:opacity-60"
               >
                 {t.choose}
               </button>
@@ -345,7 +345,7 @@ export function DocumentsView({
                     <Link
                       href={row.href}
                       title={row.title}
-                      className="block truncate text-ink underline-offset-4 hover:text-cobalt-deep hover:underline"
+                      className="block truncate text-ink underline-offset-4 hover:text-signal-deep hover:underline"
                     >
                       {row.title}
                     </Link>
@@ -383,7 +383,7 @@ export function DocumentsView({
 function Status({ status, label }: { status: Row["status"]; label: string }) {
   const tone = {
     waiting: "text-ink-soft",
-    pending: "text-cobalt-deep",
+    pending: "text-signal-deep",
     active: "text-checked",
     failed: "text-danger",
   }[status];

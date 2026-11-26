@@ -47,7 +47,7 @@ export function HistoryList({
                   href={`/historico/${item.id}${query}`}
                   className="group flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:gap-6"
                 >
-                  <span className="min-w-0 flex-1 text-ink group-hover:text-cobalt-deep">
+                  <span className="min-w-0 flex-1 text-ink group-hover:text-signal-deep">
                     <span className="line-clamp-2">{item.question}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-3 text-meta text-ink-faint tabular-nums">
@@ -93,7 +93,7 @@ export function HistoryList({
           <p className="mt-2 text-ink-soft text-pretty">{retentionDays > 0 ? t.emptyBody : t.emptyNotKept}</p>
           <Link
             href={`/assistente${query}`}
-            className="mt-6 inline-flex h-10 items-center rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-cobalt-deep"
+            className="mt-6 inline-flex h-10 items-center rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-signal-deep"
           >
             {t.ask}
           </Link>

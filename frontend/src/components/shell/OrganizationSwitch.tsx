@@ -63,7 +63,7 @@ export function OrganizationSwitch({
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
         aria-label={`${t.nav.switchOrganization}: ${active.name}`}
-        className="flex w-full min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 transition-colors outline-none hover:bg-surface focus-visible:ring-2 focus-visible:ring-cobalt data-[state=open]:bg-surface"
+        className="flex w-full min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 transition-colors outline-none hover:bg-surface focus-visible:ring-2 focus-visible:ring-signal data-[state=open]:bg-surface"
       >
         {card}
         <ChevronsUpDown aria-hidden className="size-4 shrink-0 text-ink-faint" />
@@ -81,14 +81,14 @@ export function OrganizationSwitch({
             <DropdownMenu.Item
               key={organization.id}
               onSelect={() => router.push(`${pathname}?org=${organization.id}`)}
-              className="flex cursor-default items-center gap-2.5 rounded-[4px] px-2.5 py-2 text-body text-ink outline-none select-none data-[highlighted]:bg-cobalt-wash"
+              className="flex cursor-default items-center gap-2.5 rounded-[4px] px-2.5 py-2 text-body text-ink outline-none select-none data-[highlighted]:bg-signal-wash"
             >
               <span aria-hidden className="inline-flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-paper text-[0.6875rem] font-semibold text-ink-soft">
                 {monogram(organization.name)}
               </span>
               <span className="min-w-0 flex-1 truncate">{organization.name}</span>
               {organization.id === active.id ? (
-                <Check aria-hidden className="size-4 shrink-0 text-cobalt" strokeWidth={2.5} />
+                <Check aria-hidden className="size-4 shrink-0 text-signal" strokeWidth={2.5} />
               ) : null}
             </DropdownMenu.Item>
           ))}

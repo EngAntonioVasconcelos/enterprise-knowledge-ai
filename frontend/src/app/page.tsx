@@ -27,7 +27,7 @@ export default async function SignInPage() {
         <p className="mt-5 text-lead text-ink-soft text-pretty">{t.body}</p>
         <a
           href="/auth/login"
-          className="mt-9 inline-flex h-11 items-center rounded-control bg-ink px-6 text-body font-medium text-white transition-colors hover:bg-cobalt-deep"
+          className="mt-9 inline-flex h-11 items-center rounded-control bg-ink px-6 text-body font-medium text-white transition-colors hover:bg-signal-deep"
         >
           {t.action}
         </a>
@@ -52,11 +52,11 @@ function Specimen({ t }: { t: Messages["specimen"] }) {
         </p>
         <p className="mt-4 font-reading text-answer text-ink">
           {t.answer}
-          <sup className="ml-0.5 font-sans text-[0.7rem] font-semibold text-cobalt">1</sup>
+          <sup className="ml-0.5 font-sans text-[0.7rem] font-semibold text-signal">1</sup>
           {"."}
         </p>
       </div>
-      <figcaption className="border-l-2 border-cobalt pl-4 text-meta text-ink-soft">
+      <figcaption className="border-l-2 border-signal pl-4 text-meta text-ink-soft">
         <span className="font-semibold text-ink">{`1 ${t.source}`}</span>
         <span className="mt-1 block">{t.section}</span>
         <span className="mt-2 block font-reading italic">

@@ -20,11 +20,11 @@ const POLL_MS = 4000;
 const POLL_TIMES = 15;
 
 const FIELD =
-  "mt-1.5 h-11 w-full rounded-control border border-line-strong bg-surface px-3.5 text-body text-ink outline-none transition-colors focus:border-cobalt";
+  "mt-1.5 h-11 w-full rounded-control border border-line-strong bg-surface px-3.5 text-body text-ink outline-none transition-colors focus:border-signal";
 const PRIMARY =
-  "h-11 rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-cobalt-deep disabled:cursor-wait disabled:bg-ink-soft";
+  "h-11 rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-signal-deep disabled:cursor-wait disabled:bg-ink-soft";
 const SECONDARY =
-  "h-9 rounded-control border border-line-strong bg-surface px-4 text-body font-medium text-ink transition-colors hover:border-cobalt hover:text-cobalt-deep disabled:cursor-wait disabled:opacity-60";
+  "h-9 rounded-control border border-line-strong bg-surface px-4 text-body font-medium text-ink transition-colors hover:border-signal hover:text-signal-deep disabled:cursor-wait disabled:opacity-60";
 
 function reading(database: DatabaseSource): boolean {
   return !database.catalog && database.status !== "error";
@@ -104,7 +104,7 @@ export function DatabasesPanel({
         <form action={connectAction} noValidate className="mt-6 max-w-2xl" autoComplete="off">
           <input type="hidden" name="organizationId" value={organizationId} />
 
-          <aside className="border-l-2 border-cobalt bg-cobalt-wash px-4 py-3">
+          <aside className="border-l-2 border-signal bg-signal-wash px-4 py-3">
             <p className="font-semibold text-ink">{t.readOnlyTitle}</p>
             <p className="mt-1 text-meta text-ink-soft text-pretty">{t.readOnlyBody}</p>
           </aside>

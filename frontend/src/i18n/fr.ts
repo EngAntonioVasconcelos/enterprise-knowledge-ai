@@ -21,6 +21,8 @@ export const fr: Messages = {
     passage: "Chaque collaborateur a droit \u00e0 25 jours ouvr\u00e9s de cong\u00e9s par ann\u00e9e civile.",
   },
   nav: {
+    rail: "Barre de navigation",
+    topbar: "Organisation et commandes",
     main: "Principal",
     assistant: "Assistant",
     documents: "Documents",
@@ -173,6 +175,17 @@ export const fr: Messages = {
     excerptTitle: "Comment l\u2019assistant l\u2019a lu",
     excerptHint: (count: number) => (count === 1 ? "Le d\u00e9but du texte dont l\u2019assistant se sert pour r\u00e9pondre, sur 1 passage." : `Le d\u00e9but du texte dont l\u2019assistant se sert pour r\u00e9pondre, sur ${count} passages.`),
     noPassages: "Aucun texte n\u2019a encore \u00e9t\u00e9 lu dans ce document.",
+  },
+  commands: {
+    title: "Commandes",
+    open: "Demander, chercher ou aller \u00e0\u2026",
+    placeholder: "Tapez une question ou le nom d\u2019un \u00e9cran",
+    ask: (question: string) => `Demander \u00e0 l\u2019assistant : \u00ab\u00a0${question}\u00a0\u00bb`,
+    switchTo: (name: string) => `Passer \u00e0 ${name}`,
+    groups: { ask: "Demander", go: "Aller \u00e0", organizations: "Organisations" },
+    nothing: "Rien trouv\u00e9. Tapez une question pour la poser \u00e0 l\u2019assistant.",
+    keys: "Fl\u00e8ches pour choisir, Entr\u00e9e pour ouvrir, \u00c9chap pour fermer",
+    onlyYours: "Seul ce que vous pouvez ouvrir appara\u00eet",
   },
   people: {
     title: "Personnes",

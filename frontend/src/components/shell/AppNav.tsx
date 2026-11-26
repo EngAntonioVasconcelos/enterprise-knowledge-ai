@@ -20,11 +20,14 @@ type Item = { href: string; label: string; icon: LucideIcon };
 export function AppNav({
   managed = [],
   fallback = null,
+  variant = "bar",
 }: {
   /** Organizations where the person is an owner or an admin. */
   managed?: string[];
   /** The organization screens open on when none is chosen. */
   fallback?: string | null;
+  /** "rail": icons in the dark rail of wide screens; "bar": a row on small ones. */
+  variant?: "rail" | "bar";
 }) {
   const pathname = usePathname();
   const { t } = useI18n();
@@ -50,7 +53,34 @@ export function AppNav({
       ]
     : [];
 
-  function link(item: Item) {
+  function railLink(item: Item) {
+    const active = pathname.startsWith(item.href);
+    const Icon = item.icon;
+    return (
+      <li key={item.href} className="relative">
+        <Link
+          href={`${item.href}${query}`}
+          aria-label={item.label}
+          aria-current={active ? "page" : undefined}
+          className={
+            "peer flex size-11 items-center justify-center rounded-control transition-colors " +
+            (active ? "bg-rail-raised text-white" : "text-rail-ink hover:bg-rail-raised/60 hover:text-white")
+          }
+        >
+          <Icon aria-hidden className="size-5" strokeWidth={1.8} />
+        </Link>
+        {/* The name, shown beside the icon on hover and on keyboard focus. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-full z-40 ml-3 -translate-y-1/2 rounded-control bg-rail px-2.5 py-1.5 text-meta font-medium whitespace-nowrap text-white opacity-0 shadow-lg transition-opacity peer-hover:opacity-100 peer-focus-visible:opacity-100"
+        >
+          {item.label}
+        </span>
+      </li>
+    );
+  }
+
+  function barLink(item: Item) {
     const active = pathname.startsWith(item.href);
     const Icon = item.icon;
     return (
@@ -59,30 +89,38 @@ export function AppNav({
           href={`${item.href}${query}`}
           aria-current={active ? "page" : undefined}
           className={
-            "group flex items-center gap-2.5 rounded-control px-2.5 py-2 text-body whitespace-nowrap transition-colors " +
-            (active
-              ? "bg-surface font-medium text-ink shadow-[0_1px_2px_rgb(23_32_51/0.06),0_0_0_1px_var(--color-line)]"
-              : "text-ink-soft hover:bg-surface/60 hover:text-ink")
+            "group flex items-center gap-2 rounded-control px-2.5 py-2 text-body whitespace-nowrap transition-colors " +
+            (active ? "bg-surface font-medium text-ink shadow-[0_0_0_1px_var(--color-line)]" : "text-ink-soft hover:text-ink")
           }
         >
-          <Icon
-            aria-hidden
-            className={"size-[1.125rem] shrink-0 " + (active ? "text-cobalt" : "text-ink-faint group-hover:text-ink-soft")}
-            strokeWidth={1.75}
-          />
+          <Icon aria-hidden className={"size-[1.125rem] shrink-0 " + (active ? "text-signal" : "text-ink-faint")} strokeWidth={1.75} />
           {item.label}
         </Link>
       </li>
     );
   }
 
+  if (variant === "rail") {
+    return (
+      <nav aria-label={t.nav.main} className="flex flex-col items-center gap-1.5">
+        <ul className="flex flex-col gap-1.5">{work.map(railLink)}</ul>
+        {admin.length ? (
+          <div className="mt-2.5 flex flex-col items-center gap-1.5 border-t border-rail-raised pt-2.5">
+            <p className="sr-only">{t.nav.admin}</p>
+            <ul className="flex flex-col gap-1.5">{admin.map(railLink)}</ul>
+          </div>
+        ) : null}
+      </nav>
+    );
+  }
+
   return (
-    <nav aria-label={t.nav.main} className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:block lg:overflow-visible lg:px-0 lg:pb-0">
-      <ul className="flex gap-1 lg:flex-col">{work.map(link)}</ul>
+    <nav aria-label={t.nav.main} className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+      <ul className="flex gap-1">{work.map(barLink)}</ul>
       {admin.length ? (
-        <div className="flex items-center gap-1 border-l border-line pl-1 lg:mt-6 lg:block lg:border-0 lg:pl-0">
-          <p className="hidden px-2.5 pb-1.5 text-[0.75rem] font-medium text-ink-faint lg:block">{t.nav.admin}</p>
-          <ul className="flex gap-1 lg:flex-col">{admin.map(link)}</ul>
+        <div className="flex items-center gap-1 border-l border-line pl-1">
+          <p className="sr-only">{t.nav.admin}</p>
+          <ul className="flex gap-1">{admin.map(barLink)}</ul>
         </div>
       ) : null}
     </nav>

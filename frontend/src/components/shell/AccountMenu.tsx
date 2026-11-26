@@ -20,11 +20,14 @@ export function AccountMenu({
   email,
   picture,
   compact = false,
+  side,
 }: {
   name: string | null | undefined;
   email: string;
   picture?: string | null;
   compact?: boolean;
+  /** Where the menu opens; by default below when compact, above otherwise. */
+  side?: "top" | "right" | "bottom";
 }) {
   const { locale, t } = useI18n();
   const router = useRouter();
@@ -45,7 +48,10 @@ export function AccountMenu({
         aria-label={`${t.nav.account}: ${shown}`}
         disabled={pending}
         className={
-          "flex min-w-0 items-center gap-2.5 rounded-control transition-colors outline-none hover:bg-surface focus-visible:ring-2 focus-visible:ring-cobalt data-[state=open]:bg-surface disabled:opacity-60 " +
+          "flex min-w-0 items-center gap-2.5 rounded-control transition-colors outline-none focus-visible:ring-2 focus-visible:ring-signal disabled:opacity-60 " +
+          (side === "right"
+            ? "p-1 hover:bg-rail-raised data-[state=open]:bg-rail-raised "
+            : "hover:bg-surface data-[state=open]:bg-surface ") +
           (compact ? "p-1" : "w-full px-2 py-2")
         }
       >
@@ -65,7 +71,7 @@ export function AccountMenu({
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align={compact ? "end" : "start"}
-          side={compact ? "bottom" : "top"}
+          side={side ?? (compact ? "bottom" : "top")}
           sideOffset={6}
           className="z-50 w-60 rounded-control border border-line bg-surface p-1 shadow-[0_8px_24px_-12px_rgb(23_32_51/0.35)]"
         >
@@ -81,10 +87,10 @@ export function AccountMenu({
                 key={code}
                 value={code}
                 lang={code}
-                className="relative flex cursor-default items-center rounded-[4px] py-1.5 pr-2.5 pl-7 text-body text-ink outline-none select-none data-[highlighted]:bg-cobalt-wash data-[highlighted]:text-cobalt-deep"
+                className="relative flex cursor-default items-center rounded-[4px] py-1.5 pr-2.5 pl-7 text-body text-ink outline-none select-none data-[highlighted]:bg-signal-wash data-[highlighted]:text-signal-deep"
               >
                 <DropdownMenu.ItemIndicator className="absolute left-2 inline-flex">
-                  <Check aria-hidden className="size-3.5 text-cobalt" strokeWidth={2.5} />
+                  <Check aria-hidden className="size-3.5 text-signal" strokeWidth={2.5} />
                 </DropdownMenu.ItemIndicator>
                 {LANGUAGE_NAMES[code]}
               </DropdownMenu.RadioItem>
@@ -94,7 +100,7 @@ export function AccountMenu({
           <DropdownMenu.Item asChild>
             <a
               href="/auth/logout"
-              className="flex cursor-default items-center gap-2 rounded-[4px] px-2.5 py-1.5 text-body text-ink outline-none select-none data-[highlighted]:bg-cobalt-wash data-[highlighted]:text-cobalt-deep"
+              className="flex cursor-default items-center gap-2 rounded-[4px] px-2.5 py-1.5 text-body text-ink outline-none select-none data-[highlighted]:bg-signal-wash data-[highlighted]:text-signal-deep"
             >
               <LogOut aria-hidden className="size-4 text-ink-soft" />
               {t.nav.signOut}

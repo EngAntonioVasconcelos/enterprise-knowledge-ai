@@ -29,7 +29,7 @@ export function LanguageSwitch({ align = "start" }: { align?: "start" | "end" })
       <DropdownMenu.Trigger
         aria-label={`${t.language.label}: ${LANGUAGE_NAMES[locale]}`}
         disabled={pending}
-        className="inline-flex items-center gap-1.5 rounded-control px-1.5 py-1 text-meta font-medium text-ink-soft transition-colors outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-cobalt data-[state=open]:text-ink disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 rounded-control px-1.5 py-1 text-meta font-medium text-ink-soft transition-colors outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-signal data-[state=open]:text-ink disabled:opacity-60"
       >
         <Languages aria-hidden className="size-3.5" strokeWidth={2} />
         <span lang={locale} className="hidden sm:inline lg:inline">
@@ -52,10 +52,10 @@ export function LanguageSwitch({ align = "start" }: { align?: "start" | "end" })
                 key={code}
                 value={code}
                 lang={code}
-                className="relative flex cursor-default items-center rounded-[4px] py-1.5 pr-2.5 pl-7 text-body text-ink outline-none select-none data-[highlighted]:bg-cobalt-wash data-[highlighted]:text-cobalt-deep"
+                className="relative flex cursor-default items-center rounded-[4px] py-1.5 pr-2.5 pl-7 text-body text-ink outline-none select-none data-[highlighted]:bg-signal-wash data-[highlighted]:text-signal-deep"
               >
                 <DropdownMenu.ItemIndicator className="absolute left-2 inline-flex">
-                  <Check aria-hidden className="size-3.5 text-cobalt" strokeWidth={2.5} />
+                  <Check aria-hidden className="size-3.5 text-signal" strokeWidth={2.5} />
                 </DropdownMenu.ItemIndicator>
                 {LANGUAGE_NAMES[code]}
               </DropdownMenu.RadioItem>

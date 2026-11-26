@@ -38,13 +38,13 @@ export function CreateOrganization({
           defaultValue={state.name ?? ""}
           aria-describedby={error ? "organization-name-hint organization-error" : "organization-name-hint"}
           aria-invalid={state.error === "invalid" || undefined}
-          className="h-11 w-full min-w-0 rounded-control sm:flex-1 border border-line-strong bg-surface px-3.5 text-body text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-cobalt"
+          className="h-11 w-full min-w-0 rounded-control sm:flex-1 border border-line-strong bg-surface px-3.5 text-body text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-signal"
           placeholder={t.namePlaceholder}
         />
         <button
           type="submit"
           disabled={pending}
-          className="h-11 shrink-0 rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-cobalt-deep disabled:cursor-wait disabled:bg-ink-soft"
+          className="h-11 shrink-0 rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-signal-deep disabled:cursor-wait disabled:bg-ink-soft"
         >
           {pending ? t.creating : t.create}
         </button>

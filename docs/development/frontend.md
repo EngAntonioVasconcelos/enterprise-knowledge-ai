@@ -216,3 +216,24 @@ assistente o leu", the first passages the assistant answers from, so a
 badly read file is noticed. Files still waiting to be read have no page
 yet. A document the person cannot open shows "Documento nao encontrado",
 the same as one that never existed.
+
+## The Bancada frame (redesign, part 1)
+
+The signed-in frame is the "Bancada" (workbench) design, chosen on the
+design canvas: a 64 px dark rail of icons on wide screens (product mark,
+the screens, the account; each icon names itself on hover and on keyboard
+focus), a top bar with the organization being worked in and the command
+bar, and the content in the rest. Small screens keep one top bar with the
+screens in a scrolling row.
+
+The command bar (`components/shell/CommandPalette.tsx`) opens with Ctrl+K
+(Cmd+K on a Mac) or its button: type a question and Enter asks the
+assistant; or go to a screen; or switch organization. It lists only what
+the person may open, as the navigation does, and ignores accents
+("ferias" finds "Ferias").
+
+Tokens (`globals.css`): ink and graphite on a cool grey (`paper`
+#eef0ef), the dark `rail`, and one accent, `signal` (petrol #0b5f58,
+renamed from `cobalt`), which means evidence and the current place,
+nothing else. Interface type is Atkinson Hyperlegible Next, chosen for
+legibility; answers stay in Literata.
