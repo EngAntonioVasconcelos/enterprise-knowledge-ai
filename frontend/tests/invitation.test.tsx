@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("server-only", () => ({}));
@@ -77,7 +77,8 @@ describe("AcceptInvitation", () => {
     render(<AcceptInvitation email="rui@empresa.pt" action={action} />);
     expect(await screen.findByText("Vais aceitar como rui@empresa.pt.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Aceitar convite" }));
-    expect(push).toHaveBeenCalledWith(`/assistente?org=${ORG}`);
+    // The page opens after the action answers, which can come a moment after the click.
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/assistente?org=${ORG}`));
     expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 

@@ -43,6 +43,15 @@ export const fr: Messages = {
     saved: "Langue modifi\u00e9e",
   },
   assistant: {
+    evidence: {
+      title: "Preuves",
+      hint: "d\u2019o\u00f9 vient la r\u00e9ponse",
+      idle: "Quand vous posez une question, les passages et les donn\u00e9es d\u2019o\u00f9 vient la r\u00e9ponse apparaissent ici, pour v\u00e9rifier chaque phrase.",
+      asking: "Recherche dans les documents et les donn\u00e9es auxquels vous avez acc\u00e8s\u2026",
+      none: "Aucune preuve \u00e0 montrer : il n\u2019y a pas eu de r\u00e9ponse s\u00fbre.",
+      onlyYours: "Seules les preuves de documents et de bases que vous pouvez ouvrir apparaissent.",
+    },
+    inConversationCount: (count: number) => (count === 1 ? "1 question dans cette conversation" : `${count} questions dans cette conversation`),
     title: "Assistant",
     placeholder: "Saisissez votre question, par exemple\u00a0: combien de jours de cong\u00e9s ai-je par an\u00a0?",
     ask: "Demander",

@@ -42,6 +42,15 @@ export const ptPT = {
     saved: "Idioma alterado",
   },
   assistant: {
+    evidence: {
+      title: "Provas",
+      hint: "de onde vem a resposta",
+      idle: "Quando perguntares, aparecem aqui as passagens e os dados de onde vem a resposta, para confirmares cada frase.",
+      asking: "A procurar nos documentos e nos dados a que tens acesso\u2026",
+      none: "Sem provas para mostrar: n\u00e3o houve uma resposta segura.",
+      onlyYours: "S\u00f3 aparecem provas de documentos e bases de dados que podes abrir.",
+    },
+    inConversationCount: (count: number) => (count === 1 ? "1 pergunta nesta conversa" : `${count} perguntas nesta conversa`),
     title: "Assistente",
     placeholder: "Escreve a tua pergunta, por exemplo: quantos dias de f\u00e9rias tenho por ano?",
     ask: "Perguntar",

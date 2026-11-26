@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AnswerDocument } from "@/components/assistant/AnswerDocument";
+import { AssistantView } from "@/components/assistant/AssistantView";
 import type { Answer, AnswerSource } from "@/lib/api-types";
 
 function source(number: number, cited: boolean, title: string): AnswerSource {
@@ -64,5 +65,34 @@ describe("AnswerDocument", () => {
     expect(screen.getByText("Sem resposta segura")).toBeInTheDocument();
     expect(screen.queryByText("Verificada nas fontes")).not.toBeInTheDocument();
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  });
+});
+
+describe("the evidence pane of the assistant", () => {
+  it("waits for a question, then shows where the answer comes from", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          question: "Quantos dias?",
+          answer: "Tens 25 dias [1].",
+          abstained: false,
+          verified: true,
+          sources: [{ number: 1, chunk_id: "c1", document_id: "d1", title: "Manual", heading: "F\u00e9rias", snippet: "25 dias \u00fateis.", cited: true }],
+          prompt_id: "p",
+          model: null,
+          note: null,
+          timings_ms: {},
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AssistantView organizationId="11111111-1111-4111-8111-111111111111" organizationName="Atl" />);
+    const pane = screen.getByRole("region", { name: "Provas" });
+    expect(pane).toHaveTextContent("Quando perguntares");
+    await userEvent.type(screen.getByRole("textbox"), "Quantos dias?{Enter}");
+    await screen.findByRole("heading", { name: "Quantos dias?" });
+    expect(within(pane).getByText("Manual")).toBeInTheDocument();
+    expect(within(pane).getByText("25 dias \u00fateis.")).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 });

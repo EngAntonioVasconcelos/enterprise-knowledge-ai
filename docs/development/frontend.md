@@ -237,3 +237,21 @@ Tokens (`globals.css`): ink and graphite on a cool grey (`paper`
 renamed from `cobalt`), which means evidence and the current place,
 nothing else. Interface type is Atkinson Hyperlegible Next, chosen for
 legibility; answers stay in Literata.
+
+## The assistant bench (redesign, part 2)
+
+On wide screens the assistant is a bench of two columns. On the left, the
+question and the answer, with the earlier questions of the conversation
+above and the question box held at the bottom of the screen, with the
+count of questions and "New conversation" under it. On the right,
+"Evidence": the passages or the rows of data behind the answer, always in
+view while the answer is read. Pointing at or focusing a mark in the
+answer (D1, a passage number) lights the matching piece of evidence, and
+the other way round; the state lives in `AssistantView`.
+
+`AnswerDocument.tsx` now exports the two halves, `AnswerText` and
+`AnswerEvidence`, besides the whole `AnswerDocument`, which the history
+keeps. Before an answer the pane says what will appear there; while
+asking, that it is searching; with no evidence, that none was used. It
+ends with the reminder that only evidence the person can open is shown.
+Small screens show the same two parts one after the other.

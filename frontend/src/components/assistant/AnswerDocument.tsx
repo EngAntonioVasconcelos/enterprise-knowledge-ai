@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Database } from "lucide-react";
+import { Database, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
 import { useI18n } from "@/i18n/client";
@@ -9,84 +9,102 @@ import { excerpt, paragraphs, passageText, splitAnswer } from "@/lib/citations";
 import { cellText, numberColumns } from "@/lib/data-cells";
 
 
+type Highlight = { active: number | null; onActive: (number: number | null) => void };
+
+/** Whether an answer has anything to show beside it: rows or passages. */
+export function hasEvidence(answer: Answer): boolean {
+  return Boolean((!answer.abstained && answer.data) || answer.sources.length);
+}
+
 // The answer reads like an annotated page: the text on the left, the
 // passages it cites in the margin. Pointing at a citation lights up its
 // passage, and the other way round, so every claim can be checked at once.
 export function AnswerDocument({ answer }: { answer: Answer }) {
-  const t = useI18n().t.assistant;
   // 0 stands for the database rows ([D1]); 1 and up for passages.
   const [active, setActive] = useState<number | null>(null);
+  return (
+    <article className="grid gap-10 lg:grid-cols-[minmax(0,40rem)_minmax(18rem,1fr)] lg:gap-14">
+      <AnswerText answer={answer} active={active} onActive={setActive} />
+      {hasEvidence(answer) ? (
+        <div className="min-w-0 lg:pt-14">
+          <AnswerEvidence answer={answer} active={active} onActive={setActive} />
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+/** The question and the answer, with its citation marks. */
+export function AnswerText({ answer, active, onActive }: { answer: Answer } & Highlight) {
+  const t = useI18n().t.assistant;
+  const data = answer.abstained ? null : (answer.data ?? null);
+  return (
+    <div>
+      <h2 className="text-question font-semibold tracking-[-0.02em] text-balance">{answer.question}</h2>
+
+      {answer.abstained ? (
+        <div className="mt-6 rounded-control bg-caution-wash px-5 py-4">
+          <p className="font-semibold text-caution">{t.noAnswerTitle}</p>
+          <p className="mt-1 font-reading text-answer text-ink">{answer.answer}</p>
+        </div>
+      ) : (
+        <>
+          <div lang={answer.language} className="mt-6 space-y-5 font-reading text-answer text-ink">
+            {paragraphs(answer.answer).map((paragraph, index) => (
+              <p key={index}>
+                {splitAnswer(paragraph).map((piece, pieceIndex) =>
+                  piece.kind === "text" ? (
+                    <span key={pieceIndex}>{piece.text}</span>
+                  ) : piece.kind === "data" ? (
+                    <DataMark key={pieceIndex} active={active === 0} onActive={onActive} />
+                  ) : (
+                    <CitationMark
+                      key={pieceIndex}
+                      number={piece.number}
+                      active={active === piece.number}
+                      onActive={onActive}
+                    />
+                  ),
+                )}
+              </p>
+            ))}
+          </div>
+          {answer.verified ? (
+            <p className="mt-6 inline-flex items-center gap-1.5 text-meta font-medium text-checked">
+              <ShieldCheck aria-hidden className="size-4" strokeWidth={2.2} />
+              {data ? t.verifiedData : t.verified}
+            </p>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** What the answer comes from: the rows read, or the passages cited and consulted. */
+export function AnswerEvidence({ answer, active, onActive }: { answer: Answer } & Highlight) {
+  const t = useI18n().t.assistant;
   const data = answer.abstained ? null : (answer.data ?? null);
   const cited = answer.sources.filter((source) => source.cited);
   const consulted = answer.sources.filter((source) => !source.cited);
 
+  if (data) {
+    return (
+      <aside aria-label={t.data} className="min-w-0">
+        <DataPanel data={data} active={active === 0} onActive={onActive} />
+      </aside>
+    );
+  }
+  if (!answer.sources.length) return null;
   return (
-    <article className="grid gap-10 lg:grid-cols-[minmax(0,40rem)_minmax(18rem,1fr)] lg:gap-14">
-      <div>
-        <h2 className="text-question font-semibold tracking-[-0.02em] text-balance">
-          {answer.question}
-        </h2>
-
-        {answer.abstained ? (
-          <div className="mt-6 rounded-control bg-caution-wash px-5 py-4">
-            <p className="font-semibold text-caution">{t.noAnswerTitle}</p>
-            <p className="mt-1 font-reading text-answer text-ink">{answer.answer}</p>
-          </div>
-        ) : (
-          <>
-            <div lang={answer.language} className="mt-6 space-y-5 font-reading text-answer text-ink">
-              {paragraphs(answer.answer).map((paragraph, index) => (
-                <p key={index}>
-                  {splitAnswer(paragraph).map((piece, pieceIndex) =>
-                    piece.kind === "text" ? (
-                      <span key={pieceIndex}>{piece.text}</span>
-                    ) : piece.kind === "data" ? (
-                      <DataMark key={pieceIndex} active={active === 0} onActive={setActive} />
-                    ) : (
-                      <CitationMark
-                        key={pieceIndex}
-                        number={piece.number}
-                        active={active === piece.number}
-                        onActive={setActive}
-                      />
-                    ),
-                  )}
-                </p>
-              ))}
-            </div>
-            {answer.verified ? (
-              <p className="mt-6 inline-flex items-center gap-1.5 text-meta text-checked">
-                <Check aria-hidden className="size-3.5" strokeWidth={2.5} />
-                {data ? t.verifiedData : t.verified}
-              </p>
-            ) : null}
-          </>
-        )}
-      </div>
-
-      {data ? (
-        <aside aria-label={t.data} className="min-w-0 lg:pt-14">
-          <DataPanel data={data} active={active === 0} onActive={setActive} />
-        </aside>
-      ) : answer.sources.length ? (
-        <aside aria-label={t.sources} className="lg:pt-14">
-          {cited.length ? (
-            <SourceList title={t.sources} sources={cited} active={active} onActive={setActive} />
-          ) : null}
-          {consulted.length ? (
-            <div className={cited.length ? "mt-10" : undefined}>
-              <SourceList
-                title={t.sourcesConsulted}
-                sources={consulted}
-                active={active}
-                onActive={setActive}
-                quiet
-              />
-            </div>
-          ) : null}
-        </aside>
+    <aside aria-label={t.sources}>
+      {cited.length ? <SourceList title={t.sources} sources={cited} active={active} onActive={onActive} /> : null}
+      {consulted.length ? (
+        <div className={cited.length ? "mt-10" : undefined}>
+          <SourceList title={t.sourcesConsulted} sources={consulted} active={active} onActive={onActive} quiet />
+        </div>
       ) : null}
-    </article>
+    </aside>
   );
 }
 

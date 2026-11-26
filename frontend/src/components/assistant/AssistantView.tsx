@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { useEffect, useRef, useState } from "react";
 
-import { AnswerDocument } from "@/components/assistant/AnswerDocument";
+import { AnswerEvidence, AnswerText, hasEvidence } from "@/components/assistant/AnswerDocument";
 import { Composer } from "@/components/assistant/Composer";
 import { useI18n } from "@/i18n/client";
 import { type Answer, type AnswerErrorKind, errorKindFromStatus, type HistoryItem } from "@/lib/api-types";
@@ -77,6 +77,11 @@ export function AssistantView({
     url.searchParams.delete("q");
     window.history.replaceState(null, "", url);
     void ask(initialQuestion);
+    // In development React mounts twice and the first mount's request is
+    // cancelled: let the second mount ask again instead of waiting forever.
+    return () => {
+      asked.current = false;
+    };
     // Only once, when the page opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -112,47 +117,87 @@ export function AssistantView({
   }
 
   const busy = state.status === "asking";
+  // 0 stands for the database rows ([D1]); 1 and up for passages.
+  const [active, setActive] = useState<number | null>(null);
+  const earlier = state.status === "answered" ? thread.slice(0, -1) : thread;
 
   return (
-    <div>
-      <h1 className="sr-only">{`${t.title}, ${organizationName}`}</h1>
-      <Composer
-        key={conversation}
-        onAsk={(question) => ask(question)}
-        busy={busy}
-        placeholder={thread.length ? t.followUpPlaceholder : undefined}
-      />
-      {thread.length ? (
-        <div className="mt-4 flex max-w-[46rem] flex-wrap items-baseline gap-x-4 gap-y-2 text-meta">
-          <p className="min-w-0 flex-1 text-ink-soft">
-            <span className="text-ink-faint">{t.inConversation}</span>{" "}
-            {thread.slice(-3).map((question, index) => (
-              <span key={index}>
-                {index ? <span aria-hidden className="text-ink-faint">, </span> : null}
-                <q className="text-ink">{question}</q>
-              </span>
-            ))}
-          </p>
-          <button
-            type="button"
-            onClick={startOver}
-            className="font-medium text-signal underline-offset-4 hover:underline"
-          >
-            {t.newConversation}
-          </button>
-        </div>
-      ) : null}
+    // The Bancada: the conversation on the left, the evidence always on the
+    // right, so every claim can be checked without scrolling.
+    <div className="lg:grid lg:min-h-[calc(100dvh-3.75rem)] lg:grid-cols-[minmax(0,1fr)_minmax(22rem,27rem)]">
+      <div className="flex min-w-0 flex-col px-5 py-8 sm:px-8 lg:px-14 lg:pt-10 lg:pb-0">
+        <h1 className="sr-only">{`${t.title}, ${organizationName}`}</h1>
+        <div className="mx-auto flex w-full max-w-[44rem] flex-1 flex-col">
+          {earlier.length ? (
+            <ol aria-label={t.inConversation} className="mb-8 space-y-2 border-l-2 border-line pl-4">
+              {earlier.slice(-3).map((question, index) => (
+                <li key={index} className="text-body text-ink-faint">
+                  {question}
+                </li>
+              ))}
+            </ol>
+          ) : null}
 
-      <div aria-live="polite" className="mt-12">
-        {state.status === "idle" ? <EmptyState firstName={firstName} recent={recent} organizationId={organizationId} /> : null}
-        {state.status === "asking" ? (
-          <Pending question={state.question} startedAt={state.startedAt} />
-        ) : null}
-        {state.status === "answered" ? <AnswerDocument answer={state.answer} /> : null}
-        {state.status === "failed" ? (
-          <Failure kind={state.kind} onRetry={() => ask(state.question)} />
-        ) : null}
+          <div aria-live="polite">
+            {state.status === "idle" ? (
+              <EmptyState firstName={firstName} recent={recent} organizationId={organizationId} />
+            ) : null}
+            {state.status === "asking" ? <Pending question={state.question} startedAt={state.startedAt} /> : null}
+            {state.status === "answered" ? (
+              <AnswerText answer={state.answer} active={active} onActive={setActive} />
+            ) : null}
+            {state.status === "failed" ? <Failure kind={state.kind} onRetry={() => ask(state.question)} /> : null}
+          </div>
+
+          {/* The next question, always within reach at the bottom. */}
+          <div className="mt-10 lg:sticky lg:bottom-0 lg:mt-auto lg:bg-paper lg:pt-8 lg:pb-8">
+            <Composer
+              key={conversation}
+              onAsk={(question) => ask(question)}
+              busy={busy}
+              placeholder={thread.length ? t.followUpPlaceholder : undefined}
+            />
+            {thread.length ? (
+              <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-meta">
+                <p className="text-ink-faint">{t.inConversationCount(thread.length)}</p>
+                <button
+                  type="button"
+                  onClick={startOver}
+                  className="font-medium text-signal underline-offset-4 hover:underline"
+                >
+                  {t.newConversation}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
+
+      <section
+        aria-labelledby="provas-title"
+        className="border-t border-line bg-surface px-5 py-8 sm:px-8 lg:sticky lg:top-15 lg:h-[calc(100dvh-3.75rem)] lg:overflow-y-auto lg:border-t-0 lg:border-l lg:px-7"
+      >
+        <div className="flex items-baseline gap-2.5">
+          <h2 id="provas-title" className="text-body font-semibold text-ink">
+            {t.evidence.title}
+          </h2>
+          <span className="text-meta text-ink-faint">{t.evidence.hint}</span>
+        </div>
+        <div className="mt-6">
+          {state.status === "answered" && hasEvidence(state.answer) ? (
+            <AnswerEvidence answer={state.answer} active={active} onActive={setActive} />
+          ) : (
+            <p className="max-w-[24rem] text-meta text-ink-soft text-pretty">
+              {state.status === "asking"
+                ? t.evidence.asking
+                : state.status === "answered"
+                  ? t.evidence.none
+                  : t.evidence.idle}
+            </p>
+          )}
+        </div>
+        <p className="mt-10 text-[0.75rem] leading-relaxed text-ink-faint">{t.evidence.onlyYours}</p>
+      </section>
     </div>
   );
 }
