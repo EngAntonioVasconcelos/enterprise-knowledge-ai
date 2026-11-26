@@ -6,9 +6,9 @@ import { useState } from "react";
 import { useI18n } from "@/i18n/client";
 import type { DashboardData } from "@/lib/api-types";
 
-// Answered and "no safe answer": cobalt and amber, checked for colour
+// Answered and "no safe answer": signal and amber, checked for colour
 // blindness against the page (dataviz validator, adjacent pair).
-const ANSWERED = "var(--color-cobalt)";
+const ANSWERED = "var(--color-signal)";
 const UNANSWERED = "#c07a1a";
 
 /** The last 30 days in numbers. Never who asked, never what. */
@@ -47,7 +47,7 @@ export function DashboardView({ organizationId, data }: { organizationId: string
       {data.unanswered ? (
         <p className="mt-6 max-w-[40rem] border-l-2 border-caution pl-4 text-body text-ink text-pretty">
           {t.gapHint}{" "}
-          <Link href={`/lacunas${query}`} className="font-medium text-cobalt underline underline-offset-4">
+          <Link href={`/lacunas${query}`} className="font-medium text-signal underline underline-offset-4">
             {t.seeGaps}
           </Link>
         </p>
@@ -191,7 +191,7 @@ function DayChart({ data }: { data: DashboardData }) {
       )}
 
       <details className="mt-4 text-meta">
-        <summary className="cursor-pointer font-medium text-cobalt">{t.asTable}</summary>
+        <summary className="cursor-pointer font-medium text-signal">{t.asTable}</summary>
         <table className="mt-3 w-full max-w-md border-collapse text-left">
           <thead>
             <tr className="border-b border-line text-ink-faint">

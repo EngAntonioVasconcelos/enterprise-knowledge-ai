@@ -55,7 +55,7 @@ export function HistoryEntryView({
   return (
     <div>
       <nav className="mb-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-meta">
-        <Link href={`/historico${query}`} className="font-medium text-cobalt underline-offset-4 hover:underline">
+        <Link href={`/historico${query}`} className="font-medium text-signal underline-offset-4 hover:underline">
           {t.back}
         </Link>
         <span className="text-ink-faint tabular-nums">{t.askedOn(date.format(new Date(entry.created_at)))}</span>
@@ -81,7 +81,7 @@ export function HistoryEntryView({
       <div className="mt-10 flex flex-wrap items-center gap-6">
         <Link
           href={again}
-          className="inline-flex h-10 items-center rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-cobalt-deep"
+          className="inline-flex h-10 items-center rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-signal-deep"
         >
           {t.askAgain}
         </Link>

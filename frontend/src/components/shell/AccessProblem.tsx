@@ -11,7 +11,7 @@ export function AccessProblem({ t, problem, retry }: { t: Messages; problem: Pro
       <p className="mt-3 text-ink-soft text-pretty">{words.body}</p>
       <a
         href={href}
-        className="mt-6 inline-flex h-10 items-center rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-cobalt-deep"
+        className="mt-6 inline-flex h-10 items-center rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-signal-deep"
       >
         {words.action}
       </a>

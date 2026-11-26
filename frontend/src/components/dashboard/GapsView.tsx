@@ -97,7 +97,7 @@ export function GapsView({ organizationId, data }: { organizationId: string; dat
       <p className="mt-12">
         <Link
           href={`/documentos${query}`}
-          className="inline-flex h-10 items-center rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-cobalt-deep"
+          className="inline-flex h-10 items-center rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-signal-deep"
         >
           {t.addDocuments}
         </Link>

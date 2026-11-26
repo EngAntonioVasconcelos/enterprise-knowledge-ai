@@ -44,9 +44,9 @@ type Props = {
 };
 
 const field =
-  "h-11 rounded-control border border-line-strong bg-surface px-3.5 text-body text-ink outline-none transition-colors focus:border-cobalt";
+  "h-11 rounded-control border border-line-strong bg-surface px-3.5 text-body text-ink outline-none transition-colors focus:border-signal";
 const primary =
-  "h-11 shrink-0 rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-cobalt-deep disabled:cursor-wait disabled:bg-ink-soft";
+  "h-11 shrink-0 rounded-control bg-ink px-5 text-body font-medium text-white transition-colors hover:bg-signal-deep disabled:cursor-wait disabled:bg-ink-soft";
 const quiet =
   "text-meta font-medium text-ink-soft underline-offset-4 hover:text-ink hover:underline disabled:cursor-wait disabled:opacity-60";
 
@@ -298,7 +298,7 @@ function MemberRow({
                 defaultValue={role}
                 disabled={changing}
                 onChange={() => roleForm.current?.requestSubmit()}
-                className="h-9 w-36 rounded-control border border-line bg-surface px-2 text-meta text-ink outline-none focus:border-cobalt disabled:cursor-wait"
+                className="h-9 w-36 rounded-control border border-line bg-surface px-2 text-meta text-ink outline-none focus:border-signal disabled:cursor-wait"
               >
                 {assignableRoles(actorRole).map((value) => (
                   <option key={value} value={value}>

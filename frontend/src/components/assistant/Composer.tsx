@@ -37,7 +37,7 @@ export function Composer({
       <label htmlFor="question" className="sr-only">
         {t.title}
       </label>
-      <div className="rounded-panel border border-line-strong bg-surface transition-colors focus-within:border-cobalt">
+      <div className="rounded-panel border border-line-strong bg-surface transition-colors focus-within:border-signal">
         <textarea
           id="question"
           name="question"
@@ -54,7 +54,7 @@ export function Composer({
           <button
             type="submit"
             disabled={!trimmed || busy}
-            className="h-9 shrink-0 rounded-control bg-ink px-4 text-body font-medium text-white transition-colors hover:bg-cobalt-deep disabled:cursor-not-allowed disabled:bg-line-strong"
+            className="h-9 shrink-0 rounded-control bg-ink px-4 text-body font-medium text-white transition-colors hover:bg-signal-deep disabled:cursor-not-allowed disabled:bg-line-strong"
           >
             {t.ask}
           </button>

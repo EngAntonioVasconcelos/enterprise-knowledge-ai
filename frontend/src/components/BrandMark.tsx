@@ -10,7 +10,7 @@ export function BrandMark({ size = 24 }: { size?: number }) {
       className="shrink-0"
       focusable="false"
     >
-      <rect width="24" height="24" rx="6" fill="var(--color-cobalt)" />
+      <rect width="24" height="24" rx="6" fill="var(--color-signal)" />
       <rect x="6" y="6.5" width="12" height="2" rx="1" fill="#fff" opacity="0.55" />
       <rect x="6" y="11" width="9" height="2" rx="1" fill="#fff" />
       <rect x="6" y="15.5" width="10.5" height="2" rx="1" fill="#fff" opacity="0.55" />

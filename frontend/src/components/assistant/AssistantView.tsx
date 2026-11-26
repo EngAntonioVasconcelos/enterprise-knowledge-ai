@@ -136,7 +136,7 @@ export function AssistantView({
           <button
             type="button"
             onClick={startOver}
-            className="font-medium text-cobalt underline-offset-4 hover:underline"
+            className="font-medium text-signal underline-offset-4 hover:underline"
           >
             {t.newConversation}
           </button>
@@ -184,7 +184,7 @@ function EmptyState({
                   href={`/historico/${item.id}${query}`}
                   className="group flex items-center gap-3 py-3 text-body text-ink-soft transition-colors hover:text-ink"
                 >
-                  <History aria-hidden className="size-4 shrink-0 text-ink-faint group-hover:text-cobalt" strokeWidth={1.75} />
+                  <History aria-hidden className="size-4 shrink-0 text-ink-faint group-hover:text-signal" strokeWidth={1.75} />
                   <span className="min-w-0 flex-1 truncate">{item.question}</span>
                   <ArrowUpRight aria-hidden className="size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
                 </Link>
@@ -209,7 +209,7 @@ function Pending({ question, startedAt }: { question: string; startedAt: number 
     <section aria-busy="true" className="max-w-[40rem]">
       <h2 className="text-question font-semibold tracking-[-0.02em] text-balance">{question}</h2>
       <p className="mt-6 flex items-center gap-3 text-meta text-ink-soft">
-        <span aria-hidden className="eka-pulse h-0.5 w-12 rounded-full bg-cobalt" />
+        <span aria-hidden className="eka-pulse h-0.5 w-12 rounded-full bg-signal" />
         {t.asking}
         <span className="tabular-nums text-ink-faint">{t.elapsed(seconds)}</span>
       </p>
@@ -225,14 +225,14 @@ function Failure({ kind, onRetry }: { kind: AnswerErrorKind; onRetry: () => void
       <h2 className="text-lead font-semibold">{t.errorTitle}</h2>
       <p className="mt-2 text-ink-soft">{t.errors[kind]}</p>
       {kind === "signedOut" ? (
-        <a href="/auth/login" className="mt-4 inline-block font-medium text-cobalt underline underline-offset-4">
+        <a href="/auth/login" className="mt-4 inline-block font-medium text-signal underline underline-offset-4">
           {all.signIn.action}
         </a>
       ) : (
         <button
           type="button"
           onClick={onRetry}
-          className="mt-4 font-medium text-cobalt underline underline-offset-4 hover:text-cobalt-deep"
+          className="mt-4 font-medium text-signal underline underline-offset-4 hover:text-signal-deep"
         >
           {t.tryAgain}
         </button>

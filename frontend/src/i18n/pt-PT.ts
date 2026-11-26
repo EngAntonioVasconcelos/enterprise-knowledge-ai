@@ -20,6 +20,8 @@ export const ptPT = {
     passage: "Cada colaborador tem direito a 25 dias \u00fateis de f\u00e9rias por ano civil.",
   },
   nav: {
+    rail: "Barra de navega\u00e7\u00e3o",
+    topbar: "Organiza\u00e7\u00e3o e comandos",
     main: "Principal",
     assistant: "Assistente",
     documents: "Documentos",
@@ -172,6 +174,17 @@ export const ptPT = {
     excerptTitle: "Como o assistente o leu",
     excerptHint: (count: number) => (count === 1 ? "O in\u00edcio do texto que o assistente usa para responder, de 1 excerto." : `O in\u00edcio do texto que o assistente usa para responder, de ${count} excertos.`),
     noPassages: "Ainda n\u00e3o h\u00e1 texto lido deste documento.",
+  },
+  commands: {
+    title: "Comandos",
+    open: "Perguntar, procurar ou ir para\u2026",
+    placeholder: "Escreve uma pergunta ou o nome de um ecr\u00e3",
+    ask: (question: string) => `Perguntar ao assistente: \u00ab${question}\u00bb`,
+    switchTo: (name: string) => `Mudar para ${name}`,
+    groups: { ask: "Perguntar", go: "Ir para", organizations: "Organiza\u00e7\u00f5es" },
+    nothing: "Nada encontrado. Escreve uma pergunta para a fazeres ao assistente.",
+    keys: "Setas para escolher, Enter para abrir, Esc para fechar",
+    onlyYours: "S\u00f3 aparece o que podes abrir",
   },
   people: {
     title: "Pessoas",

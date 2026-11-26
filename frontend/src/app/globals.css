@@ -1,30 +1,34 @@
 @import "tailwindcss";
-@import "@fontsource-variable/schibsted-grotesk";
+@import "@fontsource-variable/atkinson-hyperlegible-next";
 @import "@fontsource-variable/literata";
 
 /*
-  Design tokens. Cobalt ink on cool paper: the colours of a well-kept
-  company archive, not of a chat app. One accent (cobalt) carries meaning
-  everywhere: it marks evidence. Green says "checked", amber says "no safe
-  answer". Nothing else is coloured.
+  Design tokens: the Bancada (workbench). Ink and graphite on a cool,
+  slightly green grey: the frame stays quiet so the answer and its
+  evidence carry the page. One accent, the petrol "signal", means
+  evidence and nothing else: a citation, "checked in the data", the
+  current place. Amber says "no safe answer". Nothing else is coloured.
 */
 @theme {
-  --color-paper: #f5f6f8;
+  --color-paper: #eef0ef;
   --color-surface: #ffffff;
-  --color-ink: #172033;
-  --color-ink-soft: #4d5669;
-  --color-ink-faint: #7a8396;
-  --color-line: #dbe0e8;
-  --color-line-strong: #b9c1ce;
-  --color-cobalt: #2348c8;
-  --color-cobalt-deep: #1a3698;
-  --color-cobalt-wash: #e7ecfb;
-  --color-checked: #1f7a55;
+  --color-rail: #17191c;
+  --color-rail-raised: #2a2e33;
+  --color-rail-ink: #a3aab0;
+  --color-ink: #17191c;
+  --color-ink-soft: #464d53;
+  --color-ink-faint: #5b6268;
+  --color-line: #d9dddb;
+  --color-line-strong: #b5bcb9;
+  --color-signal: #0b5f58;
+  --color-signal-deep: #08443f;
+  --color-signal-wash: #dcedea;
+  --color-checked: #0b5f58;
   --color-caution: #9a5a06;
   --color-caution-wash: #fbf1e3;
   --color-danger: #b42318;
 
-  --font-sans: "Schibsted Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
   --font-reading: "Literata Variable", ui-serif, Georgia, serif;
 
   /* Type scale (ratio 1.25 around 16 px), set by role, not by size. */
@@ -39,8 +43,8 @@
   --text-answer: 1.1875rem;
   --text-answer--line-height: 1.7;
 
-  --radius-control: 6px;
-  --radius-panel: 10px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
 }
 
 @layer base {
@@ -53,11 +57,11 @@
   }
 
   ::selection {
-    background: var(--color-cobalt-wash);
+    background: var(--color-signal-wash);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-cobalt);
+    outline: 2px solid var(--color-signal);
     outline-offset: 2px;
     border-radius: 3px;
   }

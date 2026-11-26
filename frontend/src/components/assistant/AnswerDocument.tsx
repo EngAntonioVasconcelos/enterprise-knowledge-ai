@@ -103,7 +103,7 @@ function DataMark({ active, onActive }: { active: boolean; onActive: (number: nu
       onMouseLeave={() => onActive(null)}
       onFocus={() => onActive(0)}
       onBlur={() => onActive(null)}
-      className={MARK + (active ? "bg-cobalt text-white" : "bg-cobalt-wash text-cobalt-deep hover:bg-cobalt hover:text-white")}
+      className={MARK + (active ? "bg-signal text-white" : "bg-signal-wash text-signal-deep hover:bg-signal hover:text-white")}
     >
       <Database aria-hidden className="my-[0.2em] size-[1.15em]" strokeWidth={2.25} />
     </a>
@@ -129,11 +129,11 @@ function DataPanel({
       id="dados"
       onMouseEnter={() => onActive(0)}
       onMouseLeave={() => onActive(null)}
-      className={"scroll-mt-24 border-l-2 pl-4 transition-colors " + (active ? "border-cobalt" : "border-line-strong")}
+      className={"scroll-mt-24 border-l-2 pl-4 transition-colors " + (active ? "border-signal" : "border-line-strong")}
     >
       <h3 className="text-meta font-semibold text-ink-soft">{t.data}</h3>
       <p className="mt-3 flex items-center gap-2 text-body font-medium text-ink">
-        <Database aria-hidden className={"size-4 shrink-0 " + (active ? "text-cobalt" : "text-ink-faint")} strokeWidth={1.75} />
+        <Database aria-hidden className={"size-4 shrink-0 " + (active ? "text-signal" : "text-ink-faint")} strokeWidth={1.75} />
         <span className="truncate">{t.dataFrom(data.connection_name)}</span>
       </p>
       <p className="mt-0.5 pl-6 text-meta text-ink-faint">{t.dataRows(data.rows.length)}</p>
@@ -176,7 +176,7 @@ function DataPanel({
       {data.truncated ? <p className="mt-2 text-meta text-ink-faint">{t.dataMore}</p> : null}
 
       <details className="mt-4 text-meta">
-        <summary className="cursor-pointer font-medium text-cobalt">{t.dataQuery}</summary>
+        <summary className="cursor-pointer font-medium text-signal">{t.dataQuery}</summary>
         <p className="mt-2 text-ink-faint">{t.dataQueryHint}</p>
         <pre className="mt-2 overflow-x-auto rounded-control bg-paper px-3 py-2 font-mono text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-ink">
           {data.sql}
@@ -206,7 +206,7 @@ function CitationMark({
       onBlur={() => onActive(null)}
       className={
         MARK +
-        (active ? "bg-cobalt text-white" : "bg-cobalt-wash text-cobalt-deep hover:bg-cobalt hover:text-white")
+        (active ? "bg-signal text-white" : "bg-signal-wash text-signal-deep hover:bg-signal hover:text-white")
       }
     >
       {number}
@@ -241,13 +241,13 @@ function SourceList({
               onMouseLeave={() => onActive(null)}
               className={
                 "scroll-mt-24 border-l-2 pl-4 transition-colors " +
-                (lit ? "border-cobalt" : quiet ? "border-line" : "border-line-strong")
+                (lit ? "border-signal" : quiet ? "border-line" : "border-line-strong")
               }
             >
               <p className="flex gap-2 text-body leading-snug">
                 <span
                   className={
-                    "font-semibold tabular-nums " + (lit ? "text-cobalt" : quiet ? "text-ink-faint" : "text-ink-soft")
+                    "font-semibold tabular-nums " + (lit ? "text-signal" : quiet ? "text-ink-faint" : "text-ink-soft")
                   }
                 >
                   {source.number}
