@@ -29,6 +29,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
         organizationId={active.id}
         retentionDays={active.history_retention_days ?? 90}
         items={items}
+        now={new Date().toISOString()}
       />
     </div>
   );

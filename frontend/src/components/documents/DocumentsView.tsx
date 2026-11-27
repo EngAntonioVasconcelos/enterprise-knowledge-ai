@@ -143,7 +143,7 @@ export function DocumentsView({
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-control bg-signal px-4 font-medium text-white hover:bg-signal-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-control bg-ink px-4 font-medium text-white transition-colors hover:bg-signal-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
           >
             <Plus aria-hidden className="size-4.5" strokeWidth={2} />
             {t.add}
