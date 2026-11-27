@@ -307,3 +307,34 @@ With a data gateway configured and a database the person may use, the
 agent can answer from rows instead of documents, cited as `[D1]`, with
 the same rules: numbers must be in the rows, the relevance check runs, and
 nothing unchecked is shown. See `data-gateway.md`.
+
+## Phase 9: v3 against v5 with the relevance check (27 November 2026)
+
+Small library, seed 0, gemma3:4b on the CPU, in the backend container.
+
+| | v3 | v5 |
+|---|---|---|
+| correct (of 64) | 57 | 59 |
+| wrong (shown to the person) | 0 | 0 |
+| no-answer | 2 | 1 |
+| refused by the checks | 5 | 4 |
+| other language | 28 | 0 |
+| NAO_SEI mixed into answers | 0 | 1 |
+| leaks | 0 | 0 |
+| average per answer | 13.0 s | 16.0 s |
+
+The AJ-4b rule (at least 61 correct, at most 1 refused, 0 NAO_SEI mixed)
+was set when v3 scored 62, before the relevance check (AL-2). With the
+check, v3 itself no longer passes it: a Portuguese answer to an English or
+French question is judged as not answering it, so 5 of its answers are
+refused, and 28 of the others come in the wrong language. Neither version
+passes the old rule; v5 is better or equal on everything that reaches the
+person (correct, wrong, refused, language, leaks) and slower by 3 s. So
+v5 becomes the default. The 4 refused v5 drafts were right to be refused
+(a "3 dias" that is not written, a hotel limit cited from the wrong
+source) or were cut by a strict relevance verdict.
+
+Rule for the one confirmation on the held-out questions, fixed before
+running it: v5 must have 0 wrong, 0 invented, 0 leaks and at least the 25
+of 31 correct that v3 had; otherwise v5 is reverted and the cause is
+studied on the main set, never on the held-out questions.

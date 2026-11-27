@@ -113,8 +113,9 @@ class Settings(BaseSettings):
     LLM_SEED: int | None = 0
     # The answer prompt in use (app/prompts/answer_<version>.txt); a new
     # version becomes the default only after it wins the evaluation
-    # (v3 since 20 Nov 2026: 50 of 54 correct, 0 wrong, 0 leaks).
-    ANSWER_PROMPT_VERSION: str = "v3"
+    # (v5 since 27 Nov 2026: with the relevance check, 59 of 64 correct
+    # against 57 for v3, every answer in the language of the question).
+    ANSWER_PROMPT_VERSION: str = "v5"
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

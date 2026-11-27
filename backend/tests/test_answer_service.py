@@ -138,7 +138,8 @@ def test_a_verified_answer_with_citations(world):
     result = _ask()
     assert (result.answer, result.abstained, result.verified) == ("Tens 25 dias uteis [1].", False, True)
     assert result.cited == [1] and len(result.sources) == 2
-    assert result.prompt_id.startswith("answer-v3-") and result.model == "fake-1"
+    version = answer_service.settings.ANSWER_PROMPT_VERSION
+    assert result.prompt_id.startswith(f"answer-{version}-") and result.model == "fake-1"
     assert set(result.timings_ms) == {"search", "model"}
 
 
