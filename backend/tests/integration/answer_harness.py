@@ -13,7 +13,9 @@ Per question group:
 - wrong: answered, but not from the expected passage or without its
   numbers;
 - abstained: the honest "I could not find a reliable answer". On
-  permission questions that is the right outcome;
+  permission and no-answer questions that is the right outcome;
+- invented: an answer to a no-answer question (held-out set): no document
+  holds the answer, so any answer was made up or stretched;
 - unverified: answers the checks refused (wrong citation or a number not
   in the sources); they were not shown, but they say how often the model
   invents;
@@ -59,11 +61,13 @@ def evaluate_answers(
         given = {s.number: passages.get(s.hit.chunk_id, ("", "")) for s in result.sources}
         cited = [given[n] for n in result.cited if n in given]
 
+        restricted = set(question.get("expect_absent") or [])
+        if restricted and any(doc in restricted for doc, _ in given.values()):
+            leaks += 1
         if question["category"] == "permission":
-            restricted = set(question["expect_absent"])
-            if any(doc in restricted for doc, _ in given.values()):
-                leaks += 1
             outcome = "abstained" if result.abstained else "answered"
+        elif question["category"] == "no-answer":
+            outcome = "abstained" if result.abstained else "invented"
         elif result.abstained:
             outcome = "unverified" if not result.verified else "abstained"
         else:
@@ -76,7 +80,9 @@ def evaluate_answers(
             if question_language(result.answer) != question["lang"]:
                 for group in (question["category"], "all"):
                     groups[group]["other language"] += 1
-        for group in {question["category"], "all" if question["category"] != "permission" else "permission"}:
+        # "all" is how often answerable questions are answered well.
+        apart = question["category"] in ("permission", "no-answer")
+        for group in {question["category"], question["category"] if apart else "all"}:
             groups[group][outcome] += 1
             groups[group]["n"] += 1
         if question["category"] != "permission":
@@ -106,7 +112,7 @@ def evaluate_answers(
 
 
 def format_answer_report(result: dict) -> str:
-    columns = ("correct", "wrong", "abstained", "unverified", "answered", "other language")
+    columns = ("correct", "wrong", "abstained", "unverified", "answered", "invented", "other language")
     lines = ["Answers per question group (counts); leaks must be 0", ""]
     header = f"{'group':<12}{'n':>5}" + "".join(f"{c:>15}" for c in columns)
     lines += [header, "-" * len(header)]

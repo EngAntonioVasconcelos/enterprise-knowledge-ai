@@ -18,6 +18,9 @@ Run from the backend folder, with the test database running:
 Compare prompt versions on the same questions (AJ-1b, about 20 minutes per
 version for the 60 questions on a laptop CPU):
     python -m scripts.evaluate_answers --prompts v1,v2
+The held-out questions (Phase 9), never used to tune anything, say whether
+the numbers hold up on questions nobody optimised for:
+    python -m scripts.evaluate_answers --questions holdout
 """
 
 import argparse
@@ -48,6 +51,12 @@ def main() -> int:
     parser.add_argument("--library", choices=("small", "large"), default="small")
     parser.add_argument("--limit", type=int, default=None, help="only the first N questions")
     parser.add_argument(
+        "--questions",
+        choices=("main", "holdout"),
+        default="main",
+        help="main: the questions tuned against; holdout: new ones, never tuned against",
+    )
+    parser.add_argument(
         "--prompts",
         default=settings.ANSWER_PROMPT_VERSION,
         help="prompt versions to compare on the same questions, e.g. v1,v2",
@@ -73,7 +82,7 @@ def main() -> int:
         f"prompts {', '.join(prompt_ids.values())}, reranker {settings.ANSWER_RERANK}"
     )
 
-    dataset = load_dataset()
+    dataset = load_dataset(args.questions)
     if args.library == "large":
         dataset = with_distractors(dataset)
     engine = create_engine(TEST_ADMIN_URL)
@@ -86,7 +95,10 @@ def main() -> int:
         with tempfile.TemporaryDirectory(prefix="eka-eval-") as storage:
             started = time.perf_counter()
             ingest(db, world, dataset, Path(storage))
-            print(f"Library ready ({len(dataset['documents'])} documents) in {time.perf_counter() - started:.1f} s")
+            print(
+                f"Library ready ({len(dataset['documents'])} documents) in {time.perf_counter() - started:.1f} s; "
+                f"questions: {args.questions}"
+            )
             count = args.limit or len(dataset["questions"])
             results = {}
             for version in versions:
@@ -116,13 +128,14 @@ def main() -> int:
     out = Path("var/eval")
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    path = out / f"answers-{args.library}-{model.replace('/', '_').replace(':', '_')}-{stamp}.json"
+    path = out / f"answers-{args.questions}-{args.library}-{model.replace('/', '_').replace(':', '_')}-{stamp}.json"
     path.write_text(
         json.dumps(
             {
                 "model": model,
                 "seed": settings.LLM_SEED,
                 "library": args.library,
+                "questions": args.questions,
                 "prompts": prompt_ids,
                 "results": results,
             },
