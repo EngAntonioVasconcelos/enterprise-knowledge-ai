@@ -18,7 +18,9 @@ RUN python -m pip install -r requirements.txt
 COPY . .
 
 # Never run as root inside the container.
-RUN useradd --create-home --uid 1000 eka && chown -R eka /app
+# var/storage and var/models exist in the image, so the production volumes
+# mounted there start owned by this user.
+RUN useradd --create-home --uid 1000 eka && mkdir -p var/storage var/models && chown -R eka /app
 USER eka
 
 # container_env.py points localhost addresses of the .env file to the host
