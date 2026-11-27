@@ -55,6 +55,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Measure search quality.")
     parser.add_argument("--library", choices=("large", "small"), default="large")
     parser.add_argument(
+        "--questions",
+        choices=("main", "holdout"),
+        default="main",
+        help="main: the questions tuned against; holdout: new ones, never tuned against",
+    )
+    parser.add_argument(
         "--compare-rerank", action="store_true", help="also the four reranker settings (slow)"
     )
     parser.add_argument(
@@ -85,7 +91,7 @@ def main() -> int:
         reranker = "none"
         print(f"Reranker unavailable ({exc}); the rerank variants are not measured.")
 
-    dataset = load_dataset()
+    dataset = load_dataset(args.questions)
     if args.library == "large":
         dataset = with_distractors(dataset)
     variants = ("keyword", "semantic", "hybrid", "hybrid+rerank")
@@ -129,11 +135,12 @@ def main() -> int:
     out = Path("var/eval")
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    path = out / f"retrieval-{args.library}-{model.replace('/', '_')}-{stamp}.json"
+    path = out / f"retrieval-{args.questions}-{args.library}-{model.replace('/', '_')}-{stamp}.json"
     path.write_text(
         json.dumps(
             {
                 "library": args.library,
+                "questions": args.questions,
                 "documents": len(dataset["documents"]),
                 "model": model,
                 "reranker": reranker,

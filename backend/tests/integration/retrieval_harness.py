@@ -47,6 +47,9 @@ from tests.integration.test_document_permissions import _as_runtime, _as_worker
 
 
 DATASET_PATH = Path(__file__).resolve().parents[1] / "evaluation" / "retrieval_dataset.json"
+# Questions written before measuring and never tuned against (Phase 9):
+# they ask the same library, so they say whether the numbers hold up.
+HOLDOUT_PATH = DATASET_PATH.with_name("holdout_questions.json")
 VARIANTS = {
     "keyword": {"mode": "keyword"},
     "semantic": {"mode": "semantic"},
@@ -70,8 +73,15 @@ MODES = ("keyword", "semantic", "hybrid")
 TOP_K = 10
 
 
-def load_dataset() -> dict:
-    return json.loads(DATASET_PATH.read_text(encoding="ascii"))
+def load_dataset(questions: str = "main") -> dict:
+    """The library and its questions: "main" (tuned against) or "holdout"."""
+    dataset = json.loads(DATASET_PATH.read_text(encoding="ascii"))
+    if questions == "holdout":
+        holdout = json.loads(HOLDOUT_PATH.read_text(encoding="ascii"))
+        dataset = {**dataset, "questions": holdout["questions"], "holdout_version": holdout["version"]}
+    elif questions != "main":
+        raise ValueError(f"unknown question set {questions!r}")
+    return dataset
 
 
 def _plain(value: str) -> str:
@@ -185,8 +195,9 @@ def evaluate(db, world, dataset: dict, modes=MODES) -> dict:
             passages = _passages(db, [hit.chunk_id for hit in result.hits])
             found = [passages.get(hit.chunk_id, ("", "")) for hit in result.hits]
 
-            if question["category"] == "permission":
-                if any(doc in question["expect_absent"] for doc, _ in found):
+            # Nothing to find: only check that nothing confidential came back.
+            if question["category"] in ("permission", "no-answer"):
+                if any(doc in (question["expect_absent"] or []) for doc, _ in found):
                     leaks += 1
                 continue
 

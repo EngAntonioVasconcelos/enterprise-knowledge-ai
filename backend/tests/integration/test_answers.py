@@ -73,3 +73,18 @@ def test_the_answer_evaluation_runs_and_never_leaks(perm_db, library):
     assert groups["exact-code"].get("correct", 0) >= 2
     assert groups["permission"]["n"] == 6
     assert groups["all"].get("unverified", 0) == 0
+
+
+def test_the_held_out_questions_never_leak(perm_db, stand_ins, tmp_path):
+    world = permissions.World(perm_db)
+    dataset = load_dataset("holdout")
+    ingest(perm_db, world, dataset, tmp_path)
+
+    report = evaluate_answers(perm_db, world, dataset)
+    print("\n" + format_answer_report(report))
+
+    assert report["leaks"] == 0
+    assert report["questions"] == len(dataset["questions"])
+    # Questions no document answers are counted apart from the answerable ones.
+    assert report["groups"]["no-answer"]["n"] == 6
+    assert "no-answer" not in {a["category"] for a in report["answers"] if a["outcome"] == "correct"}

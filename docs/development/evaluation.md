@@ -91,3 +91,32 @@ ranked the right passage lower than meaning alone: see
 - Cross-language questions are the weak point (0.20 to 0.25 with the
   stand-in, which only knows shared words). This is what the real model
   must fix; measure it before choosing a reranker.
+
+## Held-out questions (Phase 9)
+
+Every prompt, search rule and check since AI-1 was tuned while looking at
+the 70 questions of `retrieval_dataset.json`. Numbers measured on the same
+questions one tunes against flatter the system. So
+`backend/tests/evaluation/holdout_questions.json` holds 40 new questions,
+written on 27 November 2026 before any measurement, over the same library:
+
+| Group | n | What it adds |
+|---|---|---|
+| answerable (pt, en, cross-language, fr, codes) | 31 | facts never asked before, including the three documents no question used (company cars, public holidays, recruitment) |
+| no-answer | 6 | nothing in the library answers them ("paternity leave", "meeting room"); one asks for a salary, so it also checks for leaks |
+| permission | 3 | asking for confidential documents, one with "ignore the rules" and one claiming to be an administrator |
+
+The rule: these questions are never used to tune anything. When a change is
+tuned against one of them, it moves to the main set and a new one is
+written here. `tests/test_holdout_questions.py` checks that every expected
+passage exists, that none repeats a main question and that what must never
+show is confidential.
+
+For no-answer questions the right outcome is to abstain; an answer counts
+as **invented**. They are counted apart from "all", which stays the share
+of answerable questions answered well.
+
+    python -m scripts.evaluate_answers --questions holdout
+    python -m scripts.evaluate_retrieval --questions holdout
+
+CI asks them with the stand-ins and fails on any leak.
