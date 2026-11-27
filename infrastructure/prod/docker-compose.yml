@@ -1,0 +1,165 @@
+# Production on one server (Phase 10a): the public demo on an ARM machine
+# (Oracle Cloud Always Free, Frankfurt). The same file runs on any Linux
+# server with Docker; only .env changes. See docs/deployment.md.
+#
+# Only Caddy is reachable from the internet (ports 80 and 443, HTTPS from
+# Let's Encrypt). Everything else talks on the private Docker network:
+# no database, API or model port is published.
+#
+# Every value comes from infrastructure/prod/.env, created on the server
+# by make-env.sh, readable only by its owner and never committed. Each
+# service gets only the settings it needs.
+
+x-backend: &backend
+  build:
+    context: ../../backend
+  image: eka-backend:prod
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+  volumes:
+    - eka_storage:/app/backend/var/storage
+    - eka_models:/app/backend/var/models
+  logging: &logging
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  postgres:
+    # PostgreSQL 18 with pgvector, the same image as development and CI.
+    image: pgvector/pgvector:0.8.2-pg18-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eka
+      POSTGRES_USER: eka_admin
+      POSTGRES_PASSWORD: ${EKA_ADMIN_PASSWORD:?run make-env.sh first}
+    volumes:
+      - eka_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eka_admin -d eka"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    logging: *logging
+
+  # One-off: creates the application role, runs the migrations, then the
+  # service logins. "docker compose run --rm migrate" after every update.
+  migrate:
+    <<: *backend
+    profiles: ["setup"]
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - python scripts/bootstrap_database.py && python -m alembic upgrade head && python -m scripts.bootstrap_service_logins
+    environment:
+      DATABASE_URL: postgresql+psycopg://eka_runtime:${EKA_RUNTIME_PASSWORD}@postgres:5432/eka
+      EKA_ADMIN_DATABASE_URL: postgresql+psycopg://eka_admin:${EKA_ADMIN_PASSWORD}@postgres:5432/eka
+      MIGRATION_DATABASE_URL: postgresql+psycopg://eka_admin:${EKA_ADMIN_PASSWORD}@postgres:5432/eka
+      EKA_RUNTIME_PASSWORD: ${EKA_RUNTIME_PASSWORD}
+      EKA_WORKER_PASSWORD: ${EKA_WORKER_PASSWORD}
+      EKA_MAILER_PASSWORD: ${EKA_MAILER_PASSWORD}
+
+  api:
+    <<: *backend
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: &api_env
+      DATABASE_URL: postgresql+psycopg://eka_runtime:${EKA_RUNTIME_PASSWORD}@postgres:5432/eka
+      CORS_ORIGINS: '["https://${EKA_DOMAIN}"]'
+      FRONTEND_BASE_URL: https://${EKA_DOMAIN}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL}
+      OIDC_CLAIMS_NAMESPACE: ${OIDC_CLAIMS_NAMESPACE}
+      CREDENTIALS_MASTER_PUBLIC_KEY: ${CREDENTIALS_MASTER_PUBLIC_KEY}
+      OAUTH_STATE_SECRET: ${OAUTH_STATE_SECRET}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URI: https://${EKA_DOMAIN}/connections/google/callback
+      LLM_PROVIDER: openai_compatible
+      LLM_BASE_URL: http://ollama:11434/v1
+      LLM_MODEL: ${LLM_MODEL}
+      LLM_TIMEOUT_SECONDS: "240"
+      ANSWER_PROMPT_VERSION: ${ANSWER_PROMPT_VERSION:-v3}
+      DATA_GATEWAY_URL: http://data-gateway:8100
+      DATA_GATEWAY_TOKEN: ${DATA_GATEWAY_TOKEN}
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "scripts.run_worker", "--watch"]
+    environment:
+      # Required by the settings; the worker itself uses WORKER_DATABASE_URL.
+      DATABASE_URL: postgresql+psycopg://eka_runtime:${EKA_RUNTIME_PASSWORD}@postgres:5432/eka
+      WORKER_DATABASE_URL: postgresql+psycopg://eka_worker_login:${EKA_WORKER_PASSWORD}@postgres:5432/eka
+      CREDENTIALS_MASTER_PUBLIC_KEY: ${CREDENTIALS_MASTER_PUBLIC_KEY}
+      CREDENTIALS_MASTER_PRIVATE_KEY: ${CREDENTIALS_MASTER_PRIVATE_KEY}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+
+  # The only process that queries customer databases, read-only (AL-4).
+  data-gateway:
+    <<: *backend
+    command: ["python", "-m", "scripts.run_data_gateway"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://eka_runtime:${EKA_RUNTIME_PASSWORD}@postgres:5432/eka
+      WORKER_DATABASE_URL: postgresql+psycopg://eka_worker_login:${EKA_WORKER_PASSWORD}@postgres:5432/eka
+      CREDENTIALS_MASTER_PUBLIC_KEY: ${CREDENTIALS_MASTER_PUBLIC_KEY}
+      CREDENTIALS_MASTER_PRIVATE_KEY: ${CREDENTIALS_MASTER_PRIVATE_KEY}
+      DATA_GATEWAY_TOKEN: ${DATA_GATEWAY_TOKEN}
+
+  # The local model. Kept loaded (keep alive -1): answers do not wait for
+  # it to load, and a server that holds it is not "idle".
+  ollama:
+    image: ollama/ollama:0.40.16
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    volumes:
+      - eka_ollama:/root/.ollama
+    logging: *logging
+
+  frontend:
+    build:
+      context: ../../frontend
+      target: production
+    image: eka-frontend:prod
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      AUTH0_DOMAIN: ${AUTH0_DOMAIN}
+      AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID}
+      AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET}
+      AUTH0_SECRET: ${AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${OIDC_AUDIENCE}
+      APP_BASE_URL: https://${EKA_DOMAIN}
+      EKA_API_URL: http://api:8000
+    logging: *logging
+
+  # HTTPS in front of the web app, certificate from Let's Encrypt.
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    depends_on: [frontend]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      EKA_DOMAIN: ${EKA_DOMAIN}
+      EKA_ACME_EMAIL: ${EKA_ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - eka_caddy_data:/data
+      - eka_caddy_config:/config
+    logging: *logging
+
+volumes:
+  eka_pgdata:
+  eka_storage:
+  eka_models:
+  eka_ollama:
+  eka_caddy_data:
+  eka_caddy_config:

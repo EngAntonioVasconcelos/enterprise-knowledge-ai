@@ -1,0 +1,18 @@
+# HTTPS for the web app. Caddy asks Let's Encrypt for the certificate of
+# EKA_DOMAIN and renews it; plain HTTP is redirected to HTTPS.
+{
+	email {$EKA_ACME_EMAIL}
+}
+
+{$EKA_DOMAIN} {
+	encode zstd gzip
+	# Uploads are up to 20 MB per file (the API's limit).
+	request_body {
+		max_size 21MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	reverse_proxy frontend:3000
+}
