@@ -6,7 +6,8 @@
 # bucket's lifecycle rule), so losing the server does not lose the data.
 # The upload uses a pre-authenticated request that may only write: from this
 # server nobody can read or delete the copies in the bucket. Its URL lives
-# in backup.par (chmod 600, never in Git) and is never printed.
+# in backup.par (chmod 600, never in Git) and is never printed. After a full
+# backup it calls the monitor's heartbeat (backup.heartbeat, same rules).
 #
 # Not copied, because they come back on their own: the models (downloaded
 # again) and the certificate (Caddy asks for a new one). .env stays only on
@@ -44,6 +45,11 @@ if [ -s backup.par ]; then
     curl -fsS --retry 3 --upload-file "$file" "$PAR$(basename "$file")"
   done
   echo "Enviado para o Object Storage."
+  # Tell the uptime monitor the backup worked. It warns by e-mail when
+  # this does not arrive in time; the URL lives in backup.heartbeat.
+  if [ -s backup.heartbeat ]; then
+    curl -fsS --retry 3 -o /dev/null "$(cat backup.heartbeat)" && echo "Monitor avisado."
+  fi
 else
   echo "AVISO: falta backup.par; a copia ficou so neste servidor."
 fi

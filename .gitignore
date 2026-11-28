@@ -55,3 +55,5 @@ backend/var/
 
 # The upload link of the backups (infrastructure/prod/backup.sh).
 backup.par
+# The heartbeat link of the uptime monitor (infrastructure/prod/backup.sh).
+backup.heartbeat

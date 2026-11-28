@@ -24,5 +24,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)"],
+  // /health is for the uptime monitor: it never needs a session.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|health$).*)"],
 };
