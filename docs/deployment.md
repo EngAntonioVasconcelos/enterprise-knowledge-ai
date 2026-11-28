@@ -55,6 +55,9 @@ On the server, in `~/eka` (a clone of the repository):
     docker compose run --rm migrate
     docker compose exec ollama ollama pull gemma3:4b
     docker compose up -d --build
+    docker compose exec api python -m scripts.try_embeddings --model intfloat/multilingual-e5-base
+    docker compose exec api python -m scripts.try_reranker
+    docker compose restart api worker
 
 Then open TCP 80 and 443 in the subnet's security list. In Auth0, the
 application allows `https://DOMAIN/auth/callback` (callback),
@@ -63,6 +66,23 @@ application allows `https://DOMAIN/auth/callback` (callback),
 `sslip.io` turns the address into a name (`92-6-167-96.sslip.io` is
 92.6.167.96), so Let's Encrypt can issue a certificate without buying a
 domain. A real domain later only changes `EKA_DOMAIN`.
+
+The API and the worker never download a model while they serve requests
+(`local_files_only`), so the two search models are downloaded once into the
+`eka_models` volume, which both share. Without them, search falls back to
+words only: questions in another language than the document find nothing,
+and the vector jobs (`document.embed`) fail. `try_embeddings` downloads
+`multilingual-e5-small` unless `--model` names the configured one.
+
+## Vectors missing
+
+When `document.embed` jobs failed for good (the models were not there yet)
+or `EMBEDDING_MODEL` changed, queue them again. The first command only
+counts; `--apply` adds one job per document without vectors and changes
+nothing else:
+
+    docker compose --profile setup run --rm migrate python -m scripts.queue_missing_embeddings
+    docker compose --profile setup run --rm migrate python -m scripts.queue_missing_embeddings --apply
 
 ## Updating
 
