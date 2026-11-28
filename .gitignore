@@ -52,3 +52,6 @@ Claude outputs/
 
 # Local object storage (development)
 backend/var/
+
+# The upload link of the backups (infrastructure/prod/backup.sh).
+backup.par
