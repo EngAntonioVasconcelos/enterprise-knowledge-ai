@@ -9,6 +9,17 @@ export const ptPT = {
     body: "Pergunta o que precisas de saber. A resposta vem dos documentos a que tens acesso, com a passagem exata de onde saiu.",
     action: "Entrar",
     note: "Entras com a conta da tua organiza\u00e7\u00e3o.",
+    problems: {
+      invite: {
+        title: "Esta demonstra\u00e7\u00e3o \u00e9 s\u00f3 por convite.",
+        body: "A conta com que entraste n\u00e3o est\u00e1 na lista de convidados. Se recebeste um convite, entra com o e-mail para onde ele foi enviado.",
+      },
+      failed: {
+        title: "N\u00e3o foi poss\u00edvel entrar.",
+        body: "A entrada foi interrompida ou expirou. Tenta outra vez.",
+      },
+      otherAccount: "Entrar com outra conta",
+    },
   },
   specimen: {
     label: "Exemplo de uma resposta com fonte",
