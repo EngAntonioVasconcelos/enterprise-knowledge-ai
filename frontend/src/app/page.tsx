@@ -8,11 +8,19 @@ import { auth0 } from "@/lib/auth0";
 
 // The entry page shows the product doing its one job: a question, an
 // answer that cites, and the passage it came from.
-export default async function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ entrada?: string }>;
+}) {
   const session = await auth0.getSession();
   if (session) redirect("/assistente");
-  const { t: all } = await getMessages();
+  const [{ entrada }, { t: all }] = await Promise.all([searchParams, getMessages()]);
   const t = all.signIn;
+  const problem = entrada === "invite" || entrada === "failed" ? entrada : null;
+  // After a refusal the same account would be picked again: ask Auth0 to
+  // show the sign-in screen so another one can be chosen.
+  const href = problem === "invite" ? "/auth/login?prompt=login" : "/auth/login";
 
   return (
     <main className="mx-auto grid min-h-dvh max-w-6xl content-center gap-16 px-6 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center lg:px-10">
@@ -25,11 +33,17 @@ export default async function SignInPage() {
           {t.title}
         </h1>
         <p className="mt-5 text-lead text-ink-soft text-pretty">{t.body}</p>
+        {problem && (
+          <div role="alert" className="mt-8 rounded-control border border-line bg-surface px-4 py-3">
+            <p className="text-body font-semibold">{t.problems[problem].title}</p>
+            <p className="mt-1 text-meta text-ink-soft text-pretty">{t.problems[problem].body}</p>
+          </div>
+        )}
         <a
-          href="/auth/login"
+          href={href}
           className="mt-9 inline-flex h-11 items-center rounded-control bg-ink px-6 text-body font-medium text-white transition-colors hover:bg-signal-deep"
         >
-          {t.action}
+          {problem === "invite" ? t.problems.otherAccount : t.action}
         </a>
         <p className="mt-3 text-meta text-ink-faint">{t.note}</p>
       </section>

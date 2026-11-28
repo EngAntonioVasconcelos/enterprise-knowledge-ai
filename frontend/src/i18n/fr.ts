@@ -10,6 +10,17 @@ export const fr: Messages = {
     body: "Posez la question dont vous avez besoin. La r\u00e9ponse vient des documents auxquels vous avez acc\u00e8s, avec le passage exact dont elle est tir\u00e9e.",
     action: "Se connecter",
     note: "Vous vous connectez avec le compte de votre organisation.",
+    problems: {
+      invite: {
+        title: "Cette d\u00e9monstration est sur invitation uniquement.",
+        body: "Le compte utilis\u00e9 n\u2019est pas sur la liste des invit\u00e9s. Si vous avez re\u00e7u une invitation, connectez-vous avec l\u2019e-mail auquel elle a \u00e9t\u00e9 envoy\u00e9e.",
+      },
+      failed: {
+        title: "La connexion n\u2019a pas abouti.",
+        body: "Elle a \u00e9t\u00e9 interrompue ou a expir\u00e9. R\u00e9essayez.",
+      },
+      otherAccount: "Se connecter avec un autre compte",
+    },
   },
   specimen: {
     label: "Exemple de r\u00e9ponse avec sa source",

@@ -9,6 +9,17 @@ export const en: Messages = {
     body: "Ask what you need to know. The answer comes from the documents you can access, with the exact passage it came from.",
     action: "Sign in",
     note: "You sign in with your organization\u2019s account.",
+    problems: {
+      invite: {
+        title: "This demo is by invitation only.",
+        body: "The account you used is not on the guest list. If you received an invitation, sign in with the email it was sent to.",
+      },
+      failed: {
+        title: "Sign-in did not finish.",
+        body: "It was interrupted or expired. Try again.",
+      },
+      otherAccount: "Sign in with another account",
+    },
   },
   specimen: {
     label: "Example of an answer with its source",
