@@ -1,9 +1,16 @@
 """Connect the invented sales database to an organization (AL-4c).
 
-Development only. Creates, in the development database (port 1996), a
-PostgreSQL connection named "Vendas (exemplo)" to the demo database of
-infrastructure/demo-db (port 1995, invented data, read-only login), seals
-its credentials and asks the worker for its catalog. Running it again
+Creates a PostgreSQL connection named "Vendas (exemplo)" to the demo
+database (invented data, read-only login), seals its credentials and asks
+the worker for its catalog.
+
+- Development (default): in the development database (port 1996), to
+  infrastructure/demo-db (port 1995).
+- Production (--production): to the demo-sales service of
+  infrastructure/prod, the one internal host allowed by
+  DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS; the reader's password comes
+  from DEMO_SALES_READER_PASSWORD, generated on the server.
+ Running it again
 keeps the connection, seals the same credentials again and refreshes the
 catalog.
 
@@ -14,9 +21,12 @@ organization and its owner. Nothing secret is printed.
 Run from the backend folder, in the container:
     docker compose -f ../infrastructure/dev/docker-compose.yml run --rm backend python -m scripts.create_demo_connection
     ... --organization "Name or slug"   when there is more than one
+Production, in infrastructure/prod:
+    docker compose --profile setup run --rm migrate python -m scripts.create_demo_connection --production
 """
 
 import argparse
+import os
 import sys
 
 from sqlalchemy import create_engine, select, text
@@ -43,6 +53,10 @@ DEMO_SETTINGS = {
     "schemas": ["sales"],
 }
 DEMO_SECRET = {"username": "eka_reader", "password": "local-demo-reader-only"}
+# Production: the demo-sales service, reached on the server's internal
+# network only (infrastructure/prod/docker-compose.yml).
+PRODUCTION_HOST = "demo-sales"
+PRODUCTION_SETTINGS = {**DEMO_SETTINGS, "host": PRODUCTION_HOST, "port": 5432}
 
 OWNERS_SQL = """
     SELECT o.id, o.name, o.slug, m.user_id, a.issuer, a.subject
@@ -56,10 +70,25 @@ OWNERS_SQL = """
 """
 
 
-def check_target(url: str | None) -> str | None:
+def demo_connection(production: bool) -> tuple[dict, dict]:
+    """The settings and the secret of the demo connection."""
+    if not production:
+        return dict(DEMO_SETTINGS), dict(DEMO_SECRET)
+    secret = {"username": "eka_reader", "password": os.environ.get("DEMO_SALES_READER_PASSWORD", "")}
+    return dict(PRODUCTION_SETTINGS), secret
+
+
+def check_target(url: str | None, production: bool = False) -> str | None:
     """None when the target is acceptable, otherwise the reason it is not."""
     if not url:
         return "MIGRATION_DATABASE_URL is not set"
+    if production:
+        allowed = [h.strip().lower() for h in settings.DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS]
+        if PRODUCTION_HOST not in allowed:
+            return f"DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS must name {PRODUCTION_HOST}"
+        if not os.environ.get("DEMO_SALES_READER_PASSWORD"):
+            return "DEMO_SALES_READER_PASSWORD is not set"
+        return None
     if make_url(url).port != DEV_PORT:
         return f"only the development database on port {DEV_PORT} is allowed"
     if not settings.DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS:
@@ -90,18 +119,20 @@ def choose(rows: list, wanted: str | None):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--organization")
+    parser.add_argument("--production", action="store_true", help="the demo-sales service of infrastructure/prod")
     arguments = parser.parse_args()
 
-    problem = check_target(settings.MIGRATION_DATABASE_URL)
+    problem = check_target(settings.MIGRATION_DATABASE_URL, arguments.production)
     if problem:
         print(f"PAROU: {problem}.")
         return 1
 
+    demo_settings, demo_secret = demo_connection(arguments.production)
     engine = create_engine(settings.MIGRATION_DATABASE_URL)
     try:
         with Session(engine) as db:
             if not db.execute(text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")).scalar():
-                print("PAROU: the administrator account of the development database must be a superuser.")
+                print("PAROU: the administrator account of the database must be a superuser.")
                 return 1
             organization, problem = choose(db.execute(text(OWNERS_SQL)).all(), arguments.organization)
             if problem:
@@ -129,7 +160,7 @@ def main() -> int:
                     actor_user_id=organization.user_id,
                     provider="postgresql",
                     name=NAME,
-                    settings=dict(DEMO_SETTINGS),
+                    settings=demo_settings,
                 )
                 print(f"Connection created in {organization.name!r}: {NAME}")
             else:
@@ -138,7 +169,7 @@ def main() -> int:
                 db,
                 organization_id=organization.id,
                 connection_id=connection.id,
-                secret=dict(DEMO_SECRET),
+                secret=demo_secret,
             )
             request_sync(db, connection=connection, actor_user_id=organization.user_id)
             db.commit()

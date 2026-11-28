@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     # Private and local addresses are refused unless this is true;
     # development only.
     DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS: bool = False
+    # Production exception for the demo's own sales database: these exact
+    # host names may resolve to a private address (and use sslmode
+    # disable, the traffic staying on the server's internal network). The
+    # platform's own database hosts are never accepted here.
+    DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS: list[str] = []
 
     # Embeddings (docs/development/embeddings.md): fastembed runs
     # intfloat/multilingual-e5-small locally; hashing is for tests;
