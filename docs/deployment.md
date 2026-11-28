@@ -100,7 +100,28 @@ and the embedding models loaded by the API and the worker, memory use
 stays well above that, and the first answer does not wait for the model to
 load.
 
+## Backups
+
+`backup.sh` copies the database (`pg_dump`, custom format) and the uploaded
+files (`eka_storage`) every day at 03:17. One copy stays on the server in
+`~/eka-backups` for 7 days; one goes to the Oracle Object Storage bucket
+`eka-backups`, whose lifecycle rule deletes objects older than 30 days.
+The models and the certificate are not copied: they come back on their own.
+`.env` stays only on the server; if the server is lost, new secrets are
+generated and only encrypted connector credentials have to be entered again.
+
+The upload uses a pre-authenticated request of the bucket that only permits
+object writes, so this server cannot read or delete the copies. Its URL is
+kept in `infrastructure/prod/backup.par` (chmod 600, ignored by Git) and is
+never printed. Without that file the copy stays only on the server.
+
+    sh backup.sh                       # one backup now
+    sh restore-check.sh                # restore the last one into eka_restore_check, compare, remove it
+    crontab -e                         # 17 3 * * * cd $HOME/eka/infrastructure/prod && sh backup.sh >> $HOME/eka-backups/backup.log 2>&1
+
+To restore for real, stop the api and the worker, restore the dump into a
+new database, check it with the same counts and only then switch `eka`.
+
 ## Not yet (rest of Phase 10)
 
-Backups with a tested restore, e-mail delivery, monitoring, the fictional
-company's documents and sales database, and invitation-only access.
+E-mail delivery, monitoring and the fictional company's sales database.
