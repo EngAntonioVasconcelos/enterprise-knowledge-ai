@@ -122,6 +122,19 @@ never printed. Without that file the copy stays only on the server.
 To restore for real, stop the api and the worker, restore the dump into a
 new database, check it with the same counts and only then switch `eka`.
 
+## Monitoring
+
+An outside service (Better Stack) watches the demo, so an alert still goes
+out when the server itself is down:
+
+- `https://DOMAIN/` answers (the site and its certificate);
+- `https://DOMAIN/health` answers 200: the frontend asked the API, and the
+  API asked the database (`/health/ready`). It needs no session and shows
+  nothing about the inside;
+- a heartbeat: `backup.sh` calls the URL kept in
+  `infrastructure/prod/backup.heartbeat` (chmod 600, ignored by Git) after
+  a full backup. When a day passes without it, the monitor sends an e-mail.
+
 ## Not yet (rest of Phase 10)
 
-E-mail delivery, monitoring and the fictional company's sales database.
+E-mail delivery and the fictional company's sales database.
