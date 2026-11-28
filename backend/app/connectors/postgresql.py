@@ -11,8 +11,9 @@ Defences, each enough on its own for its threat, all applied together:
   (no loopback, private or link-local networks, so a connection cannot be
   pointed at our own infrastructure); the connection then goes to that
   checked address. Development can allow private addresses with
-  DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS. The platform's own databases
-  are refused always.
+  DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS; production allows them only for
+  the exact names in DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS (the demo's
+  sales database). The platform's own databases are refused always.
 - Read only: every session starts read-only, and every query runs in a
   READ ONLY transaction that is rolled back.
 - One SELECT: the query is wrapped as a sub-query (anything but a SELECT
@@ -108,8 +109,9 @@ def validate_settings(value: dict) -> dict:
     sslmode = value.get("sslmode", "require")
     if sslmode not in SSL_MODES:
         raise InvalidInputError(f"sslmode must be one of: {', '.join(SSL_MODES)}")
-    if sslmode == "disable" and not settings.DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS:
-        # Without TLS the password would cross the network in clear.
+    if sslmode == "disable" and not private_addresses_allowed(host):
+        # Without TLS the password would cross the network in clear; only
+        # development, or the server's own internal network, may do that.
         raise InvalidInputError("sslmode disable is allowed only in development")
     schemas = value.get("schemas", ["public"])
     if (
@@ -141,6 +143,25 @@ def build_target(connection_settings: dict, credentials: dict | None) -> Databas
     )
 
 
+def private_addresses_allowed(host: str) -> bool:
+    """Whether this host may resolve to a private address.
+
+    Always in development; in production only for an exact name of
+    DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS that is not one of the
+    platform's own database hosts.
+    """
+    if settings.DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS:
+        return True
+    name = host.strip().lower()
+    allowed = {
+        entry.strip().lower()
+        for entry in settings.DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS
+        if entry.strip()
+    }
+    platform_hosts = {endpoint_host for endpoint_host, _, _ in _platform_endpoints()}
+    return name in allowed and name not in platform_hosts
+
+
 def _platform_endpoints() -> set[tuple[str, int, str]]:
     endpoints = set()
     for url in (
@@ -169,10 +190,11 @@ def checked_address(target: DatabaseTarget) -> str:
     except socket.gaierror:
         raise DatabaseConnectorError(f"the host {target.host} could not be resolved") from None
 
+    private_ok = private_addresses_allowed(target.host)
     addresses = []
     for info in infos:
         address = ipaddress.ip_address(info[4][0])
-        if not address.is_global and not settings.DATABASE_CONNECTOR_ALLOW_PRIVATE_HOSTS:
+        if not address.is_global and not private_ok:
             raise UnsafeHostError(
                 "The host resolves to a private or local address, which is not allowed"
             )

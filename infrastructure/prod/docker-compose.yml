@@ -4,7 +4,9 @@
 #
 # Only Caddy is reachable from the internet (ports 80 and 443, HTTPS from
 # Let's Encrypt). Everything else talks on the private Docker network:
-# no database, API or model port is published.
+# no database, API or model port is published. The demo's sales database
+# has a network of its own, shared only with the worker (catalog) and the
+# data gateway (queries).
 #
 # Every value comes from infrastructure/prod/.env, created on the server
 # by make-env.sh, readable only by its owner and never committed. Each
@@ -61,6 +63,10 @@ services:
       EKA_RUNTIME_PASSWORD: ${EKA_RUNTIME_PASSWORD}
       EKA_WORKER_PASSWORD: ${EKA_WORKER_PASSWORD}
       EKA_MAILER_PASSWORD: ${EKA_MAILER_PASSWORD}
+      # Only for scripts.create_demo_connection --production.
+      CREDENTIALS_MASTER_PUBLIC_KEY: ${CREDENTIALS_MASTER_PUBLIC_KEY}
+      DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS: '["demo-sales"]'
+      DEMO_SALES_READER_PASSWORD: ${DEMO_SALES_READER_PASSWORD:-}
 
   api:
     <<: *backend
@@ -85,6 +91,7 @@ services:
       ANSWER_PROMPT_VERSION: ${ANSWER_PROMPT_VERSION:-v3}
       DATA_GATEWAY_URL: http://data-gateway:8100
       DATA_GATEWAY_TOKEN: ${DATA_GATEWAY_TOKEN}
+      DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS: '["demo-sales"]'
 
   worker:
     <<: *backend
@@ -97,6 +104,8 @@ services:
       CREDENTIALS_MASTER_PRIVATE_KEY: ${CREDENTIALS_MASTER_PRIVATE_KEY}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS: '["demo-sales"]'
+    networks: [default, demo]
 
   # The only process that queries customer databases, read-only (AL-4).
   data-gateway:
@@ -108,6 +117,36 @@ services:
       CREDENTIALS_MASTER_PUBLIC_KEY: ${CREDENTIALS_MASTER_PUBLIC_KEY}
       CREDENTIALS_MASTER_PRIVATE_KEY: ${CREDENTIALS_MASTER_PRIVATE_KEY}
       DATA_GATEWAY_TOKEN: ${DATA_GATEWAY_TOKEN}
+      DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS: '["demo-sales"]'
+    networks: [default, demo]
+
+  # The demo company's sales database (invented data, the same rows on
+  # every start, kept in memory). It plays a customer's database: only the
+  # worker and the data gateway reach it, on the "demo" network, and the
+  # platform reads it with eka_reader (SELECT only). The connector accepts
+  # its private address because "demo-sales" is the one name in
+  # DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS.
+  demo-sales:
+    image: postgres:18-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sales
+      POSTGRES_USER: demo_admin
+      POSTGRES_PASSWORD: ${DEMO_SALES_ADMIN_PASSWORD:-}
+      DEMO_SALES_READER_PASSWORD: ${DEMO_SALES_READER_PASSWORD:-}
+    tmpfs:
+      - /var/lib/postgresql
+    volumes:
+      - ../demo-db/init/01_sales.sql:/docker-entrypoint-initdb.d/01_sales.sql:ro
+      - ./demo-sales/02_reader_password.sh:/docker-entrypoint-initdb.d/02_reader_password.sh:ro
+    networks: [demo]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo_admin -d sales"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    logging: *logging
 
   # The local model. Kept loaded (keep alive -1): answers do not wait for
   # it to load, and a server that holds it is not "idle".
@@ -155,6 +194,12 @@ services:
       - eka_caddy_data:/data
       - eka_caddy_config:/config
     logging: *logging
+
+networks:
+  default:
+  # No way out to the internet, and no other service on it.
+  demo:
+    internal: true
 
 volumes:
   eka_pgdata:

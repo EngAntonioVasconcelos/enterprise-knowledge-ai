@@ -144,3 +144,9 @@ answers use v3 again. The number formatting is code, not a prompt, and
 stays. The product addresses the person as "tu" everywhere ("os
 documentos a que tens acesso"), so "Tens 55 faturas" is clumsy, not wrong;
 it is measured again with the hosted model (Phase 8).
+
+## Production
+
+The same data runs on the demo server as the `demo-sales` service, on an
+internal network of its own, with a password made on the server: see
+`docs/deployment.md`, "The demo's sales database".

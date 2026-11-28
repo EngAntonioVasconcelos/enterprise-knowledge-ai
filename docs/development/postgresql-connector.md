@@ -32,6 +32,10 @@ reached, the connection goes to `error` with the reason.
   refused (so a connection cannot reach our own network or cloud metadata),
   and the session goes to the checked address. The platform's own
   databases are refused always.
+- One exception, for the demo server: an exact host name listed in
+  `DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS` may resolve to a private
+  address and use `sslmode=disable`. Any other name is still refused, and a
+  host of the platform's own databases is never accepted in that list.
 - Sessions start read-only; each query runs in a READ ONLY transaction
   that is rolled back.
 - A query is wrapped as one sub-query and sent as a prepared statement:

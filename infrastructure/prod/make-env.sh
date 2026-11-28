@@ -37,6 +37,8 @@ EKA_MAILER_PASSWORD=$(random)
 # Internal secrets (random).
 OAUTH_STATE_SECRET=$(random)
 DATA_GATEWAY_TOKEN=$(random)
+DEMO_SALES_ADMIN_PASSWORD=$(random)
+DEMO_SALES_READER_PASSWORD=$(random)
 AUTH0_SECRET=$(random)
 
 # The model and the answer prompt.

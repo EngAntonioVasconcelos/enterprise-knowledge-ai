@@ -5,6 +5,7 @@ import pytest
 
 from app.connectors import postgresql
 from app.core.config import settings
+from app.core.errors import InvalidInputError
 from app.models.background_job import BackgroundJob
 from app.models.data_connection import DataConnection
 from app.services import catalog_service
@@ -78,6 +79,17 @@ def test_plain_text_connections_are_for_development_only(client, organization, m
     assert _create(client, organization, {**SETTINGS, "sslmode": "disable"}).status_code == 201
 
 
+def test_plain_text_is_allowed_for_the_named_internal_host_only(client, organization, monkeypatch):
+    monkeypatch.setattr(settings, "DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS", ["demo-sales"])
+    plain = {**SETTINGS, "sslmode": "disable"}
+
+    assert _create(client, organization, {**plain, "host": "demo-sales"}).status_code == 201
+    for host in ("demo-sales.evil", SETTINGS["host"]):
+        with pytest.raises(InvalidInputError):
+            postgresql.validate_settings({**plain, "host": host})
+    assert postgresql.private_addresses_allowed("Demo-Sales")
+
+
 def test_a_target_needs_credentials_and_hides_them():
     with pytest.raises(postgresql.DatabaseConnectorError):
         postgresql.build_target(SETTINGS, None)
@@ -114,6 +126,38 @@ def test_development_may_reach_private_addresses(monkeypatch):
     target = postgresql.build_target(SETTINGS, CREDENTIALS)
 
     assert postgresql.checked_address(target) == "127.0.0.1"
+
+
+def test_production_may_reach_only_the_named_internal_host(monkeypatch):
+    monkeypatch.setattr(settings, "DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS", ["demo-sales"])
+    _resolves_to(monkeypatch, "172.18.0.4")
+
+    named = postgresql.build_target({**SETTINGS, "host": "demo-sales"}, CREDENTIALS)
+    assert postgresql.checked_address(named) == "172.18.0.4"
+
+    # Any other name that resolves to a private address is still refused.
+    other = postgresql.build_target({**SETTINGS, "host": "metadata.internal"}, CREDENTIALS)
+    with pytest.raises(postgresql.UnsafeHostError):
+        postgresql.checked_address(other)
+
+
+def test_the_platform_database_host_cannot_be_named_as_internal(monkeypatch):
+    monkeypatch.setattr(
+        settings, "DATABASE_URL", "postgresql+psycopg://runtime:pw@postgres:5432/eka"
+    )
+    monkeypatch.setattr(
+        settings, "DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS", ["postgres", "demo-sales"]
+    )
+    _resolves_to(monkeypatch, "172.18.0.2")
+    # Another database on the platform's server: not its own endpoint, but
+    # its host is the platform's, so the private address stays refused.
+    target = postgresql.build_target(
+        {**SETTINGS, "host": "postgres", "database": "other"}, CREDENTIALS
+    )
+
+    assert not postgresql.private_addresses_allowed("postgres")
+    with pytest.raises(postgresql.UnsafeHostError):
+        postgresql.checked_address(target)
 
 
 def test_the_platform_database_is_refused_even_in_development(monkeypatch):

@@ -124,7 +124,7 @@ new database, check it with the same counts and only then switch `eka`.
 
 ## Monitoring
 
-An outside service (Better Stack) watches the demo, so an alert still goes
+An outside service (Checkly) watches the demo, so an alert still goes
 out when the server itself is down:
 
 - `https://DOMAIN/` answers (the site and its certificate);
@@ -134,6 +134,29 @@ out when the server itself is down:
 - a heartbeat: `backup.sh` calls the URL kept in
   `infrastructure/prod/backup.heartbeat` (chmod 600, ignored by Git) after
   a full backup. When a day passes without it, the monitor sends an e-mail.
+
+## The demo's sales database
+
+`demo-sales` plays a customer's PostgreSQL database: 40 customers and 240
+invoices (June to November 2026), invented and recreated on every start
+(`infrastructure/demo-db/init/01_sales.sql`). It sits on the `demo`
+network, which has no way out and holds only it, the worker (catalog) and
+the data gateway (queries). The platform reads it with `eka_reader`
+(SELECT only), whose password `make-env.sh` generates
+(`DEMO_SALES_READER_PASSWORD`); `demo-sales/02_reader_password.sh` sets it
+when the database is created.
+
+The connector refuses private addresses in production. The one exception
+is an exact name in `DATABASE_CONNECTOR_ALLOWED_INTERNAL_HOSTS`
+(`["demo-sales"]`): only that name may resolve to a private address and
+use `sslmode=disable` (the traffic stays on the server's internal
+network). The platform's own database hosts are never accepted there.
+
+    docker compose up -d demo-sales
+    docker compose --profile setup run --rm migrate python -m scripts.create_demo_connection --production
+
+The second command creates "Vendas (exemplo)" in the organization (with
+`--organization` when there is more than one) and queues its catalog.
 
 ## Not yet (rest of Phase 10)
 
